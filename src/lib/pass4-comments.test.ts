@@ -82,4 +82,154 @@ In conclusion, maximum price controls will not always improve consumer welfare.`
     expect(diagramOmission).toBeDefined();
     expect(diagramOmission?.badge).toBe("Diagram Gap");
   });
+
+  it("does not treat 'acknowledge' as a knowledge/terminology weakness and avoids duplicate diagnostic sentences", () => {
+    const duplicateBugGrading: Grading = {
+      total_mark: 10,
+      max_mark: 12,
+      band: "Top Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate exchange rate definition." },
+        analysis: { awarded: 5, out_of: 6, comment: "Detailed causal chain on depreciation." },
+        evaluation: { awarded: 3, out_of: 4, comment: "Good discussion of J-curve effect." },
+      },
+      examiner_summary: "Strong candidate response.",
+      strengths: ["Clear terminology"],
+      weaknesses: [
+        "The analysis of production capacity constraints could briefly acknowledge potential domestic demand-pull inflation risks if spare capacity is limited.",
+      ],
+      missing_elements: {
+        definitions: [],
+        analysis: [],
+        evaluation: [],
+        examples: [],
+        diagrams: [],
+      },
+      actionable_feedback: [],
+      suggested_resources: [],
+      suggested_practice: [],
+      confidence: 0.95,
+      audited: true,
+      sources: [],
+      anchorsUsed: 2,
+    };
+
+    const comments = generatePass4Comments(
+      `An exchange rate is the price of one currency in terms of another.\n\nA depreciation leads to cheaper exports.\n\nHowever, capacity constraints matter.`,
+      "Assess the impact of currency depreciation [12]",
+      duplicateBugGrading,
+      [],
+    );
+
+    // Ensure no duplicate critique text across any comments
+    const critiques = comments.map((c) => c.critique);
+    const uniqueCritiques = new Set(critiques);
+    expect(critiques.length).toBe(uniqueCritiques.size);
+
+    // Verify 'acknowledge' was NOT falsely tagged as a terminology gap
+    const knowledgeGap = comments.find((c) => c.category === "knowledge");
+    expect(knowledgeGap).toBeUndefined();
+  });
+
+  it("relabels defect badges and softens suggestions for 12/12 exemplar scripts", () => {
+    const fullMarksGrading: Grading = {
+      total_mark: 12,
+      max_mark: 12,
+      band: "Band 1 / Level 3 Exemplar",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Flawless knowledge." },
+        analysis: { awarded: 6, out_of: 6, comment: "Comprehensive causal chain." },
+        evaluation: { awarded: 4, out_of: 4, comment: "Nuanced, contextual evaluation." },
+      },
+      examiner_summary: "Exemplar Cambridge 9708 script.",
+      strengths: ["Thorough analysis", "Sharp evaluation"],
+      weaknesses: ["Could briefly consider secondary international feedback loops."],
+      missing_elements: {
+        definitions: [],
+        analysis: [],
+        evaluation: [],
+        examples: [],
+        diagrams: [],
+      },
+      actionable_feedback: ["To push toward full marks, consider secondary feedback loops."],
+      suggested_resources: [],
+      suggested_practice: [],
+      confidence: 0.98,
+      audited: true,
+      sources: [],
+      anchorsUsed: 3,
+    };
+
+    const comments = generatePass4Comments(
+      `Definition paragraph.\n\nAnalysis paragraph with detailed mechanism.\n\nEvaluative weighing paragraph.`,
+      "Evaluate policy [12]",
+      fullMarksGrading,
+      [],
+    );
+
+    for (const comment of comments) {
+      expect(comment.badge).not.toMatch(/gap/i);
+      expect(comment.suggestion).not.toMatch(/to push toward full marks/i);
+      expect(comment.color).not.toBe("amber");
+      expect(comment.color).not.toBe("rose");
+    }
+  });
+
+  it("accurately labels J-Curve diagrams as inserts (e.g. after ¶4) and provides time vs current account balance advice", () => {
+    const essayWithJCurve = `Paragraph 1: An exchange rate is the price of one currency in terms of another.
+
+Paragraph 2: A depreciation lowers export prices in foreign currency terms.
+
+Paragraph 3: However, in the short run, trade contracts are fixed.
+
+Paragraph 4: Therefore, the import bill rises before demand can adjust.
+
+(Diagram: The J-Curve)
+
+Paragraph 5: In the long run, once consumers switch to domestic goods, the trade deficit reverses.`;
+
+    const jCurveGrading: Grading = {
+      total_mark: 10,
+      max_mark: 12,
+      band: "Top Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "" },
+        analysis: { awarded: 5, out_of: 6, comment: "" },
+        evaluation: { awarded: 3, out_of: 4, comment: "" },
+      },
+      examiner_summary: "Solid script.",
+      strengths: [],
+      weaknesses: [],
+      missing_elements: { definitions: [], analysis: [], evaluation: [], examples: [], diagrams: [] },
+      actionable_feedback: [],
+      suggested_resources: [],
+      suggested_practice: [],
+      confidence: 0.9,
+      audited: true,
+      sources: [],
+      anchorsUsed: 2,
+    };
+
+    const comments = generatePass4Comments(
+      essayWithJCurve,
+      "Discuss whether currency depreciation improves the balance of payments [12]",
+      jCurveGrading,
+      [{ title: "The J-Curve", matchText: "(Diagram: The J-Curve)" }],
+    );
+
+    const diagramComment = comments.find((c) => c.category === "diagram");
+    expect(diagramComment).toBeDefined();
+
+    // Check paragraphLabel shows "Diagram (after ¶4)" instead of "Paragraph 5" or "Paragraph 6"
+    expect(diagramComment?.paragraphLabel).toBe("Diagram (after ¶4)");
+
+    // Check J-Curve syllabus-specific advice: must reference Current Account Balance / Time / Marshall-Lerner
+    expect(diagramComment?.suggestion).toMatch(/current account/i);
+    expect(diagramComment?.suggestion).toMatch(/time/i);
+    expect(diagramComment?.suggestion).toMatch(/marshall/i);
+
+    // Must NOT contain generic supply/demand price & quantity coordinate text
+    expect(diagramComment?.critique).not.toMatch(/price and quantity coordinates/i);
+    expect(diagramComment?.suggestion).not.toMatch(/price and quantity coordinates/i);
+  });
 });

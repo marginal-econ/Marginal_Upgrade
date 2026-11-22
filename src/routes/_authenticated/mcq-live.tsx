@@ -74,7 +74,7 @@ import { type McqMistakeType } from "@/lib/mcq-mistakes";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { GuestUpgradeDialog } from "@/components/app/guest-upgrade-dialog";
-import { isGuestUser } from "@/lib/guest-session";
+import { isGuestUser, hasGuestUsedTrial, recordGuestMcqCompleted } from "@/lib/guest-session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -410,6 +410,14 @@ function McqLivePage() {
   const effectiveUserId = routeContext?.user?.id || me.data?.userId || "guest";
   const [stage, setStage] = useState<"library" | "practice">("library");
   const [guestUpgradeOpen, setGuestUpgradeOpen] = useState(false);
+  const isLockedGuest = Boolean(isGuestUser(routeContext?.user) && hasGuestUsedTrial(routeContext?.user));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isGuestUser(routeContext?.user) && hasGuestUsedTrial(routeContext?.user)) {
+      setGuestUpgradeOpen(true);
+    }
+  }, [routeContext?.user]);
 
   // Sync exam session state to AppShell and CSS to hide conflicting bottom navs
   useEffect(() => {
@@ -1142,6 +1150,12 @@ function fillMissingQuestionPages(
     },
     overrideMode?: PracticeMode,
   ) {
+    if (isGuestUser(routeContext?.user) && hasGuestUsedTrial(routeContext?.user)) {
+      setGuestUpgradeOpen(true);
+      toast.error("1 free guest trial completed. Please create your free account or sign in to practice more MCQs.");
+      return;
+    }
+
     const draft =
       !completedAttempt ? readMcqDraft(effectiveUserId, paper.id) : null;
     const resolvedMode: PracticeMode =
@@ -1955,6 +1969,7 @@ function fillMissingQuestionPages(
           : `Marked — ${score}/${scored.length}.`,
       );
       if (isGuestUser(routeContext?.user)) {
+        recordGuestMcqCompleted();
         setTimeout(() => {
           setGuestUpgradeOpen(true);
         }, 1200);
@@ -3233,10 +3248,19 @@ function fillMissingQuestionPages(
       />
 
       <GuestUpgradeDialog
-        open={guestUpgradeOpen}
+        open={guestUpgradeOpen || isLockedGuest}
         onOpenChange={setGuestUpgradeOpen}
-        title="Save Your Cambridge MCQ Progress"
-        subtitle="You just completed a Cambridge 9708 MCQ attempt as a Guest. Create your permanent free student account now to track topic weaknesses and save all past papers."
+        isLocked={isLockedGuest}
+        title={
+          isLockedGuest
+            ? "1 Free Guest Trial Completed — Create Your Free Account"
+            : "Save Your Cambridge MCQ Progress"
+        }
+        subtitle={
+          isLockedGuest
+            ? "You have completed your 1 free guest trial! Create your free student account now to save all your past papers, track topic weaknesses, and unlock unlimited practice."
+            : "You just completed a Cambridge 9708 MCQ attempt as a Guest. Create your permanent free student account now to track topic weaknesses and save all past papers."
+        }
       />
     </div>
   );

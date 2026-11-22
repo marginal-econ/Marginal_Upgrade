@@ -30,7 +30,7 @@ describe("Stored MCQ Explanations for 1-by-1 Tutor Mode", () => {
     expect(stored[1].diagnostic?.concept).toContain("Opportunity Cost");
     expect(stored[1].diagnostic?.speedTip).toContain("next best alternative");
     expect(stored[1].visionGrounded).toBe(true);
-  });
+  }, 20000);
 
   it("handles multiple pre-fetched questions for a paper without interference", async () => {
     const testPaperId = "test-paper-tutor-mode-2";

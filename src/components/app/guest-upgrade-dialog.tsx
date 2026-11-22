@@ -20,15 +20,27 @@ interface GuestUpgradeDialogProps {
   title?: string;
   subtitle?: string;
   scoreText?: string;
+  isLocked?: boolean;
 }
 
 export function GuestUpgradeDialog({
   open,
   onOpenChange,
-  title = "Save Your Cambridge Diagnostic & Keep Access",
-  subtitle = "You are currently testing Marginal as a Guest. Claim your free student account now to save this candidate report, track past paper history, and unlock full platform access.",
+  title,
+  subtitle,
   scoreText,
+  isLocked = false,
 }: GuestUpgradeDialogProps) {
+  const resolvedTitle =
+    title ||
+    (isLocked
+      ? "1 Free Guest Trial Completed — Create Your Free Account"
+      : "Save Your Cambridge Diagnostic & Keep Access");
+  const resolvedSubtitle =
+    subtitle ||
+    (isLocked
+      ? "You have completed your 1 free guest trial. Create your permanent free student account now to save all your reports, unlock unlimited marking, and track past papers."
+      : "You are currently testing Marginal as a Guest. Claim your free student account now to save this candidate report, track past paper history, and unlock full platform access.");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,19 +81,40 @@ export function GuestUpgradeDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg border-2 border-primary/30 p-6 rounded-2xl shadow-2xl">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (isLocked && !nextOpen) return;
+        onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent
+        onPointerDownOutside={(e) => {
+          if (isLocked) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isLocked) e.preventDefault();
+        }}
+        className="max-w-md sm:max-w-lg border-2 border-primary/30 p-6 rounded-2xl shadow-2xl"
+      >
         <DialogHeader className="space-y-2 text-left">
-          <div className="flex items-center gap-2">
-            <span className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <Sparkles className="size-4" />
-            </span>
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-primary">
-              Cambridge 9708 Candidate Hub
-            </span>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <Sparkles className="size-4" />
+              </span>
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-primary">
+                Cambridge 9708 Candidate Hub
+              </span>
+            </div>
+            {isLocked && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                <Lock className="size-3" /> 1 Guest Trial Completed
+              </span>
+            )}
           </div>
           <DialogTitle className="text-lg sm:text-xl font-black text-foreground">
-            {title}
+            {resolvedTitle}
           </DialogTitle>
           {scoreText && (
             <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -90,7 +123,7 @@ export function GuestUpgradeDialog({
             </div>
           )}
           <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
-            {subtitle}
+            {resolvedSubtitle}
           </DialogDescription>
         </DialogHeader>
 
@@ -164,19 +197,32 @@ export function GuestUpgradeDialog({
                 </>
               )}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              className="text-xs text-muted-foreground hover:text-foreground h-10"
-            >
-              Remind Me Later
-            </Button>
+            {!isLocked && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                className="text-xs text-muted-foreground hover:text-foreground h-10"
+              >
+                Remind Me Later
+              </Button>
+            )}
           </div>
 
-          <p className="text-[11px] text-center text-muted-foreground">
-            🔒 100% Free • No credit card • Keeps all your marks and comment pins
-          </p>
+          <div className="space-y-1 pt-1 text-center">
+            <p className="text-[11px] text-muted-foreground">
+              🔒 100% Free • No credit card • Keeps all your marks and comment pins
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Already have an account?{" "}
+              <a
+                href="/auth"
+                className="text-primary font-semibold underline underline-offset-4 hover:text-primary/80"
+              >
+                Sign in here
+              </a>
+            </p>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

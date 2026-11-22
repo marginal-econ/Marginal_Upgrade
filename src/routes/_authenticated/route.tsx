@@ -12,7 +12,8 @@ import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 
-import { isGuestUser, ensureSessionOrGuest } from "@/lib/guest-session";
+import { GuestUpgradeDialog } from "@/components/app/guest-upgrade-dialog";
+import { isGuestUser, hasGuestUsedTrial, ensureSessionOrGuest } from "@/lib/guest-session";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -129,6 +130,11 @@ function AuthenticatedLayout() {
   const initialOnboardingActive = Boolean(privacyResolved && data?.tutorialCompleted === false);
 
   const isGuest = isGuestUser(user);
+  const isLockedGuest = isGuest && hasGuestUsedTrial(user);
+  const isGradeOrMcq =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/grade") ||
+      window.location.pathname.startsWith("/mcq-live"));
 
   return (
     <FeatureTutorialProvider canAutoTrigger={!isGuest && !initialOnboardingActive && privacyResolved}>
@@ -143,6 +149,13 @@ function AuthenticatedLayout() {
         subscription={userSub}
       >
         <Outlet />
+        {isLockedGuest && !isGradeOrMcq && (
+          <GuestUpgradeDialog
+            open={true}
+            onOpenChange={() => {}}
+            isLocked={true}
+          />
+        )}
         {!isGuest && <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />}
         {!isGuest && (
           <OnboardingTutorial
