@@ -180,8 +180,8 @@ const FAQS = [
     a: "Marginal uses a 4-pass examiner pipeline grounded in official Cambridge mark schemes and examiner reports. Pass 1 audits AO1 definitions and concepts; Pass 2 traces AO2 analytical causal chains; Pass 3 evaluates AO3 synthesis and context; Pass 4 pins in-situ comments directly onto the exact sentences of your essay where marks were gained or lost.",
   },
   {
-    q: "Can I try grading an essay and doing MCQs without logging in?",
-    a: "Yes! Click 'Grade Your Essay Free' or 'Practice Timed MCQs' to enter the real tool immediately as a guest. Once you grade your essay or complete an MCQ attempt, you can create a permanent account in 5 seconds to preserve your marks, reports, and revision history.",
+    q: "Is Marginal free for Cambridge 9708 candidates?",
+    a: "Yes! Create your free student account in 10 seconds with no credit card required. You get instant access to the AI Essay Grader, handwriting OCR, diagram curve tracking, and full timed MCQ past papers with mark scheme rationales.",
   },
   {
     q: "How does handwriting OCR and diagram import work?",
@@ -301,7 +301,7 @@ function Index() {
                 Papers 1, 2, 3 &amp; 4
               </span>
               <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                Direct Guest Access (No Login Required)
+                Official Cambridge Examiner AI
               </span>
             </div>
           </Reveal>
@@ -330,7 +330,7 @@ function Index() {
               >
                 <Link to="/grade" className="inline-flex items-center gap-2">
                   <PenLine className="size-4" />
-                  <span>Grade Your Essay Free (Direct Access)</span>
+                  <span>Grade Your Essay Free</span>
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
@@ -347,7 +347,7 @@ function Index() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              ✓ Start immediately as Guest &nbsp;•&nbsp; ✓ No credit card required &nbsp;•&nbsp; ✓ Official 9708 Cambridge Standards
+              ✓ 100% Free for Students &nbsp;•&nbsp; ✓ No credit card required &nbsp;•&nbsp; ✓ Official 9708 Cambridge Standards
             </p>
           </Reveal>
         </div>
@@ -479,7 +479,7 @@ function Index() {
             <Button asChild size="lg" className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs sm:text-sm gap-2 shadow-lg shadow-primary/25 cursor-pointer">
               <Link to="/grade">
                 <PenLine className="size-4" />
-                <span>Launch Cambridge Essay Grader Now (No Login Required)</span>
+                <span>Launch Cambridge Essay Grader</span>
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -584,7 +584,7 @@ function Index() {
             <Button asChild size="lg" className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer">
               <Link to="/mcq-live">
                 <ListChecks className="size-4" />
-                <span>Start Timed MCQ Past Paper Now (No Login Required)</span>
+                <span>Start Timed MCQ Past Paper</span>
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -666,7 +666,7 @@ function Index() {
               className="h-12 px-6 text-xs sm:text-sm font-semibold border-2 hover:bg-muted"
             >
               <Link to="/grade">
-                <span>Start Grading as Guest</span>
+                <span>Start Grading Free</span>
               </Link>
             </Button>
           </div>

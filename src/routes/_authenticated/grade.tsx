@@ -93,8 +93,6 @@ import { getMe } from "@/lib/account.functions";
 import { cn, cleanMathDollarSigns, autoParagraphText, stripStars } from "@/lib/utils";
 import { stripScoreFractionsFromText, type Grading } from "@/lib/examiner/types";
 import { isEvaluativeQuestion } from "@/lib/examiner/config";
-import { GuestUpgradeDialog } from "@/components/app/guest-upgrade-dialog";
-import { isGuestUser, hasGuestUsedTrial, recordGuestEssayGraded } from "@/lib/guest-session";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
 const gradeSearchSchema = z
@@ -430,7 +428,6 @@ function GradePage() {
 
   const [activeSampleId, setActiveSampleId] = useState<string | null>(null);
   const [isTourOpen, setIsTourOpen] = useState(false);
-  const [guestUpgradeOpen, setGuestUpgradeOpen] = useState(false);
 
   const [question, setQuestion] = useState(() => {
     if (search.q) return search.q;
@@ -549,11 +546,6 @@ function GradePage() {
   }, [search.q, search.text, search.marks, search.essayType]);
 
   const handleSelectSample = useCallback((sample: SampleEssay) => {
-    if (isGuestUser(meQuery.data) && hasGuestUsedTrial(meQuery.data)) {
-      setGuestUpgradeOpen(true);
-      toast.error("1 free guest trial completed. Please create your free account or sign in to continue.");
-      return;
-    }
     setQuestion(sample.question);
     setEssayText(cleanMathDollarSigns(sample.essayText));
     setMaxMark(sample.maxMark);
@@ -709,25 +701,17 @@ function GradePage() {
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const isLockedGuest = Boolean(isGuestUser(meQuery.data) && hasGuestUsedTrial(meQuery.data));
-
-  // Auto-launch guided spotlight tour for guest students or first-time visitors
+  // Auto-launch guided spotlight tour for first-time visitors
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const isGuest = isGuestUser(meQuery.data);
-    const hasUsedTrial = hasGuestUsedTrial(meQuery.data);
-    if (isGuest && hasUsedTrial && !result) {
-      setGuestUpgradeOpen(true);
-      return;
-    }
     const tourDismissed = localStorage.getItem("marginal_grade_tour_seen") === "true";
-    if (isGuest && !tourDismissed && !result && !question.trim()) {
+    if (!tourDismissed && !result && !question.trim()) {
       const timer = setTimeout(() => {
         setIsTourOpen(true);
       }, 450);
       return () => clearTimeout(timer);
     }
-  }, [meQuery.data, result, question]);
+  }, [result, question]);
 
   // Auto-resize essay textarea to feel like an authentic document without layout jitter
   const adjustTextareaHeight = useCallback(() => {
@@ -1203,12 +1187,6 @@ function GradePage() {
         localStorage.removeItem(DRAFT_STORAGE_KEY);
       } catch {}
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
-      if (isGuestUser(meQuery.data)) {
-        recordGuestEssayGraded();
-        setTimeout(() => {
-          setGuestUpgradeOpen(true);
-        }, 1200);
-      }
       setTimeout(() => {
         const target = document.getElementById("candidate-report-header");
         if (target) {
@@ -1258,12 +1236,6 @@ function GradePage() {
   }
 
   function handleMarkClick(options?: { skipDiagramCheck?: boolean }) {
-    if (isGuestUser(meQuery.data) && hasGuestUsedTrial(meQuery.data)) {
-      setGuestUpgradeOpen(true);
-      toast.error("1 free guest trial completed. Please create your free account or sign in to grade more essays.");
-      return;
-    }
-
     // Prompt user only if no diagram has been attached or referenced in brackets yet
     const { matches } = extractDiagramReferences(essayText);
     const hasAnyDiagram = diagrams.length > 0 || matches.length > 0;
@@ -3360,27 +3332,6 @@ function GradePage() {
           } catch {}
         }}
         actionButtonLabel="⚡ Load 12M Sample Essay"
-      />
-
-      <GuestUpgradeDialog
-        open={guestUpgradeOpen || isLockedGuest}
-        onOpenChange={setGuestUpgradeOpen}
-        isLocked={isLockedGuest}
-        title={
-          isLockedGuest
-            ? "1 Free Guest Trial Completed — Create Your Free Account"
-            : "Save Your Cambridge Diagnostic & Keep Access"
-        }
-        subtitle={
-          isLockedGuest
-            ? "You have completed your 1 free guest essay trial! Create your free student account now to save all your reports, unlock unlimited marking, and track past papers."
-            : "You are currently testing Marginal as a Guest. Claim your free student account now to save this candidate report, track past paper history, and unlock full platform access."
-        }
-        scoreText={
-          result
-            ? `Examiner Awarded: ${result.grading.total_mark}/${result.grading.max_mark} Marks (${(result.grading as any).overall_band || result.grading.overall_level || "Band 1"})`
-            : undefined
-        }
       />
     </>
   );

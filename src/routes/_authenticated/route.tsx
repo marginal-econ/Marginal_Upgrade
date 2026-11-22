@@ -12,9 +12,6 @@ import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 
-import { GuestUpgradeDialog } from "@/components/app/guest-upgrade-dialog";
-import { isGuestUser, hasGuestUsedTrial, ensureSessionOrGuest } from "@/lib/guest-session";
-
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   head: () => ({
@@ -28,7 +25,7 @@ export const Route = createFileRoute("/_authenticated")({
         return { user: sessionData.session.user };
       }
 
-      const { data, error } = await Promise.race([
+      const { data } = await Promise.race([
         supabase.auth.getUser(),
         new Promise<{ data: { user: null }; error: Error }>((resolve) =>
           setTimeout(
@@ -39,20 +36,6 @@ export const Route = createFileRoute("/_authenticated")({
       ]);
       if (data?.user) {
         return { user: data.user };
-      }
-
-      // Guest trial path: allow prospective students to enter /grade or /mcq-live directly
-      const isGuestAllowedPath =
-        location.pathname.startsWith("/grade") ||
-        location.pathname.startsWith("/mcq-live") ||
-        location.pathname.startsWith("/diagram-lab") ||
-        location.pathname.startsWith("/question-bank");
-
-      if (isGuestAllowedPath) {
-        const guestUser = await ensureSessionOrGuest();
-        if (guestUser) {
-          return { user: guestUser };
-        }
       }
 
       throw redirect({
@@ -129,15 +112,8 @@ function AuthenticatedLayout() {
   const resolvedRole = data?.role ?? userRole;
   const initialOnboardingActive = Boolean(privacyResolved && data?.tutorialCompleted === false);
 
-  const isGuest = isGuestUser(user);
-  const isLockedGuest = isGuest && hasGuestUsedTrial(user);
-  const isGradeOrMcq =
-    typeof window !== "undefined" &&
-    (window.location.pathname.startsWith("/grade") ||
-      window.location.pathname.startsWith("/mcq-live"));
-
   return (
-    <FeatureTutorialProvider canAutoTrigger={!isGuest && !initialOnboardingActive && privacyResolved}>
+    <FeatureTutorialProvider canAutoTrigger={!initialOnboardingActive && privacyResolved}>
       <AppShell
         role={resolvedRole}
         name={resolvedName}
@@ -149,24 +125,15 @@ function AuthenticatedLayout() {
         subscription={userSub}
       >
         <Outlet />
-        {isLockedGuest && !isGradeOrMcq && (
-          <GuestUpgradeDialog
-            open={true}
-            onOpenChange={() => {}}
-            isLocked={true}
-          />
-        )}
-        {!isGuest && <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />}
-        {!isGuest && (
-          <OnboardingTutorial
-            open={initialOnboardingActive}
-            initialFullName={resolvedName || ""}
-            initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
-            role={resolvedRole}
-            onFinished={() => {}}
-          />
-        )}
-        {!isGuest && <FeatureTutorialDialog />}
+        <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
+        <OnboardingTutorial
+          open={initialOnboardingActive}
+          initialFullName={resolvedName || ""}
+          initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
+          role={resolvedRole}
+          onFinished={() => {}}
+        />
+        <FeatureTutorialDialog />
       </AppShell>
     </FeatureTutorialProvider>
   );
