@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -10,6 +11,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { AmbassadorApplyDialog } from "@/components/marketing/ambassador-apply-dialog";
 import { SiteFooter } from "@/components/marketing/footer";
 import { Reveal } from "@/components/marketing/reveal";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
@@ -42,16 +44,16 @@ const founders = [
   {
     name: "Saikrish Karthikeyan",
     initials: "SK",
-    role: "Co-founder & CEO",
-    focus: "Sole Backend & AI Systems Lead",
+    role: "Founder, Creator & CEO",
+    focus: "Conceived the Idea · Sole Backend & AI Architect",
     linkedin: "https://www.linkedin.com/in/saikrish-karthikeyan-074453400/",
     photo: "/founders/sai-krish.webp",
   },
   {
     name: "Suthir R",
     initials: "SR",
-    role: "Co-founder & Design Head",
-    focus: "Product Design, UI/UX & Brand",
+    role: "Design Head",
+    focus: "Product Design, UI/UX & Brand Identity",
     linkedin: "https://www.linkedin.com/in/suthir-r",
     photo: "/founders/suthir.webp",
   },
@@ -103,6 +105,8 @@ const loop = [
 ];
 
 function AboutPage() {
+  const [ambassadorOpen, setAmbassadorOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-xl">
@@ -155,7 +159,7 @@ function AboutPage() {
               ))}
             </div>
             <span className="text-sm font-medium text-plum-foreground/85">
-              Built by Saikrish, Suthir, and Adithya
+              Founded &amp; created by Saikrish, with Suthir (Design) and Adithya (Marketing)
             </span>
           </div>
           <div className="mt-7 flex flex-wrap gap-2">
@@ -224,12 +228,12 @@ function AboutPage() {
 
         <Reveal>
           <section>
-            <p className="eyebrow eyebrow-accent">Leadership &amp; Team</p>
+            <p className="eyebrow eyebrow-accent">Founder &amp; Leadership Team</p>
             <h2 className="mt-2 text-2xl font-bold text-balance md:text-3xl">
-              The team building and expanding Marginal.
+              Conceived &amp; created by Saikrish Karthikeyan.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              All profiles are public — feel free to connect with us directly on LinkedIn.
+              The team building, designing, and expanding Marginal across Cambridge schools globally. All profiles are public.
             </p>
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {founders.map((founder) => (
@@ -317,13 +321,14 @@ function AboutPage() {
                   </p>
                 </div>
                 <div className="pt-4 mt-auto border-t border-border/60">
-                  <a
-                    href="mailto:marginal.econ.ai@gmail.com?subject=Marginal%20Student%20Ambassador%20Application"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => setAmbassadorOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer group/btn"
                   >
                     <span>Apply to represent Marginal</span>
-                    <ArrowRight className="size-3.5" />
-                  </a>
+                    <ArrowRight className="size-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -360,6 +365,8 @@ function AboutPage() {
             </p>
           </section>
         </Reveal>
+
+        <AmbassadorApplyDialog open={ambassadorOpen} onOpenChange={setAmbassadorOpen} />
       </main>
       <SiteFooter />
     </div>
