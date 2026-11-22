@@ -373,3 +373,60 @@ export function buildQuizResultsCsv(meta: PublicMcqQuizMeta, players: QuizPlayer
 
   return [headers.join(","), ...rows].join("\n");
 }
+
+export type AdminQuizPlayerSummary = {
+  id: string;
+  userId?: string | null;
+  name: string;
+  avatar: string;
+  score: number;
+  answeredCount: number;
+  correctCount: number;
+  currentStreak: number;
+  finished: boolean;
+};
+
+export type AdminQuizRoomSummary = {
+  pin: string;
+  title: string;
+  paperTitle: string;
+  sourceType: QuizSourceType;
+  paperId: string | null;
+  level: QuizLevel;
+  gameMode: QuizGameMode;
+  status: QuizGameStatus;
+  hostUserId: string;
+  hostName: string;
+  questionCount: number;
+  playerCount: number;
+  createdAt: string;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  topScore?: number;
+  topScorer?: string;
+  players: AdminQuizPlayerSummary[];
+};
+
+export type AdminQuizAttemptSummary = {
+  id: string;
+  userId: string;
+  studentName: string;
+  studentEmail?: string;
+  title: string;
+  paperId?: string | null;
+  level?: string | null;
+  score: number;
+  total: number;
+  percentage: number;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type AdminQuizDashboardData = {
+  totalRooms: number;
+  activeRooms: number;
+  totalPlayersConnected: number;
+  totalCompletedAttempts: number;
+  rooms: AdminQuizRoomSummary[];
+  recentAttempts: AdminQuizAttemptSummary[];
+};

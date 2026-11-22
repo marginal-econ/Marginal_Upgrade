@@ -21,6 +21,9 @@ import {
   type QuizPlayer,
   type QuizPowerUp,
   type QuizSourceType,
+  type AdminQuizDashboardData,
+  type AdminQuizRoomSummary,
+  type AdminQuizAttemptSummary,
 } from "./mcq-quiz.types";
 
 const META_PREFIX = "__MCQ_QUIZ_META_";
@@ -1115,5 +1118,125 @@ export async function useQuizPowerUpServer(input: {
   const state = await getMcqQuizStateServer(pin, { userId: actor.userId });
   if (!state) throw new Error("Failed to load updated state.");
   return { ok: true, event, state };
+}
+
+/**
+ * Surveillance & analytics telemetry for Marginal Admins:
+ * Aggregates all live/recent MCQ quiz rooms, host teachers, connected students,
+ * real-time leaderboard scores, and completed exam attempts.
+ */
+export async function listAdminQuizSessionsServer(actor: {
+  userId: string;
+  email?: string;
+  claims?: Record<string, unknown>;
+}): Promise<AdminQuizDashboardData> {
+  if (!isMarginalAdmin({ userId: actor.userId, email: actor.email, claims: actor.claims })) {
+    throw new Error("Unauthorized: Marginal Platform Admin privileges required.");
+  }
+
+  // 1. Fetch all live/recent quiz rooms from QUIZ_STORE
+  const rawRooms = await QUIZ_STORE.list<McqQuizMeta>(META_PREFIX);
+  rawRooms.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // 2. Fetch players for each room
+  const rooms: AdminQuizRoomSummary[] = await Promise.all(
+    rawRooms.slice(0, 100).map(async (meta) => {
+      const players = await QUIZ_STORE.list<QuizPlayer>(playerPrefix(meta.pin));
+      const sorted = sortQuizLeaderboard(players);
+      const topScorer = sorted[0];
+
+      return {
+        pin: meta.pin,
+        title: meta.title,
+        paperTitle: meta.paperTitle,
+        sourceType: meta.sourceType,
+        paperId: meta.paperId,
+        level: meta.level,
+        gameMode: meta.gameMode,
+        status: meta.status,
+        hostUserId: meta.hostUserId,
+        hostName: meta.hostName,
+        questionCount: meta.questionNumbers?.length ?? 0,
+        playerCount: players.length,
+        createdAt: meta.createdAt,
+        startedAt: meta.startedAt ?? null,
+        endedAt: meta.endedAt ?? null,
+        topScore: topScorer?.score ?? 0,
+        topScorer: topScorer ? `${topScorer.avatar} ${topScorer.name}` : undefined,
+        players: sorted.map((p) => ({
+          id: p.id,
+          userId: p.userId ?? null,
+          name: p.name,
+          avatar: p.avatar,
+          score: p.score,
+          answeredCount: p.answeredCount,
+          correctCount: p.correctCount,
+          currentStreak: p.currentStreak,
+          finished: Boolean(p.finished),
+        })),
+      };
+    }),
+  );
+
+  // 3. Query recently completed quiz attempts from mcq_pdf_attempts
+  const { data: rawAttempts } = await supabaseAdmin
+    .from("mcq_pdf_attempts")
+    .select("id, user_id, title, paper_id, level, score, total, completed_at, created_at")
+    .ilike("title", "%[Live Quiz]%")
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .limit(60);
+
+  const attemptsList = rawAttempts || [];
+  const userIds = Array.from(new Set(attemptsList.map((a: any) => a.user_id).filter(Boolean)));
+
+  const profileMap = new Map<string, { full_name?: string; email?: string }>();
+  if (userIds.length > 0) {
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", userIds);
+    if (profs) {
+      for (const p of profs) {
+        profileMap.set(p.id, { full_name: p.full_name, email: p.email });
+      }
+    }
+  }
+
+  const recentAttempts: AdminQuizAttemptSummary[] = attemptsList.map((a: any) => {
+    const prof = a.user_id ? profileMap.get(a.user_id) : undefined;
+    const total = Number(a.total) || 1;
+    const score = Number(a.score) || 0;
+    const percentage = Math.round((score / total) * 100);
+
+    return {
+      id: a.id,
+      userId: a.user_id,
+      studentName: prof?.full_name || "Student",
+      studentEmail: prof?.email || undefined,
+      title: a.title,
+      paperId: a.paperId ?? a.paper_id ?? null,
+      level: a.level ?? null,
+      score,
+      total,
+      percentage,
+      completedAt: a.completed_at || a.created_at || null,
+      createdAt: a.created_at,
+    };
+  });
+
+  const activeRooms = rooms.filter(
+    (r) => r.status === "lobby" || r.status === "in_progress",
+  ).length;
+
+  const totalPlayersConnected = rooms.reduce((acc, r) => acc + r.playerCount, 0);
+
+  return {
+    totalRooms: rooms.length,
+    activeRooms,
+    totalPlayersConnected,
+    totalCompletedAttempts: recentAttempts.length,
+    rooms,
+    recentAttempts,
+  };
 }
 

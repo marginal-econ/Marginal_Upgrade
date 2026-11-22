@@ -213,4 +213,14 @@ describe("MCQ Live Quiz Engine (Blooket / Quizizz mode)", () => {
     expect(res.correctAnswer).toBe("C");
     expect(res.storedExplanation?.text).toBe("Reason for C");
   });
+
+  it("protects listAdminQuizSessionsServer and rejects non-admin users", async () => {
+    const { listAdminQuizSessionsServer } = await import("./mcq-quiz.server");
+    await expect(
+      listAdminQuizSessionsServer({
+        userId: "regular_user_123",
+        email: "student@example.com",
+      }),
+    ).rejects.toThrow(/Unauthorized/);
+  });
 });

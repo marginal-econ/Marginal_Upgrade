@@ -2442,17 +2442,12 @@ function StudentLiveGameplayView({
                     const pts = localFeedback?.pointsEarned ?? existingAnswer?.points ?? 0;
                     const correctAns =
                       localFeedback?.correctAnswer ?? existingAnswer?.correctAnswer ?? null;
-                    const pickedLetter = localFeedback?.selected ?? existingAnswer?.selected ?? null;
-                    const activeExplanation: McqExplanationResult | null =
-                      localFeedback?.explanation ?? existingAnswer?.explanation ?? null;
-                    const d = activeExplanation?.diagnostic;
-
                     return (
                       <>
                         {/* Result Score Banner */}
                         <div
                           className={cn(
-                            "rounded-xl border-2 p-2.5 sm:p-3 space-y-1.5",
+                            "rounded-xl border-2 p-3 sm:p-3.5 space-y-2 shadow-xs",
                             isCorrect
                               ? "border-emerald-500/50 bg-emerald-500/10"
                               : "border-rose-500/50 bg-rose-500/10",
@@ -2461,50 +2456,50 @@ function StudentLiveGameplayView({
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               {isCorrect ? (
-                                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                               ) : (
-                                <XCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-rose-600 dark:text-rose-400" />
+                                <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
                               )}
-                              <span className="text-xs sm:text-sm font-black text-foreground leading-tight truncate">
+                              <span className="text-sm sm:text-base font-black text-foreground leading-tight truncate">
                                 {isCorrect
                                   ? `Correct! +${pts} pts`
                                   : `Not quite — Mark Scheme is Option ${correctAns ?? "recorded"}`}
                               </span>
                             </div>
                             {localFeedback && isCorrect ? (
-                              <Badge className="bg-emerald-600 text-white font-mono text-[10px] whitespace-nowrap shrink-0">
+                              <Badge className="bg-emerald-600 text-white font-mono text-[10px] sm:text-xs whitespace-nowrap shrink-0">
                                 #{localFeedback.rank} / {localFeedback.totalPlayers}
                               </Badge>
                             ) : null}
                           </div>
 
                           {localFeedback && isCorrect ? (
-                            <div className="flex flex-wrap gap-1 text-[10px] font-semibold">
-                              <span className="rounded bg-background/80 px-1.5 py-0.5 border border-border">
+                            <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+                              <span className="rounded bg-background/80 px-2 py-0.5 border border-border">
                                 +{localFeedback.basePoints} base
                               </span>
                               {localFeedback.speedBonus > 0 ? (
-                                <span className="rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 inline-flex items-center gap-0.5">
-                                  <Zap className="h-2.5 w-2.5" />+{localFeedback.speedBonus} speed
+                                <span className="rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 px-2 py-0.5 inline-flex items-center gap-0.5">
+                                  <Zap className="h-3 w-3" />+{localFeedback.speedBonus} speed
                                 </span>
                               ) : null}
                               {localFeedback.streakBonus > 0 ? (
-                                <span className="rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 inline-flex items-center gap-0.5">
-                                  <Flame className="h-2.5 w-2.5" />+{localFeedback.streakBonus} streak
+                                <span className="rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 inline-flex items-center gap-0.5">
+                                  <Flame className="h-3 w-3" />+{localFeedback.streakBonus} streak
                                 </span>
                               ) : null}
                             </div>
                           ) : null}
                         </div>
 
-                        {/* Direct Next Action Bar - Prominent & Immediately Clickable without scrolling */}
+                        {/* Direct Next Action Bar */}
                         <div className="flex items-center gap-2">
                           <Button
                             type="button"
                             variant="outline"
                             disabled={!hasPrev}
                             onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                            className="h-10 px-3 touch-manipulation"
+                            className="h-11 px-3 touch-manipulation"
                             title="Previous question"
                           >
                             <ChevronLeft className="h-4 w-4" />
@@ -2513,7 +2508,7 @@ function StudentLiveGameplayView({
                             <Button
                               type="button"
                               onClick={goNext}
-                              className="flex-1 h-10 text-sm font-black gap-2 shadow-sm touch-manipulation bg-primary text-primary-foreground hover:bg-primary/90"
+                              className="flex-1 h-11 text-sm font-black gap-2 shadow-sm touch-manipulation bg-primary text-primary-foreground hover:bg-primary/90"
                             >
                               <span>Next Question</span>
                               <ChevronRight className="h-4 w-4" />
@@ -2523,7 +2518,7 @@ function StudentLiveGameplayView({
                               type="button"
                               disabled={finishing}
                               onClick={handleFinishPaper}
-                              className="flex-1 h-10 text-sm font-black gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm touch-manipulation"
+                              className="flex-1 h-11 text-sm font-black gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm touch-manipulation"
                             >
                               {finishing ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -2534,122 +2529,6 @@ function StudentLiveGameplayView({
                             </Button>
                           )}
                         </div>
-
-                        {/* Structured Cambridge Examiner Explanation Card */}
-                        {activeExplanation ? (
-                          <div className="rounded-xl border border-border/80 bg-card p-3 sm:p-3.5 space-y-2 text-xs leading-relaxed shadow-xs max-h-[36vh] sm:max-h-[40vh] overflow-y-auto pr-1">
-                            <div className="flex items-center justify-between gap-1.5 pb-1.5 border-b border-border/60">
-                              <span className="font-bold text-foreground text-xs flex items-center gap-1.5">
-                                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                                <span>Why Option {correctAns} is Right</span>
-                              </span>
-                              <div className="flex items-center gap-1 shrink-0">
-                                {activeExplanation.visionGrounded ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="gap-0.5 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 text-[9px] py-0 px-1"
-                                    title="Verified directly against Cambridge diagram & question stem"
-                                  >
-                                    <Eye className="h-2.5 w-2.5" />
-                                    <span>Verified</span>
-                                  </Badge>
-                                ) : null}
-                                <Badge
-                                  variant="outline"
-                                  className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-[9px] py-0"
-                                >
-                                  Mark Scheme: {correctAns}
-                                </Badge>
-                              </div>
-                            </div>
-
-                            {d?.concept ? (
-                              <div className="text-[11px] font-semibold text-primary">
-                                {stripStars(d.concept)}
-                              </div>
-                            ) : null}
-
-                            <div className="space-y-1">
-                              <p className="text-foreground/90 font-normal leading-relaxed text-xs">
-                                {stripStars(d?.correctReasoning || activeExplanation.text)}
-                              </p>
-                            </div>
-
-                            {d?.keyRule ? (
-                              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-2 space-y-0.5">
-                                <div className="flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 text-[10px]">
-                                  <Lightbulb className="h-3 w-3" />
-                                  <span>Golden Rule</span>
-                                </div>
-                                <p className="text-foreground/90 text-[11px] leading-snug font-normal">
-                                  {stripStars(d.keyRule)}
-                                </p>
-                              </div>
-                            ) : null}
-
-                            {d?.distractorTrap ? (
-                              <div
-                                className={cn(
-                                  "rounded-lg border p-2 space-y-0.5",
-                                  isCorrect ? "border-slate-500/25 bg-muted/40" : "border-rose-500/25 bg-rose-500/[0.06]",
-                                )}
-                              >
-                                <div
-                                  className={cn(
-                                    "font-bold text-[10px]",
-                                    isCorrect ? "text-foreground/85" : "text-rose-700 dark:text-rose-300",
-                                  )}
-                                >
-                                  {isCorrect
-                                    ? "Top Distractor Avoided"
-                                    : `Distractor Trap ${pickedLetter ? `(Why Option ${pickedLetter} Fails)` : ""}`}
-                                </div>
-                                <p className="text-foreground/90 text-[11px] leading-snug font-normal">
-                                  {stripStars(d.distractorTrap)}
-                                </p>
-                              </div>
-                            ) : null}
-
-                            {d?.speedTip ? (
-                              <div className="rounded-lg border border-primary/20 bg-primary/[0.04] p-2 space-y-0.5">
-                                <div className="flex items-center gap-1 font-bold text-primary text-[10px]">
-                                  <Zap className="h-3 w-3" />
-                                  <span>45-Second Speed Tip</span>
-                                </div>
-                                <p className="text-foreground/90 text-[11px] leading-snug font-normal">
-                                  {stripStars(d.speedTip)}
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-3 text-center space-y-2">
-                            <p className="text-xs text-muted-foreground">
-                              Official Mark Scheme answer is{" "}
-                              <strong className="text-foreground font-mono font-bold">Option {correctAns}</strong>.
-                            </p>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={explainingQuestion}
-                              onClick={() => void handleRequestExplanation(currentNumber, correctAns!, pickedLetter)}
-                              className="h-8 text-xs font-bold gap-1.5 bg-background shadow-xs"
-                            >
-                              {explainingQuestion ? (
-                                <>
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  Analyzing Diagram &amp; Stem…
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="h-3 w-3 text-primary" />
-                                  Explain with AI Examiner
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
                       </>
                     );
                   })()

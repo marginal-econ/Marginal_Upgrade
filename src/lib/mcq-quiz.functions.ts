@@ -290,3 +290,15 @@ export const useQuizPowerUp = createServerFn({ method: "POST" })
     return useQuizPowerUpServer(data);
   });
 
+/** Marginal Platform Admin: fetch real-time surveillance of live quiz rooms and completed attempts. */
+export const listAdminQuizSessions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { listAdminQuizSessionsServer } = await import("./mcq-quiz.server");
+    return listAdminQuizSessionsServer({
+      userId: context.userId,
+      email: context.email ?? undefined,
+      claims: context.claims as Record<string, unknown>,
+    });
+  });
+
