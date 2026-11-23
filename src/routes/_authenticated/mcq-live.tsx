@@ -121,6 +121,7 @@ import {
   toMcqPaperSummaryFromTopical,
   type TopicalMcqPaper,
 } from "@/lib/topical-mcq-papers";
+import { generateInstantMcqDiagnostic } from "@/lib/mcq/mcq-feedback-format";
 import { cn } from "@/lib/utils";
 
 /** Fixed render scale for the plain page image — no positions are computed
@@ -491,6 +492,8 @@ function McqLivePage() {
   paperTitleRef.current = paperTitle;
   const levelRef = useRef(level);
   levelRef.current = level;
+  const answerKeyRef = useRef(answerKey);
+  answerKeyRef.current = answerKey;
 
   const [graded, setGraded] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
@@ -704,6 +707,8 @@ function McqLivePage() {
   // On-demand explanation per question number, fetched only when the
   // student presses "Explain" in the post-attempt review list.
   const [explanations, setExplanations] = useState<Record<number, ExplanationState>>({});
+  const explanationsRef = useRef(explanations);
+  explanationsRef.current = explanations;
   // Active question number currently selected / being viewed
   const [activeQuestion, setActiveQuestion] = useState<number>(1);
   const activeQuestionRef = useRef(activeQuestion);
@@ -875,7 +880,6 @@ function McqLivePage() {
     overrideMistakeType?: McqMistakeType | null,
   ) {
     if (explanations?.[number] === "loading") return;
-    setExplanations((prev) => ({ ...prev, [number]: "loading" }));
     const q = reviewQuestions.find((r) => r.number === number);
     const correctAnswer = q?.correct_answer ?? answerKey?.[number] ?? null;
     if (!correctAnswer) {
@@ -904,6 +908,22 @@ function McqLivePage() {
         overrideMistakeType !== undefined
           ? overrideMistakeType
           : (mistakeTypesRef.current?.[number] ?? q?.mistake_type ?? null);
+
+      // Populate instant explanation synchronously so candidate NEVER waits with a blank loading card
+      setExplanations((prev) => {
+        if (prev[number] && prev[number] !== "loading") return prev;
+        const instantDiag = generateInstantMcqDiagnostic({
+          correctAnswer,
+          userAnswer: q?.user_answer ?? answersRef.current?.[number] ?? null,
+          isCorrect: (answersRef.current?.[number] ?? q?.user_answer) === correctAnswer,
+          questionStem: stem,
+          topic: inferred.topic,
+          subtopic: inferred.subtopic,
+          unit: inferred.unit,
+          mistakeType: resolvedMistakeType,
+        });
+        return { ...prev, [number]: { text: "", diagnostic: instantDiag } };
+      });
 
       const sliceCanvas = questionSlices?.[number];
       const pageNum = questionPages?.[number];
@@ -1740,11 +1760,37 @@ function fillMissingQuestionPages(
         questionTimesRef.current = next;
         return next;
       });
+      const correctAns = answerKeyRef.current?.[number];
+      const curAns = answersRef.current?.[number];
+      if (
+        correctAns &&
+        (!explanationsRef.current?.[number] || explanationsRef.current?.[number] === "loading")
+      ) {
+        const stem = stemBlobs.find((s) => s.number === number)?.text ?? "";
+        const inferred = classifyMcqQuestion({
+          level: levelRef.current === "a2" ? "A2" : "AS",
+          number,
+          text: stem,
+        });
+        const instantDiag = generateInstantMcqDiagnostic({
+          correctAnswer: correctAns,
+          userAnswer: curAns ?? null,
+          isCorrect: curAns === correctAns,
+          questionStem: stem,
+          topic: inferred.topic,
+          subtopic: inferred.subtopic,
+          unit: inferred.unit,
+        });
+        setExplanations((prev) => ({
+          ...prev,
+          [number]: { text: "", diagnostic: instantDiag },
+        }));
+      }
       saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = window.setTimeout(() => setSaveStatus("saved"), 400);
     },
-    [saveDraftToStorage],
+    [saveDraftToStorage, stemBlobs],
   );
 
   const handleSetMistakeType = useCallback(

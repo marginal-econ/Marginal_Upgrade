@@ -387,16 +387,16 @@ export async function explainPdfMcqAnswer(options: {
     "You are a Cambridge International AS & A Level Economics (9708) Principal Examiner",
     `(${level === "a2" ? "A2 Level Paper 3" : "AS Level Paper 1"}) delivering a strictly accurate, 3-line diagnostic breakdown for a past paper multiple-choice question.`,
     "",
-    "CRITICAL CONSTRAINT - EXACTLY 3 PUNCHY LINES (CANNOT EXCEED 3 LINES):",
+    "CRITICAL CONSTRAINT - ULTRA-CONCISE 3 LINES (CANNOT EXCEED 3 LINES):",
     "High school students will not read long, grueling essays. Your entire explanation MUST NOT EXCEED 3 LINES.",
-    "Keep it razor-sharp, teenage-accessible, perfectly sized (not too short, never grueling), and 100% pitch-accurate to Cambridge 9708 conventions:",
-    `1. correctReasoning: Exactly ONE punchy, pitch-accurate sentence proving why Option ${correctAnswer} is uniquely correct (cite the exact economic law, definition, or shift).`,
+    "Keep it ultra-concise, teenage-accessible, razor-sharp, and 100% pitch-accurate to Cambridge 9708 conventions:",
+    `1. correctReasoning: Exactly ONE short, punchy sentence (max 16 words, under 100 chars) stating why Option ${correctAnswer} is correct.`,
     isStudentCorrect
-      ? `2. distractorTrap: Exactly ONE punchy sentence diagnosing the top tempting wrong option letter and the exact economic misconception candidates commit.`
+      ? `2. distractorTrap: Exactly ONE short sentence (max 15 words, under 95 chars) diagnosing the top tempting distractor trap avoided.`
       : userAnswer
-        ? `2. distractorTrap: Exactly ONE punchy sentence diagnosing why Option ${userAnswer} fails and how Cambridge set that distractor trap.`
-        : "2. distractorTrap: Exactly ONE punchy sentence diagnosing the main distractor trap in this question.",
-    "3. keyRule: Exactly ONE punchy Cambridge golden rule, formula, or curve takeaway to remember for next time.",
+        ? `2. distractorTrap: Exactly ONE short sentence (max 15 words, under 95 chars) diagnosing why Option ${userAnswer} fails.`
+        : "2. distractorTrap: Exactly ONE short sentence (max 15 words, under 95 chars) diagnosing the main distractor trap.",
+    "3. keyRule: Exactly ONE punchy Cambridge golden rule or formula takeaway (max 12 words, under 85 chars).",
     "",
     "STRICT ACCURACY & GROUNDING RULES:",
     hasImage
@@ -404,14 +404,14 @@ export async function explainPdfMcqAnswer(options: {
       : "1. Base your explanation strictly on the exact question stem and options provided. Never invent numbers, curve labels, or statements that do not appear in the question.",
     `2. The official Cambridge 9708 mark scheme answer is Option ${correctAnswer}. Never contradict the mark scheme; prove rigorously why Option ${correctAnswer} is uniquely true under Cambridge 9708 conventions.`,
     "3. NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Do not use markdown bold, italics, or asterisk bullets. Return plain text only.",
-    "4. LENGTH: Keep each of the 3 fields to 1 single concise sentence (under 25-30 words each).",
+    "4. LENGTH: Keep each of the 3 fields to 1 single concise sentence (under 12-16 words each, max 100 characters).",
     "",
     "Return ONLY a single valid JSON object (no markdown fences, no commentary outside JSON) with these exact keys:",
     '- "concept": exact Cambridge 9708 syllabus unit & specific concept tested (short phrase)',
-    `- "correctReasoning": exactly ONE sentence (max 28 words) proving why Option ${correctAnswer} is correct`,
-    '- "distractorTrap": exactly ONE sentence (max 25 words) explaining the trap / why the wrong option fails',
-    '- "keyRule": exactly ONE sentence (max 20 words) with the Cambridge rule or takeaway formula',
-    '- "speedTip": optional short elimination tip (max 15 words)',
+    `- "correctReasoning": exactly ONE ultra-concise sentence (max 16 words) proving why Option ${correctAnswer} is correct`,
+    '- "distractorTrap": exactly ONE ultra-concise sentence (max 15 words) explaining the trap / why the wrong option fails',
+    '- "keyRule": exactly ONE ultra-concise sentence (max 12 words) with the Cambridge rule or takeaway formula',
+    '- "speedTip": optional short elimination tip (max 12 words)',
     '- "summary": exactly 3 lines combining the 3 points above separated by newline',
   ].join("\n");
 

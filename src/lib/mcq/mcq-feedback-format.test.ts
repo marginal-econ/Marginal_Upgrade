@@ -124,5 +124,64 @@ describe("MCQ Precise 3-Line Feedback Formatter", () => {
       expect(result.line1.badge).toBe("Option A");
       expect(result.plainText.split("\n")).toHaveLength(3);
     });
+
+    it("generates instant pitch-accurate 3-line feedback for Question 1 (tropical beach) with 0ms delay", () => {
+      const result = formatThreeLineMcqFeedback({
+        explanation: null,
+        correctAnswer: "D",
+        userAnswer: "D",
+        isCorrect: true,
+        questionStem:
+          "A tourist visits a government-owned tropical beach. She pays $10 to enter but finds it overcrowded. Which type of good is the beach?",
+      });
+
+      expect(result.concept).toContain("Public vs Private Goods");
+      expect(result.line1.badge).toBe("Option D");
+      expect(result.line1.text).toContain("Price barriers establish excludability and overcrowding establishes rivalry");
+      expect(result.line1.text.length).toBeLessThan(120);
+
+      expect(result.line2.badge).toBe("Trap Avoided");
+      expect(result.line2.text).toContain("state ownership");
+      expect(result.line2.text.length).toBeLessThan(110);
+
+      expect(result.line3.badge).toBe("Takeaway");
+      expect(result.line3.text).toContain("Private goods are always rival and excludable");
+      expect(result.line3.text.length).toBeLessThan(100);
+
+      const lines = result.plainText.split("\n");
+      expect(lines).toHaveLength(3);
+    });
+
+    it("compresses a verbose 250-word multi-card legacy explanation into strictly 3 short lines", () => {
+      const verboseLegacy = `
+price barrier to restrict access. Second, the tourist finds the beach overcrowded, which proves the good is rival in consumption because the presence of other users reduces the utility or space available to the tourist. Since the beach satisfies both conditions of excludability and rivalry, it is classified as a private good under Cambridge 9708 conventions, even though it is government-owned.
+
+💡 Golden Rule
+A private good is defined by two key characteristics: it is excludable (access can be restricted, usually via a price mechanism) and rival in consumption (one person's use diminishes the availability or quality for others).
+
+Top Distractor Trap You Avoided
+The most tempting wrong option is C (a public good). Students often confuse government ownership with the economic definition of a public good. A public good must be non-excludable and non-rival. Because the beach charges an entry fee (excludable) and suffers from overcrowding (rival), it fails the definition of a public good. The distractor relies on the misconception that state provision automatically equals a public good.
+
+⚡ 45-Second Speed Tip
+Check for the two keywords: 'pays' (indicates excludable) and 'overcrowded' (indicates rival). If both are present, the answer is always a private good, regardless of who owns the asset.
+      `;
+
+      const result = formatThreeLineMcqFeedback({
+        explanation: verboseLegacy,
+        correctAnswer: "D",
+        userAnswer: "D",
+        isCorrect: true,
+      });
+
+      expect(result.line1.badge).toBe("Option D");
+      expect(result.line1.text.length).toBeLessThan(125);
+      expect(result.line2.badge).toBe("Trap Avoided");
+      expect(result.line2.text.length).toBeLessThan(120);
+      expect(result.line3.badge).toBe("Takeaway");
+      expect(result.line3.text.length).toBeLessThan(110);
+
+      const lines = result.plainText.split("\n");
+      expect(lines).toHaveLength(3);
+    });
   });
 });

@@ -1239,6 +1239,8 @@ export function McqTutorMode({
                   isCorrect={true}
                   mistakeType={null}
                   onRetry={() => onExplainQuestion(currentNumber, null)}
+                  questionStem={stemBlobs.find((s) => s.number === currentNumber)?.text ?? ""}
+                  questionMeta={questionMeta}
                 />
               </div>
             ) : null}
@@ -1389,6 +1391,8 @@ export function McqTutorMode({
                       isCorrect={false}
                       mistakeType={selectedMistake}
                       onRetry={() => onExplainQuestion(currentNumber, selectedMistake)}
+                      questionStem={stemBlobs.find((s) => s.number === currentNumber)?.text ?? ""}
+                      questionMeta={questionMeta}
                     />
 
                     <TutorNextActionBar
@@ -1436,6 +1440,8 @@ function ExaminerRepairCard({
   isCorrect,
   mistakeType,
   onRetry,
+  questionStem,
+  questionMeta,
 }: {
   explanation: ExplanationState;
   correctAnswer: Letter;
@@ -1443,52 +1449,33 @@ function ExaminerRepairCard({
   isCorrect: boolean;
   mistakeType: McqMistakeType | null;
   onRetry: () => void;
+  questionStem?: string;
+  questionMeta?: ReturnType<typeof classifyMcqQuestion>;
 }) {
-  if (explanation === "loading") {
-    return (
-      <Card className="border-primary/25 bg-primary/[0.03]">
-        <CardContent className="p-3.5 flex items-center gap-2.5 text-xs text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-          <span>
-            {isCorrect
-              ? `Reading the PDF question to verify why Option ${correctAnswer} is uniquely right…`
-              : `Reading the PDF question to analyze Option ${correctAnswer} & your distractor trap…`}
-          </span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if ("error" in explanation) {
-    return (
-      <Card className="border-destructive/30 bg-destructive/5">
-        <CardContent className="p-3.5 flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>{explanation.error}</span>
-          </div>
-          <Button type="button" size="sm" variant="outline" onClick={onRetry} className="h-7 px-2 text-xs gap-1">
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+  const isLoading = explanation === "loading";
+  const hasError = typeof explanation === "object" && explanation !== null && "error" in explanation;
 
   const formatted = useMemo(
     () =>
       formatThreeLineMcqFeedback({
-        explanation,
+        explanation:
+          typeof explanation === "object" && explanation !== null && !("error" in explanation)
+            ? explanation
+            : null,
         correctAnswer,
         userAnswer,
         isCorrect,
+        questionStem,
+        topic: questionMeta?.topic,
+        subtopic: questionMeta?.subtopic,
+        unit: questionMeta?.unit,
+        mistakeType,
       }),
-    [explanation, correctAnswer, userAnswer, isCorrect],
+    [explanation, correctAnswer, userAnswer, isCorrect, questionStem, questionMeta, mistakeType],
   );
 
   return (
-    <Card className="border-border/80 shadow-xs overflow-hidden">
+    <Card className="border-border/80 shadow-xs overflow-hidden animate-in fade-in duration-150">
       <CardHeader className="py-2 px-3 border-b border-border/60 bg-muted/25">
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <CardTitle className="text-xs font-bold flex items-center gap-1.5 text-foreground">
@@ -1496,7 +1483,15 @@ function ExaminerRepairCard({
             <span>{isCorrect ? "Examiner Confirmation" : "Examiner Repair Breakdown"}</span>
           </CardTitle>
           <div className="flex items-center gap-1.5">
-            {explanation.visionGrounded ? (
+            {isLoading ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+                <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />
+                <span>Verifying</span>
+              </span>
+            ) : explanation &&
+              typeof explanation === "object" &&
+              "visionGrounded" in explanation &&
+              explanation.visionGrounded ? (
               <Badge
                 variant="outline"
                 className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 text-[10px] py-0 px-1.5"
@@ -1574,7 +1569,19 @@ function ExaminerRepairCard({
           ) : null}
         </div>
 
-        {!isCorrect && mistakeType ? (
+        {hasError ? (
+          <div className="flex items-center justify-between gap-2 pt-0.5 text-[11px] text-muted-foreground">
+            <span>Vision verification delayed. Showing instant syllabus breakdown.</span>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <RefreshCw className="h-3 w-3" />
+              <span>Retry Vision</span>
+            </button>
+          </div>
+        ) : !isCorrect && mistakeType ? (
           <div className="flex justify-end pt-0.5">
             <button
               type="button"
