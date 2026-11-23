@@ -391,51 +391,51 @@ function IndexPage() {
 
                 {/* Handcrafted Technical SVG Diagram */}
                 <svg
-                  viewBox="0 0 320 220"
+                  viewBox="0 0 340 230"
                   className="w-full h-auto text-foreground stroke-current fill-none overflow-visible"
-                  aria-label="Supply and Demand curve diagram"
+                  aria-label="Supply and Demand curve diagram: Specific Indirect Tax"
                 >
                   {/* Axes */}
-                  <line x1="30" y1="190" x2="290" y2="190" strokeWidth="1.5" stroke="currentColor" />
-                  <line x1="30" y1="190" x2="30" y2="20" strokeWidth="1.5" stroke="currentColor" />
-                  <text x="295" y="194" className="text-[11px] font-mono fill-current stroke-none">
-                    quantity
+                  <line x1="35" y1="190" x2="300" y2="190" strokeWidth="1.5" stroke="currentColor" />
+                  <line x1="35" y1="190" x2="35" y2="20" strokeWidth="1.5" stroke="currentColor" />
+                  <text x="245" y="212" className="text-[11px] font-mono fill-current stroke-none">
+                    quantity (Q)
                   </text>
-                  <text x="20" y="15" className="text-[11px] font-mono fill-current stroke-none">
-                    price
+                  <text x="15" y="15" className="text-[11px] font-mono fill-current stroke-none">
+                    price (P)
                   </text>
 
-                  {/* Demand Curve */}
-                  <line x1="50" y1="40" x2="270" y2="170" strokeWidth="1.75" stroke="#2563eb" />
-                  <text x="275" y="174" className="text-[11px] font-mono font-bold fill-blue-600 dark:fill-blue-400 stroke-none">
+                  {/* Demand Curve D */}
+                  <line x1="55" y1="35" x2="280" y2="175" strokeWidth="1.75" stroke="#2563eb" />
+                  <text x="285" y="180" className="text-[11px] font-mono font-bold fill-blue-600 dark:fill-blue-400 stroke-none">
                     D
                   </text>
 
                   {/* Initial Supply Curve S1 */}
-                  <line x1="50" y1="170" x2="270" y2="40" strokeWidth="1.75" stroke="#16a34a" />
-                  <text x="275" y="44" className="text-[11px] font-mono font-bold fill-emerald-600 dark:fill-emerald-400 stroke-none">
+                  <line x1="75" y1="180" x2="295" y2="55" strokeWidth="1.75" stroke="#16a34a" />
+                  <text x="300" y="60" className="text-[11px] font-mono font-bold fill-emerald-600 dark:fill-emerald-400 stroke-none">
                     S₁
                   </text>
 
-                  {/* Shifted Supply Curve S2 (Tax / Cost increase) */}
-                  <line x1="80" y1="170" x2="300" y2="40" strokeWidth="1.75" stroke="#dc2626" strokeDasharray="4 3" />
-                  <text x="304" y="44" className="text-[11px] font-mono font-bold fill-red-600 dark:fill-red-400 stroke-none">
+                  {/* Shifted Supply Curve S2 (Tax shift left/upwards) */}
+                  <line x1="45" y1="145" x2="265" y2="20" strokeWidth="1.75" stroke="#dc2626" strokeDasharray="4 3" />
+                  <text x="268" y="24" className="text-[11px] font-mono font-bold fill-red-600 dark:fill-red-400 stroke-none">
                     S₂
                   </text>
 
-                  {/* Equilibrium 1 projection */}
-                  <circle cx="160" cy="105" r="3.5" className="fill-emerald-600 stroke-none" />
-                  <line x1="30" y1="105" x2="160" y2="105" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
-                  <line x1="160" y1="105" x2="160" y2="190" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
-                  <text x="10" y="109" className="text-[10px] font-mono fill-current stroke-none">P₁</text>
-                  <text x="155" y="204" className="text-[10px] font-mono fill-current stroke-none">Q₁</text>
+                  {/* Initial Equilibrium E1 (P1, Q1) */}
+                  <circle cx="185" cy="116" r="3.5" className="fill-emerald-600 stroke-none" />
+                  <line x1="35" y1="116" x2="185" y2="116" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
+                  <line x1="185" y1="116" x2="185" y2="190" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
+                  <text x="15" y="120" className="text-[10px] font-mono fill-current stroke-none">P₁</text>
+                  <text x="180" y="204" className="text-[10px] font-mono fill-current stroke-none">Q₁</text>
 
-                  {/* Equilibrium 2 projection */}
-                  <circle cx="190" cy="87" r="3.5" className="fill-red-600 stroke-none" />
-                  <line x1="30" y1="87" x2="190" y2="87" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
-                  <line x1="190" y1="87" x2="190" y2="190" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
-                  <text x="10" y="91" className="text-[10px] font-mono fill-current stroke-none">P₂</text>
-                  <text x="185" y="204" className="text-[10px] font-mono fill-current stroke-none">Q₂</text>
+                  {/* New Equilibrium E2 (P2, Q2: higher price, lower quantity) */}
+                  <circle cx="150" cy="94" r="3.5" className="fill-red-600 stroke-none" />
+                  <line x1="35" y1="94" x2="150" y2="94" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
+                  <line x1="150" y1="94" x2="150" y2="190" strokeWidth="1" strokeDasharray="2 2" stroke="currentColor" opacity="0.4" />
+                  <text x="15" y="98" className="text-[10px] font-mono fill-current stroke-none">P₂</text>
+                  <text x="145" y="204" className="text-[10px] font-mono fill-current stroke-none">Q₂</text>
                 </svg>
 
                 <div className="pt-1 text-[11px] text-muted-foreground border-t border-border/60 flex items-center justify-between">
@@ -770,7 +770,7 @@ function IndexPage() {
                           A depreciating exchange rate occurs when the external value of a currency falls in a floating exchange rate system. The current account measures trade in goods and services, primary income, and secondary transfers.
                         </p>
                         <p>
-                          According to economic theory, depreciation lowers the foreign currency price of exports ($P_x$) and raises the domestic currency price of imports ($P_m$). Assuming the Marshall-Lerner condition holds ($PED_x + PED_m &gt; 1$), this switches expenditure towards domestic producers and improves the trade balance.
+                          According to economic theory, depreciation lowers the foreign currency price of exports (Pₓ) and raises the domestic currency price of imports (Pₘ). Assuming the Marshall-Lerner condition holds (PEDₓ + PEDₘ &gt; 1), this switches expenditure towards domestic producers and improves the trade balance.
                         </p>
                         <p>
                           However, in the short run, contracts are fixed and price elasticity of demand is often inelastic, causing the J-curve effect where the current account initially deteriorates...
@@ -1127,20 +1127,20 @@ function IndexPage() {
                   <span className="font-mono text-[10px] text-muted-foreground">Code 9708/AS</span>
                 </div>
 
-                <ul className="space-y-2.5">
+                <ul className="space-y-3">
                   {AS_TOPICS.map((topic) => (
                     <li key={topic.id}>
                       <Link
                         to="/grade"
                         search={{ topic: topic.id } as any}
-                        className="group flex items-baseline justify-between gap-2 p-1.5 -mx-1.5 rounded-xs hover:bg-muted/40 transition-colors"
+                        className="group flex items-baseline justify-between gap-3 p-1.5 -mx-1.5 rounded-xs hover:bg-muted/40 transition-colors"
                       >
-                        <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                          <span className="font-mono text-muted-foreground mr-2">{topic.id}.</span>
+                        <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors shrink">
+                          <span className="font-mono text-muted-foreground mr-2 font-bold">{topic.id}.</span>
                           {topic.title}
                         </span>
-                        <span className="flex-1 border-b border-dotted border-border-strong mx-2 opacity-50" />
-                        <span className="font-mono text-[11px] text-muted-foreground group-hover:text-foreground shrink-0">
+                        <span className="min-w-8 flex-1 border-b-2 border-dotted border-border-strong/70 dark:border-border-strong/80 mx-1" />
+                        <span className="font-mono text-[11px] text-muted-foreground group-hover:text-foreground font-semibold shrink-0">
                           {topic.count} questions
                         </span>
                       </Link>
@@ -1158,20 +1158,20 @@ function IndexPage() {
                   <span className="font-mono text-[10px] text-muted-foreground">Code 9708/A2</span>
                 </div>
 
-                <ul className="space-y-2.5">
+                <ul className="space-y-3">
                   {A2_TOPICS.map((topic) => (
                     <li key={topic.id}>
                       <Link
                         to="/grade"
                         search={{ topic: topic.id } as any}
-                        className="group flex items-baseline justify-between gap-2 p-1.5 -mx-1.5 rounded-xs hover:bg-muted/40 transition-colors"
+                        className="group flex items-baseline justify-between gap-3 p-1.5 -mx-1.5 rounded-xs hover:bg-muted/40 transition-colors"
                       >
-                        <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                          <span className="font-mono text-muted-foreground mr-2">{topic.id}.</span>
+                        <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors shrink">
+                          <span className="font-mono text-muted-foreground mr-2 font-bold">{topic.id}.</span>
                           {topic.title}
                         </span>
-                        <span className="flex-1 border-b border-dotted border-border-strong mx-2 opacity-50" />
-                        <span className="font-mono text-[11px] text-muted-foreground group-hover:text-foreground shrink-0">
+                        <span className="min-w-8 flex-1 border-b-2 border-dotted border-border-strong/70 dark:border-border-strong/80 mx-1" />
+                        <span className="font-mono text-[11px] text-muted-foreground group-hover:text-foreground font-semibold shrink-0">
                           {topic.count} questions
                         </span>
                       </Link>
