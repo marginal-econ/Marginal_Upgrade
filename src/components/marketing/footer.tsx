@@ -8,7 +8,7 @@
  */
 
 import { Link } from "@tanstack/react-router";
-import { Minimize2 } from "lucide-react";
+import { Minimize2, Sparkles } from "lucide-react";
 import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 const PRODUCT_LINKS = [
