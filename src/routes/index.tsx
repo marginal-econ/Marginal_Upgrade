@@ -1027,22 +1027,6 @@ function Index() {
         </DialogContent>
       </Dialog>
 
-            {/* Docked Trial View Button at bottom */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <button
-          type="button"
-          onClick={() => toggleTrialView(true)}
-          className="group flex items-center gap-2 rounded-full border border-primary/40 bg-background/95 px-3.5 py-2 text-xs font-semibold text-foreground shadow-xl backdrop-blur-md hover:bg-primary hover:text-primary-foreground hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          title="Switch to Trial View (PaperGrinder Edition)"
-        >
-          <Sparkles className="size-3.5 text-amber-500 animate-pulse group-hover:text-primary-foreground" />
-          <span>Trial View</span>
-          <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground group-hover:bg-primary-foreground/20 group-hover:text-primary-foreground">
-            New
-          </span>
-        </button>
-      </div>
-
       <SiteFooter onToggleTrialView={() => toggleTrialView(true)} />
     </div>
   );
@@ -2491,18 +2475,6 @@ function TrialHome({
           </div>
         </DialogContent>
       </Dialog>
-      {/* Docked Return to Default View Button */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <button
-          type="button"
-          onClick={onToggleDefault}
-          className="flex items-center gap-2 rounded-full border border-border bg-card/95 px-3.5 py-2 text-xs font-semibold text-foreground shadow-hard backdrop-blur-md hover:bg-muted transition-all cursor-pointer"
-          title="Switch back to Default View (Full Experience)"
-        >
-          <RotateCcw className="size-3.5 text-primary" />
-          <span>Default View</span>
-        </button>
-      </div>
     </div>
   );
 }
