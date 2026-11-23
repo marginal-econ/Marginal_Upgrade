@@ -260,7 +260,8 @@ export function verifyVerbatimQuotes(feedbackText: string, essayText?: string): 
   if (!normEssay) return feedbackText;
 
   // Match properly paired quotes ("..." or '...') NOT embedded inside word apostrophes/possessives (e.g. theory's)
-  return feedbackText.replace(/(?<!\w)(["'])([^\n\r]{8,}?)\1(?!\w)/g, (match, _quote: string, quotedContent: string) => {
+  // Cross-browser safe regex without lookbehinds (compatible with Safari/WebKit on iOS & older macOS)
+  return feedbackText.replace(/(^|[^\w])(["'])([^\n\r]{8,}?)\2(?!\w)/g, (fullMatch, prefix: string, _quote: string, quotedContent: string) => {
     const normQuoted = quotedContent
       .toLowerCase()
       .replace(/[^\w\s]/g, " ")
@@ -269,7 +270,7 @@ export function verifyVerbatimQuotes(feedbackText: string, essayText?: string): 
 
     // If exact or normalized content is found verbatim in the essay, keep the quote
     if (normQuoted && normEssay.includes(normQuoted)) {
-      return match;
+      return fullMatch;
     }
 
     // Allow minor OCR/punctuation differences ONLY if both high word match (>= 80%) AND
@@ -289,12 +290,12 @@ export function verifyVerbatimQuotes(feedbackText: string, essayText?: string): 
         }
       }
       if (matchedCount / words.length >= 0.8 && bigramMatches / totalBigrams >= 0.6) {
-        return match;
+        return fullMatch;
       }
     }
 
     // Phantom/paraphrased quote: unwrap quotes so non-verbatim text is not presented as a direct student quotation
-    return quotedContent;
+    return `${prefix}${quotedContent}`;
   });
 }
 

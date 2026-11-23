@@ -48,7 +48,7 @@ import { getPlatformPricing } from "@/lib/pricing.functions";
 import { DEFAULT_PRICING_PLANS } from "@/lib/pricing-plans";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
-import { cn } from "@/lib/utils";
+import { cn, copyTextToClipboard } from "@/lib/utils";
 import { useCurrency } from "@/hooks/use-currency";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { convertFromUsd } from "@/lib/currency";
@@ -645,27 +645,31 @@ function PaymentPortalPage() {
     setPaymentMethod("razorpay");
   };
 
-  const handleCopyUpi = () => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(merchantUpi);
+  const handleCopyUpi = async () => {
+    const ok = await copyTextToClipboard(merchantUpi);
+    if (ok) {
       setCopiedUpi(true);
       toast.success("Merchant UPI ID copied!");
       setTimeout(() => setCopiedUpi(false), 2000);
+    } else {
+      toast.error("Could not copy UPI ID.");
     }
   };
 
   const [copiedSchoolEmail, setCopiedSchoolEmail] = useState(false);
 
-  const handleCopySchoolEmail = () => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText("marginal.econ.ai@gmail.com");
+  const handleCopySchoolEmail = async () => {
+    const ok = await copyTextToClipboard("marginal.econ.ai@gmail.com");
+    if (ok) {
       setCopiedSchoolEmail(true);
       toast.success("School partnership email copied: marginal.econ.ai@gmail.com");
       setTimeout(() => setCopiedSchoolEmail(false), 2000);
+    } else {
+      toast.error("Could not copy email.");
     }
   };
 
-  const handleSchoolEmailClick = () => {
+  const handleSchoolEmailClick = async () => {
     const sPlan = SCHOOL_PLANS[selectedTier] ?? SCHOOL_PLANS.school_starter;
     const subject = encodeURIComponent(`Cambridge 9708 School Licensing Inquiry — ${sPlan.name}`);
     const body = encodeURIComponent(
@@ -678,9 +682,7 @@ function PaymentPortalPage() {
       `Billing Preference: ${cycle === "annual" ? "Annual Billing" : "Monthly Billing"}\n\n` +
       `Please send us the formal price quotation, institutional purchase order (PO) requirements, and teacher onboarding documentation.\n\nThank you!`
     );
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText("marginal.econ.ai@gmail.com");
-    }
+    await copyTextToClipboard("marginal.econ.ai@gmail.com");
     toast.info("School partnership email copied: marginal.econ.ai@gmail.com — opening inquiry draft", { duration: 5000 });
     window.location.href = `mailto:marginal.econ.ai@gmail.com?subject=${subject}&body=${body}`;
   };

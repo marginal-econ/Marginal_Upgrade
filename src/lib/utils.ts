@@ -207,9 +207,14 @@ export function autoParagraphText(text: unknown): string {
   }
 
   // 1. First attempt: Split at Cambridge discourse & transition markers that follow sentence endings (.!?)
-  const transitionPattern = /(?<=[.!?])\s+(?=(?:However|In contrast|Conversely|On the other hand|Furthermore|Moreover|In addition|Additionally|Alternatively|Secondly|Thirdly|Finally|In evaluation|To evaluate|In conclusion|Overall|Ultimately|Consequently|Therefore|From an evaluative standpoint|Examining this policy|With regard to|With regards to|Turning to|A government can|Monetary policy|Fiscal policy|Supply-side policy)\b)/i;
+  // Avoid RegExp lookbehinds for broad browser compatibility (older Safari/WebKit & iPads)
+  const transitionPattern = /([.!?])\s+(?=(?:However|In contrast|Conversely|On the other hand|Furthermore|Moreover|In addition|Additionally|Alternatively|Secondly|Thirdly|Finally|In evaluation|To evaluate|In conclusion|Overall|Ultimately|Consequently|Therefore|From an evaluative standpoint|Examining this policy|With regard to|With regards to|Turning to|A government can|Monetary policy|Fiscal policy|Supply-side policy)\b)/gi;
 
-  const splitByTransitions = raw.split(transitionPattern).map((p) => p.trim()).filter(Boolean);
+  const splitByTransitions = raw
+    .replace(transitionPattern, "$1\n\n")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
   if (splitByTransitions.length >= 2) {
     return splitByTransitions.join("\n\n");
@@ -246,4 +251,65 @@ export function autoParagraphText(text: unknown): string {
   }
 
   return paragraphs.length >= 2 ? paragraphs.join("\n\n") : raw;
+}
+
+/**
+ * Universal cross-browser clipboard copy with fallback.
+ * Reliable on Safari (iOS / iPadOS / macOS), Firefox, Chrome, Edge, and webviews.
+ */
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fallback to execCommand below */
+  }
+
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+    textArea.style.opacity = "0";
+    textArea.setAttribute("readonly", "");
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, textArea.value.length);
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Universal UUID generator with fallback for Safari iOS, macOS Monterey/Big Sur,
+ * and insecure/local IP network contexts.
+ */
+export function safeRandomUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // Fallback below
+    }
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
