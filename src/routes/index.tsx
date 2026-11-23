@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS, type PublicSettings } from "@/lib/site-settings";
 import { cn, copyTextToClipboard } from "@/lib/utils";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -10,23 +10,30 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
-  Gamepad2,
+  Flame,
+  Gift,
   GraduationCap,
-  HelpCircle,
   LineChart,
   ListChecks,
   Mail,
   MessageCircle,
+  Minimize2,
   PenLine,
+  RotateCcw,
   Scan,
   School,
   Search,
+  Send,
   Share2,
   ShieldCheck,
   Sparkles,
+  Target,
   TrendingUp,
-  Upload,
   Users,
+  FileSpreadsheet,
+  FileText,
+  Gamepad2,
+  Trophy,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,14 +44,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
+
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { AuroraCanvas } from "@/components/marketing/aurora";
+import { CustomCursor } from "@/components/marketing/cursor";
+import {
+  CircleScribble,
+  Curl,
+  DottedArrow,
+  Drift,
+  ScrollProgress,
+  Star,
+  Waves,
+} from "@/components/marketing/doodles";
+import { SiteFooter } from "@/components/marketing/footer";
+import { MarkingHand } from "@/components/marketing/mascot";
+import { CountUp, Reveal } from "@/components/marketing/reveal";
+import { Ribbon } from "@/components/marketing/ribbon";
+import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
+import { Magnetic, TiltCard } from "@/components/marketing/three-d";
+import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
+import { AccuracyCredibilitySection } from "@/components/marketing/accuracy-credibility-section";
+import { McqShowcaseSection } from "@/components/marketing/mcq-showcase-section";
+import { TeachersSection } from "@/components/marketing/teachers-section";
+import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
 import { CommunityPartnerBanner } from "@/components/marketing/community-partner-banner";
 import { captureReferralCode } from "@/lib/waitlist-client";
 import { supabase } from "@/integrations/backend/client";
@@ -52,16 +83,16 @@ import { supabase } from "@/integrations/backend/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Marginal | Cambridge AS & A Level Economics (9708) Past Papers & AI Examiner" },
+      { title: "Marginal | AI Cambridge AS & A Level Economics (9708) Prep & Essay Examiner" },
       {
         name: "description",
         content:
-          "Everything for Cambridge International AS & A Level Economics (9708). Search any past paper question, grade essays against real mark schemes across AO1, AO2, and AO3, and drill timed MCQs for Papers 1, 2, 3 & 4. Free, no account needed to explore.",
+          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, line-by-line mark scheme breakdown, and Paper 1, 2, 3 & 4 practice for both AS and A Level.",
       },
       {
         name: "keywords",
         content:
-          "9708 economics, Cambridge Economics 9708, Marginal AI, AS Level Economics, A Level Economics 9708 prep, parginal, marginal-econ, papergrinder economics, Cambridge topical past papers",
+          "9708 economics, Cambridge Economics 9708, Marginal AI, AS Level Economics, A Level Economics 9708 prep, parginal, parginal AI, marginal-econ, Marginal Cambridge Economics, 9708 economics prep, A Level Economics 9708, AS and A level economics",
       },
       {
         property: "og:site_name",
@@ -69,12 +100,11 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "Marginal | Everything for Cambridge Economics (9708) Past-Paper Practice",
+        content: "Marginal | Cambridge AS & A Level Economics (9708) Prep",
       },
       {
         property: "og:description",
-        content:
-          "Master Cambridge AS & A Level Economics (9708) with instant AI essay grading, line-by-line mark scheme breakdown, and timed MCQ drills for Papers 1, 2, 3 & 4.",
+        content: "The complete Cambridge AS & A Level Economics (9708) mastery platform with AI essay grading and MCQ practice for Papers 1, 2, 3 & 4.",
       },
       {
         property: "og:url",
@@ -94,16 +124,23 @@ export const Route = createFileRoute("/")({
       },
       {
         name: "twitter:title",
-        content: "Marginal | Everything for Cambridge Economics (9708) Past-Paper Practice",
+        content: "Marginal | Cambridge AS & A Level Economics (9708) Prep",
       },
       {
         name: "twitter:description",
-        content:
-          "Master Cambridge AS & A Level Economics (9708) with instant AI essay grading, line-by-line mark scheme breakdown, and timed MCQ drills for Papers 1, 2, 3 & 4.",
+        content: "The complete Cambridge AS & A Level Economics (9708) mastery platform with AI essay grading and MCQ practice for Papers 1, 2, 3 & 4.",
       },
       {
         name: "application-name",
-        content: "Marginal",
+        content: "Marginal AI",
+      },
+      {
+        name: "apple-mobile-web-app-title",
+        content: "Marginal AI",
+      },
+      {
+        name: "robots",
+        content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
       },
     ],
     links: [
@@ -112,9 +149,1090 @@ export const Route = createFileRoute("/")({
         href: "https://marginal-econ.com/",
       },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "Marginal",
+          "alternateName": "Parginal",
+          "url": "https://marginal-econ.com",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://marginal-econ.com/search?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is Marginal AI?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Marginal AI is the Cambridge International AS & A Level Economics (9708) mastery platform featuring automated AO1/AO2/AO3 essay grading calibrated against official Cambridge mark schemes, and Paper 1 & 3 MCQ past paper drills.",
+              },
+            },
+            {
+              "@type": "Question",
+              "name": "Is Marginal AI free to use?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, Marginal AI provides free access to unlimited essay evaluations, syllabus citations, and full past paper MCQ practice.",
+              },
+            },
+            {
+              "@type": "Question",
+              "name": "How does Marginal AI grade Cambridge 9708 essays?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Marginal AI uses Cambridge 9708 syllabus mark schemes, official examiner reports, and calibrated anchor scripts to grade essays across AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) assessment objectives.",
+              },
+            },
+            {
+              "@type": "Question",
+              "name": "Can Marginal AI read handwritten essays and economic diagrams?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, photograph your handwritten script or essay diagram and Marginal AI OCR extracts the text while isolating diagrams for accurate examiner assessment.",
+              },
+            },
+          ],
+        }),
+      },
+    ],
   }),
-  component: IndexPage,
+  component: Index,
 });
+
+const RIBBON_ITEMS = [
+  "Both AS & A Level",
+  "8m, 12m & 20m Essays",
+  "Papers 1, 2, 3 & 4",
+  "Multiplayer MCQ Arena",
+  "Live 6-Digit Quiz PIN",
+  "Score Maximizer",
+  "AO1 Knowledge",
+  "AO2 Analysis",
+  "AO3 Evaluation",
+  "Paper 1 & 3 MCQs",
+  "12h Exam Resume",
+  "Paper 2 & 4 Essays",
+  "Unlimited Essay Gradings",
+  "Handwriting Vision OCR",
+  "Diagram Studio",
+  "Definition Hub",
+  "Marked to 9708",
+];
+
+// The three assessment objectives in the product's own reserved colours, so
+// the vocabulary a student meets on every mark breakdown is taught here
+// first.
+const OBJECTIVES = [
+  { code: "AO1", name: "Knowledge", dot: "bg-ao1", share: 38 },
+  { code: "AO2", name: "Analysis", dot: "bg-ao2", share: 72 },
+  { code: "AO3", name: "Evaluation", dot: "bg-ao3", share: 45 },
+];
+
+// Specialized features engineered for Cambridge 9708 Economics.
+const TOOLS = [
+  {
+    icon: Gamepad2,
+    tile: "bg-amber-600",
+    badge: "Multiplayer Arena",
+    title: "Live MCQ Quiz Arena",
+    body: "Multiplayer Cambridge 9708 past paper races with 6-digit PIN, Serious Exam sprint, and Game Arena with power-ups (Steal, Swap & Tax).",
+    href: "/quiz",
+  },
+  {
+    icon: PenLine,
+    tile: "bg-ao2",
+    badge: "Full Audit",
+    title: "Dual-Pass Essay Grader",
+    body: "Line-by-line mark scheme matching across AO1, AO2, and AO3 with dual-pass bias correction and rewrite plans.",
+    href: "/grade",
+  },
+  {
+    icon: ListChecks,
+    tile: "bg-ao1",
+    badge: "Exam Simulation",
+    title: "MCQ Live Past Papers & Resume",
+    body: "Timed Paper 1 & 3 exams with distractor reasoning, question flagging, and 12-hour auto-resume.",
+    href: "/mcq-live",
+  },
+  {
+    icon: FileSpreadsheet,
+    tile: "bg-emerald-600",
+    badge: "Section A Studio",
+    title: "Data Response & Case Studies",
+    body: "Paper 2 & 4 Section A practice with Table 1.1 data interpretation, OFR calculations, and curve shift analysis.",
+    href: "/data-response",
+  },
+  {
+    icon: Wand2,
+    tile: "bg-purple-600",
+    badge: "AI Models",
+    title: "Sample Essay Generator",
+    body: "Full-mark Cambridge 9708 model answers tailored to any 8m, 12m, or 20m question with verified diagrams.",
+    href: "/essay-generator",
+  },
+  {
+    icon: BookOpen,
+    tile: "bg-ao3",
+    badge: "Revision Vault",
+    title: "Cambridge Definition Hub",
+    body: "Over 120 verified syllabus definitions with essential AO1 keywords, topic tags, and flashcards.",
+    href: "/definitions",
+  },
+  {
+    icon: LineChart,
+    tile: "bg-primary",
+    badge: "Visual Studio",
+    title: "Economics Diagram Studio",
+    body: "Dynamic micro and macro diagrams with interactive curve shifts, equilibrium tracking, and examiner labels.",
+    href: "/diagrams",
+  },
+  {
+    icon: Flame,
+    tile: "bg-amber-600",
+    badge: "15-Yr Intelligence",
+    title: "Past Paper Topic Predictor",
+    body: "Statistical rotation modeling across 15 years of Cambridge 9708 exam papers (2010–2025).",
+    href: "/paper-matrix",
+  },
+  {
+    icon: Scan,
+    tile: "bg-ao1",
+    badge: "Vision AI",
+    title: "Handwriting Vision OCR",
+    body: "Extracts handwritten mock exam scripts and hand-drawn diagrams for instant examiner grading.",
+    href: "/grade",
+  },
+  {
+    icon: TrendingUp,
+    tile: "bg-ao3",
+    badge: "Intelligence",
+    title: "Review & Analytics Hub",
+    body: "Performance radar tracking projected Cambridge grades, MCQ topic mastery, and syllabus balance.",
+    href: "/review",
+  },
+];
+
+const FAQS = [
+  {
+    q: "Does Marginal support both Cambridge AS Level and A Level (A2)?",
+    a: "Yes, 100%. Marginal is purpose-built for both AS Level (Papers 1 & 2, including 8-mark and 12-mark essays and Section A data response) and A Level / A2 (Papers 3 & 4, including 20-mark evaluative essays and advanced micro/macro case studies). Every rubric and examiner model adapts specifically to the syllabus level you choose.",
+  },
+  {
+    q: "How does Marginal grade Cambridge 9708 essays?",
+    a: "Marginal evaluates your essay against official Cambridge mark schemes and examiner reports, breaking your score into AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) assessment objectives with sentence-by-sentence feedback.",
+  },
+  {
+    q: "Is Marginal free for students?",
+    a: "Yes. Students get free instant access to essay grading, step-by-step mark breakdown, and timed Paper 1 & 3 past paper MCQ drills.",
+  },
+  {
+    q: "Can Marginal read handwritten essays and diagrams?",
+    a: "Yes. Take a photo of your handwritten mock exam or notebook. Our vision OCR extracts the text, isolates diagrams, and evaluates them directly against syllabus standards.",
+  },
+  {
+    q: "How does the Multiplayer MCQ Arena work?",
+    a: "Students or teachers can host or join live timed past paper MCQ competitions using a simple 6-digit PIN. You can choose between a focused timed mock sprint or Game Arena mode with strategic power-ups and live leaderboards.",
+  },
+  {
+    q: "Can teachers and schools use Marginal?",
+    a: "Yes. Teachers can register for dedicated cohorts to set essay assignments, track class submissions in real time, and audit cohort diagnostic heatmaps.",
+  },
+];
+
+function Index() {
+  const [settings, setSettings] = useState<PublicSettings>(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/settings", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Settings unavailable");
+        const body = await response.json();
+        if (!body.success) throw new Error("Settings unavailable");
+        setSettings(body.settings);
+        setSettingsLoaded(true);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setSettingsLoaded(true);
+      });
+    return () => controller.abort();
+  }, []);
+  // Read once here purely so the invitation banner can be shown. The form
+  // does its own capture; both read the same stored value, and whichever
+  // runs first is the one that cleans the query string.
+  const [invitedBy, setInvitedBy] = useState<string | null>(null);
+  useEffect(() => setInvitedBy(captureReferralCode()), []);
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsAuthenticated(Boolean(data.session));
+    });
+  }, []);
+
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
+
+  const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://marginal-econ.com";
+  const shareUrl = `${shareOrigin}${invitedBy ? `?ref=${encodeURIComponent(invitedBy)}` : ""}`;
+  const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It breaks down essays into AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, and offers full MCQ past paper practice with auto-save resume. Grade unlimited essays free:\n${shareUrl}`;
+
+  const handleCopyLink = async () => {
+    const ok = await copyTextToClipboard(shareUrl);
+    if (ok) {
+      setCopiedLink(true);
+      toast.success("Invite link copied to clipboard!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    } else {
+      toast.error("Could not copy link to clipboard.");
+    }
+  };
+
+  const handleCopyMessage = async () => {
+    const ok = await copyTextToClipboard(shareMessage);
+    if (ok) {
+      setCopiedMessage(true);
+      toast.success("Study group message copied to clipboard!");
+      setTimeout(() => setCopiedMessage(false), 2000);
+    } else {
+      toast.error("Could not copy message to clipboard.");
+    }
+  };
+
+  const [isTrialView, setIsTrialView] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("marginal_landing_view");
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("view") === "trial" || stored === "trial") {
+        setIsTrialView(true);
+      }
+    }
+  }, []);
+
+  const toggleTrialView = (value?: boolean) => {
+    setIsTrialView((prev) => {
+      const next = typeof value === "boolean" ? value : !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("marginal_landing_view", next ? "trial" : "default");
+      }
+      return next;
+    });
+  };
+
+  if (isTrialView) {
+    return (
+      <TrialHome
+        onToggleDefault={() => toggleTrialView(false)}
+        isAuthenticated={isAuthenticated}
+        settings={settings}
+      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-background">
+      <CustomCursor />
+      <ScrollProgress />
+
+      {/* ── Community Partner Banner (r/The_IGCSE_Workaholics) ─────────── */}
+      <CommunityPartnerBanner />
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="relative mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:px-10 lg:px-12 xl:px-16 sm:py-3">
+          <Link to="/">
+            <Wordmark />
+          </Link>
+
+          <SiteNavLinks />
+
+          <div className="flex items-center gap-2">
+            <SiteNavMobile />
+            <ThemeToggle />
+
+            <Link
+              to="/teacher-auth"
+              search={{ tab: "signup" }}
+              className="hidden min-[420px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              title="Official Cambridge 9708 Teacher & Department Registration"
+            >
+              <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className="hidden sm:inline">Teacher: Sign Up</span>
+              <span className="sm:hidden">Teachers</span>
+            </Link>
+            <Link
+              to="/auth"
+              className="hidden rounded-lg px-3 py-1.5 text-xs xl:text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex whitespace-nowrap"
+            >
+              Sign in
+            </Link>
+            <Magnetic strength={8}>
+              <Link
+                to="/auth"
+                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
+              >
+                <span className="hidden min-[380px]:inline">Get Started Free</span>
+                <span className="min-[380px]:hidden">Get Started</span>
+              </Link>
+            </Magnetic>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-0">
+        {/* Three background layers, back to front: the CSS aurora wash, WebGL curtain,
+            cosmic twinkling starfield, and paper-grid overlay. */}
+        <div className="aurora-wash pointer-events-none absolute inset-0" aria-hidden="true" />
+        <AuroraCanvas />
+        <CosmicAtmosphere variant="hero" sparkles={true} density="high" />
+        <div className="paper-grid pointer-events-none absolute inset-0" aria-hidden="true" />
+
+        <Drift speed={0.1} className="top-52 left-[1%] hidden xl:block">
+          <Curl className="w-16 text-primary/30" />
+        </Drift>
+        <Drift speed={-0.06} className="top-40 right-[2%] hidden xl:block">
+          <Waves className="w-20 text-ao3/60" />
+        </Drift>
+        <Drift speed={0.14} className="bottom-36 left-[40%] hidden lg:block">
+          <Star className="doodle size-6 text-primary/25" />
+        </Drift>
+        <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
+
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-8 lg:gap-10 xl:gap-14 px-4 py-8 sm:px-6 sm:py-10 md:px-10 md:py-12 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
+          <div>
+            <Reveal>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/30 bg-primary/10 text-primary font-semibold">
+                  <span className="relative flex size-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
+                  </span>
+                  <Sparkles className="size-3.5 text-primary animate-pulse" />
+                  Cambridge 9708 Examiner Calibration
+                </span>
+                <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs">
+                  <GraduationCap className="size-3 text-purple-500" />
+                  Both AS &amp; A Level (Papers 1, 2, 3 &amp; 4)
+                </span>
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <Users className="size-3 text-emerald-500" />
+                  100+ Active Users
+                </span>
+              </div>
+            </Reveal>
+
+            <Reveal delay={60}>
+              <h1 className="mt-5 text-2xl min-[380px]:text-3xl sm:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] leading-[1.1] font-extrabold tracking-tight break-words">
+                Marginal AI —{" "}
+                <span className="relative inline-block mt-1 sm:mt-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md max-w-full">
+                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight break-words">
+                    The Cambridge AS &amp; A Level Platform
+                  </span>
+                </span>
+              </h1>
+              <h2 className="mt-3 text-base sm:text-xl md:text-2xl font-semibold text-primary">
+                Engineered for Both Cambridge AS &amp; A Level Economics (9708)
+              </h2>
+            </Reveal>
+
+            <Reveal delay={85}>
+              <div className="mt-3.5 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex text-amber-500 text-xs tracking-wider font-bold" aria-hidden="true">
+                  ★★★★★
+                </div>
+                <span className="font-medium text-foreground">
+                  89.6% Examiner Alignment · Calibrated against 30 real Cambridge ECR candidate scripts &amp; 1,400+ mark schemes
+                </span>
+              </div>
+            </Reveal>
+
+            <Reveal delay={110}>
+              <p className="mt-4 max-w-2xl text-base sm:text-lg leading-relaxed text-pretty text-muted-foreground dark:text-foreground/90">
+                {settings.heroDescription}
+              </p>
+            </Reveal>
+
+            {/* Live Cambridge Metric Highlights */}
+            <Reveal delay={150}>
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-xl">
+                <div className="rounded-xl border border-emerald-500/30 bg-card/80 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight block">89.6%</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Examiner Match</span>
+                </div>
+                <div className="rounded-xl border border-primary/25 bg-card/70 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
+                </div>
+                <div className="rounded-xl border border-blue-500/25 bg-card/70 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-blue-500/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">AO1/2/3</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
+                </div>
+                <div className="rounded-xl border border-amber-500/25 bg-card/70 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">Unlimited</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* AS & A Level Syllabus Scope Breakdown */}
+            <Reveal delay={165}>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-xl">
+                <div className="rounded-xl border border-border/80 bg-card/60 p-2.5 backdrop-blur-xs flex items-start gap-2.5 text-left">
+                  <span className="rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 font-mono text-[10px] font-black px-1.5 py-0.5 shrink-0 mt-0.5">
+                    AS LEVEL
+                  </span>
+                  <div className="text-xs">
+                    <p className="font-bold text-foreground">Papers 1 &amp; 2</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Paper 1 MCQs · Paper 2 Data Response &amp; 8m/12m Essays
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border/80 bg-card/60 p-2.5 backdrop-blur-xs flex items-start gap-2.5 text-left">
+                  <span className="rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 font-mono text-[10px] font-black px-1.5 py-0.5 shrink-0 mt-0.5">
+                    A LEVEL (A2)
+                  </span>
+                  <div className="text-xs">
+                    <p className="font-bold text-foreground">Papers 3 &amp; 4</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Paper 3 MCQs · Paper 4 Case Studies &amp; 20m Evaluative Essays
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Direct candidate conversion actions */}
+            <Reveal delay={180}>
+              <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2"
+                >
+                  <Link to="/auth">
+                    <span>Grade Essays Free</span>
+                    <ArrowRight className="size-4 shrink-0" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
+                >
+                  <Link to="/mcq-live">
+                    <ListChecks className="size-4 text-primary shrink-0" />
+                    <span>Practice MCQs</span>
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-12 px-4 text-sm font-semibold border-2 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-foreground gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
+                >
+                  <Link to="/quiz">
+                    <Gamepad2 className="size-4 text-amber-500 shrink-0" />
+                    <span>Live Quiz (PIN)</span>
+                  </Link>
+                </Button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> No credit card required
+                </span>
+                <span>•</span>
+                <span>Free instant access</span>
+                <span>•</span>
+                <span>Grounded in Cambridge 9708</span>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(true)}
+                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
+                >
+                  <Share2 className="size-3 shrink-0" /> Share
+                </button>
+              </div>
+            </Reveal>
+
+            {invitedBy ? (
+              <Reveal delay={210}>
+                <p className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                  <Gift className="size-3.5 text-primary shrink-0" aria-hidden="true" />
+                  Invited with code <span className="font-semibold text-foreground">{invitedBy.toLowerCase()}</span> — unlimited essay grading unlocked.
+                </p>
+              </Reveal>
+            ) : null}
+          </div>
+
+          {/* Centered Cambridge Specimen Showcase */}
+          <Reveal variant="pop" delay={120} className="relative w-full">
+            <div className="relative w-full">
+              {/* Ambient Stage Halo Glow */}
+              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
+              <TiltCard max={6} lift={12} className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl rounded-2xl overflow-visible backdrop-blur-xl">
+                <SpecimenCard />
+              </TiltCard>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Docked Cambridge 9708 Feature Marquee Ticker */}
+        <div className="relative mt-8 sm:mt-10 md:mt-12 w-full">
+          <Ribbon items={RIBBON_ITEMS} />
+        </div>
+      </section>
+
+      {/* ── 1. Verified Cambridge Examiner Accuracy & Benchmark (First) ─────── */}
+      <AccuracyCredibilitySection />
+
+      {/* ── 2. What We Provide: Core Cambridge 9708 Capabilities ─────────────── */}
+      <section
+        id="tools"
+        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden"
+      >
+        <CosmicAtmosphere variant="default" sparkles={true} density="high" />
+        <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
+          <Reveal>
+            <SectionHeading
+              eyebrow="Cambridge 9708 Capabilities"
+              title="What Marginal Provides"
+              lead="Eleven specialized features engineered exclusively for Cambridge AS & A Level Economics (9708)."
+            />
+          </Reveal>
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {TOOLS.map((tool, index) => {
+              const isCenteredStart = TOOLS.length % 4 === 2 && index === TOOLS.length - 2;
+              return (
+                <Reveal
+                  key={tool.title}
+                  variant="pop"
+                  delay={index * 35}
+                  className={cn(isCenteredStart && "lg:col-start-2")}
+                >
+                  <Link
+                    to={isAuthenticated ? tool.href : "/auth"}
+                    search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
+                    className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
+                        >
+                          <tool.icon className="size-5" />
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
+                            {tool.badge}
+                          </span>
+                          <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                            {String(index + 1).padStart(2, "0")} / {String(TOOLS.length).padStart(2, "0")}
+                          </span>
+                        </div>
+                      </div>
+
+                      <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </h3>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {tool.body}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
+                        Cambridge 9708 Engine
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
+                        <span>View tool</span>
+                        <span aria-hidden="true">→</span>
+                      </span>
+                    </div>
+                  </Link>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3. Dedicated Cambridge 9708 MCQ & Arena Section ──────────────────── */}
+      <McqShowcaseSection />
+
+      {/* ── 4. Why Marginal Beats Raw AI (Real 12-Mark Stress Test) ─────────── */}
+      <AiComparisonSection />
+
+      {/* ── 5. Cambridge Teachers & Department Workspace ──────────────────────── */}
+      <TeachersSection />
+
+      {/* ── FAQ ──────────────────────────────────────────────────────────── */}
+      <section id="faq" className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden">
+        <CosmicAtmosphere variant="default" sparkles={true} density="low" />
+        <div className="relative z-10 mx-auto max-w-4xl px-5 py-16 md:px-8 md:py-20">
+          <Reveal>
+            <SectionHeading eyebrow="Questions" title="Frequently asked, honestly answered" />
+          </Reveal>
+
+          <Reveal variant="pop" delay={80}>
+            <Accordion type="single" collapsible className="pop mt-12 px-6 md:px-8 backdrop-blur-xs bg-card/80 border border-border/70 shadow-sm">
+              {TRIAL_FAQS.map((faq, index) => (
+                <AccordionItem key={faq.q} value={faq.q} className="border-ink/12 last:border-0">
+                  <AccordionTrigger className="gap-4 py-5 text-left hover:no-underline">
+                    <span className="flex min-w-0 items-baseline gap-4">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="text-base font-semibold">{faq.q}</span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-5 pl-10 text-sm leading-relaxed text-muted-foreground">
+                    {faq.a}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── Candidate Onboarding CTA ──────────────────────────────────── */}
+      <section
+        id="join"
+        className="relative scroll-mt-20 px-4 py-14 sm:px-5 sm:py-16 md:px-8 md:py-20 overflow-hidden"
+      >
+        <CosmicAtmosphere variant="hero" sparkles={true} density="high" />
+        <div className="aurora-wash pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+        <Reveal variant="pop" className="relative z-10">
+          <div className="pop relative mx-auto max-w-5xl overflow-hidden bg-plum bg-linear-to-br from-plum-soft via-plum to-plum-deep px-4 py-10 sm:px-6 sm:py-14 md:px-12 border border-plum-soft/40 shadow-2xl">
+            <CosmicAtmosphere variant="hero" sparkles={true} density="medium" />
+            <div
+              className="paper-grid pointer-events-none absolute inset-0 opacity-20"
+              aria-hidden="true"
+            />
+            <div className="starfield" aria-hidden="true" />
+            <div className="relative z-10 grid items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
+              <div className="text-center md:text-left">
+                <span className="chip-soft bg-plum-foreground/15 text-plum-foreground">
+                  <Sparkles className="size-3.5" />
+                  Cambridge 9708 Candidate Workspace
+                </span>
+
+                <h2 className="mt-4 text-3xl font-bold text-balance text-plum-foreground md:text-4xl">
+                  Start scoring higher in AS & A Level Economics
+                </h2>
+                <p className="mt-4 max-w-md text-sm text-pretty text-plum-foreground/85 md:text-base">
+                  Every candidate gets unlimited Cambridge essay gradings, full AO1/AO2/AO3 clause audits, and authentic past paper MCQ drills with auto-save resume completely free.
+                </p>
+
+                <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3 relative z-20">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-11 sm:h-12 px-6 text-xs sm:text-sm font-bold bg-white text-zinc-950 hover:bg-white/90 shadow-xl shadow-black/25 hover:scale-[1.02] active:scale-[0.98] transition-all rounded-xl cursor-pointer"
+                  >
+                    <Link to="/auth" className="inline-flex items-center gap-2">
+                      <span>Create Free Account</span>
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-11 sm:h-12 px-5 text-xs sm:text-sm font-semibold border-white/25 bg-white/5 text-white hover:bg-white/15 hover:border-white/40 backdrop-blur-md rounded-xl transition-all cursor-pointer"
+                  >
+                    <Link to="/grade" className="inline-flex items-center gap-2">
+                      <PenLine className="size-4 text-emerald-400" />
+                      <span>Grade Essays Free</span>
+                    </Link>
+                  </Button>
+
+                </div>
+
+                <p className="mt-5 text-xs text-plum-foreground/70">
+                  By joining you agree to the{" "}
+                  <Link to="/terms" className="font-medium underline underline-offset-4">
+                    terms &amp; conditions
+                  </Link>{" "}
+                  and the{" "}
+                  <Link to="/privacy" className="font-medium underline underline-offset-4">
+                    privacy policy
+                  </Link>
+                  .
+                </p>
+              </div>
+              <MarkingHand className="wiggle mx-auto w-52 md:w-full md:max-w-xs" />
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── Share with Classmates Modal ──────────────────────────────────── */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-md sm:max-w-lg border-2 border-border p-6 rounded-2xl shadow-xl">
+          <DialogHeader className="space-y-2 text-left">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                <Users className="size-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold sm:text-xl">
+                  Share Marginal with Classmates
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Invite your study group to practice with official Cambridge 9708 mark schemes &amp; live feedback.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Free Classmate Benefit Callout */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-200 flex items-start gap-2.5">
+              <Gift className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  Unlimited Graded Essays + Full MCQ Practice
+                </p>
+                <p className="text-muted-foreground dark:text-emerald-200/80 leading-relaxed">
+                  Anyone who joins through your link gets instant access to unlimited essays marked by our Cambridge 9708 examiner engine, AO1/AO2/AO3 clause audits, and past paper drills with no credit card required.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Share Buttons */}
+            <div>
+              <label className="text-xs font-semibold text-foreground mb-2 block">
+                Quick Share via Social &amp; Chat
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-600 transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <MessageCircle className="size-5 text-emerald-600 transition-transform group-hover:scale-110" />
+                  <span>WhatsApp</span>
+                </a>
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out Marginal for Cambridge AS & A Level Economics (9708) — unlimited essays graded + Cambridge MCQ past paper drills!")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-sky-500/10 hover:border-sky-500/30 hover:text-sky-600 transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <MessageCircle className="size-5 text-sky-500 transition-transform group-hover:scale-110" />
+                  <span>Telegram</span>
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Preparing for Cambridge AS & A Level Economics (9708) with Marginal — unlimited essays graded + Cambridge MCQ past paper drills:")}&url=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <Share2 className="size-5 text-primary transition-transform group-hover:scale-110" />
+                  <span>X / Twitter</span>
+                </a>
+                <a
+                  href={`mailto:?subject=${encodeURIComponent("Cambridge 9708 Economics Prep — Unlimited Graded Essays on Marginal")}&body=${encodeURIComponent(shareMessage)}`}
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-border transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <Mail className="size-5 text-muted-foreground transition-transform group-hover:scale-110 group-hover:text-foreground" />
+                  <span>Email</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Direct Copy Link Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Your Shareable Link
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyLink}
+                  className="gap-1.5 shrink-0 h-9 font-semibold border-2 cursor-pointer"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="size-3.5 text-emerald-500" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Study Group Quick Message */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground">
+                  Ready-made message for Discord or group chats
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedMessage ? (
+                    <>
+                      <Check className="size-3 text-emerald-500" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-3" /> Copy full message
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground leading-relaxed font-sans select-all">
+                {shareMessage}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+            {/* Docked Trial View Button at bottom */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          type="button"
+          onClick={() => toggleTrialView(true)}
+          className="group flex items-center gap-2 rounded-full border border-primary/40 bg-background/95 px-3.5 py-2 text-xs font-semibold text-foreground shadow-xl backdrop-blur-md hover:bg-primary hover:text-primary-foreground hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          title="Switch to Trial View (PaperGrinder Edition)"
+        >
+          <Sparkles className="size-3.5 text-amber-500 animate-pulse group-hover:text-primary-foreground" />
+          <span>Trial View</span>
+          <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground group-hover:bg-primary-foreground/20 group-hover:text-primary-foreground">
+            New
+          </span>
+        </button>
+      </div>
+
+      <SiteFooter onToggleTrialView={() => toggleTrialView(true)} />
+    </div>
+  );
+}
+
+/**
+ * A specimen of the thing itself, clearly labelled as an example rather than
+ * a real script — it shows the actual vocabulary (command word, AO split,
+ * missing points) a student will meet inside.
+ */
+function SpecimenCard() {
+  const [view, setView] = useState<"marginal" | "generic">("marginal");
+
+  return (
+    <div className="relative pt-2.5">
+      <span className="sticker layer-2 absolute top-0 right-3 z-10 bg-ao3 text-foreground font-bold shadow-sm">
+        Live Inspection
+      </span>
+
+      <div className="pop p-4 sm:p-6 md:p-7 bg-card">
+        {/* Toggle between Marginal Examiner vs Generic AI */}
+        <div className="flex items-center justify-between gap-2 border-b border-border pb-4 mb-4">
+          <div className="inline-flex rounded-lg bg-muted p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setView("marginal")}
+              className={cn(
+                "rounded-md px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs transition-all",
+                view === "marginal"
+                  ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Marginal 9708 Examiner
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("generic")}
+              className={cn(
+                "rounded-md px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs transition-all",
+                view === "generic"
+                  ? "bg-destructive/20 text-destructive font-bold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Generic AI Bot
+            </button>
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground uppercase font-bold hidden sm:inline">
+            Paper 2 · Q4(b)
+          </span>
+        </div>
+
+        <p className="eyebrow">AS Economics Paper 2 · Section B [12 Marks]</p>
+        <p className="mt-2 text-sm leading-relaxed font-medium">
+          “Assess whether a minimum price is the most effective way to reduce consumption of a
+          demerit good.”
+        </p>
+
+        {view === "marginal" ? (
+          <>
+            <div className="layer-1 mt-6 space-y-3.5">
+              {OBJECTIVES.map((objective, index) => (
+                <div key={objective.code}>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="flex items-center gap-2 font-medium">
+                      <span className={`size-2 rounded-full ${objective.dot}`} aria-hidden="true" />
+                      {objective.code}
+                      <span className="text-muted-foreground">{objective.name}</span>
+                    </span>
+                    <span className="font-mono text-muted-foreground">
+                      <CountUp value={objective.share} suffix="%" delay={240 + index * 130} />
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`grow-bar h-full rounded-full ${objective.dot}`}
+                      style={
+                        {
+                          width: `${objective.share}%`,
+                          "--bar-delay": `${240 + index * 130}ms`,
+                        } as React.CSSProperties
+                      }
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 border-t border-border pt-4">
+              <p className="eyebrow text-primary">Marginal Diagnostic Feedback</p>
+              <ul className="mt-2.5 space-y-2 text-xs text-muted-foreground">
+                <li className="flex gap-2.5">
+                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-ao3" aria-hidden="true" />
+                  <span>
+                    <strong className="text-foreground">AO3 Gap:</strong> Listed alternative policies (taxation, education) without synthesizing <em>which</em> policy dominates when price elasticity of demand is inelastic.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-ao2" aria-hidden="true" />
+                  <span>
+                    <strong className="text-foreground">AO2 Gap:</strong> Transmission halts at “quantity demanded falls”; omitted informal black-market emergence and producer surplus changes.
+                  </span>
+                </li>
+              </ul>
+              <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">Calibrated against real 9708 candidates</span>
+                <a href="#benchmarks" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
+                  View Calibration Benchmarks ↓
+                </a>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-xs text-muted-foreground space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-destructive">
+                <span>⚠️ Generic Chatbot Output (ChatGPT / Claude default):</span>
+              </div>
+              <p className="italic text-foreground/80 leading-relaxed">
+                “This is a very good essay! You clearly understand minimum prices and explain how they reduce demand for demerit goods like cigarettes. You also mentioned other policies. Mark: 8 / 12 (Grade B). Keep practicing!”
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground space-y-1.5">
+              <p className="font-bold text-foreground">Why generic AI fails Cambridge students:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Cannot separate marks into official AO1, AO2, AO3 quotas.</li>
+                <li>Suffers from central-tendency bias (clusters all scores around 60%).</li>
+                <li>Provides polite encouragement instead of actionable mark-scheme rubrics.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  lead,
+}: {
+  eyebrow: string;
+  title: React.ReactNode;
+  lead?: string;
+}) {
+  return (
+    <div className="mx-auto max-w-2xl text-center">
+      <p className="eyebrow eyebrow-accent">{eyebrow}</p>
+      <h2 className="mt-2.5 text-2xl font-bold text-balance md:text-4xl">{title}</h2>
+      {lead ? (
+        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
+          {lead}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Wordmark({ muted = false }: { muted?: boolean }) {
+  return (
+    <span className="group flex items-center gap-2 sm:gap-2.5 whitespace-nowrap shrink-0">
+      <img
+        src="/marginal-m-icon-clean.png"
+        alt="Marginal AI Cambridge Economics 9708 Essay Examiner dashboard logo"
+        className={
+          "size-8 shrink-0 object-contain transition-transform duration-300 group-hover:-rotate-6 sm:size-9 " +
+          (muted ? "opacity-70 grayscale" : "")
+        }
+      />
+      <span
+        className={
+          muted
+            ? "text-sm font-semibold text-muted-foreground sm:text-base flex items-center gap-1.5"
+            : "text-sm font-semibold sm:text-base flex items-center gap-1.5"
+        }
+      >
+        <span>Marginal</span>
+        <span className="text-[10px] font-mono font-bold tracking-tight px-1.5 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
+          AI
+        </span>
+        <span className="hidden min-[440px]:inline-flex text-[9.5px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground border border-border/60">
+          AS &amp; A Level
+        </span>
+      </span>
+    </span>
+  );
+}
 
 /* ── Search prompt cycle options ── */
 const SEARCH_PROMPTS = [
@@ -141,7 +1259,7 @@ const A2_TOPICS = [
   { id: "8", title: "Government macro policy & international economic development", count: 188, code: "9708/A2/T8" },
 ];
 
-const FAQS = [
+const TRIAL_FAQS = [
   {
     q: "Does Marginal support both Cambridge AS Level and A Level (A2)?",
     a: "Yes. Marginal is purpose-built for both AS Level (Papers 1 & 2, including 8-mark and 12-mark essays and Section A data response) and A Level / A2 (Papers 3 & 4, including 20-mark evaluative essays and advanced micro/macro case studies). Every rubric and examiner model adapts specifically to the syllabus level you choose.",
@@ -168,11 +1286,18 @@ const FAQS = [
   },
 ];
 
-function IndexPage() {
+
+function TrialHome({
+  onToggleDefault,
+  isAuthenticated,
+  settings,
+}: {
+  onToggleDefault: () => void;
+  isAuthenticated: boolean | null;
+  settings: PublicSettings;
+}) {
   const navigate = useNavigate();
-  const [settings, setSettings] = useState<PublicSettings>(DEFAULT_SETTINGS);
   const [invitedBy, setInvitedBy] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -189,22 +1314,7 @@ function IndexPage() {
   const [selectedYear, setSelectedYear] = useState(2024);
   const [selectedTopicId, setSelectedTopicId] = useState("4");
 
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((body) => {
-        if (body?.success && body.settings) setSettings(body.settings);
-      })
-      .catch(() => {});
-  }, []);
-
   useEffect(() => setInvitedBy(captureReferralCode()), []);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setIsAuthenticated(Boolean(data.session));
-    });
-  }, []);
 
   // Cycle search placeholders every 3.8s
   useEffect(() => {
@@ -1201,7 +2311,7 @@ function IndexPage() {
             </h2>
 
             <Accordion type="single" collapsible className="space-y-3">
-              {FAQS.map((faq, index) => (
+              {TRIAL_FAQS.map((faq, index) => (
                 <AccordionItem
                   key={faq.q}
                   value={faq.q}
@@ -1310,7 +2420,17 @@ function IndexPage() {
           </div>
 
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-            <p>© {new Date().getFullYear()} Marginal AI. Not affiliated with Cambridge Assessment International Education.</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p>© {new Date().getFullYear()} Marginal AI. Not affiliated with Cambridge Assessment International Education.</p>
+              <button
+                type="button"
+                onClick={onToggleDefault}
+                className="inline-flex items-center gap-1.5 rounded-xs border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted shadow-raised cursor-pointer"
+              >
+                <RotateCcw className="size-3 text-primary" />
+                <span>Return to Default View</span>
+              </button>
+            </div>
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -1371,6 +2491,18 @@ function IndexPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Docked Return to Default View Button */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          type="button"
+          onClick={onToggleDefault}
+          className="flex items-center gap-2 rounded-full border border-border bg-card/95 px-3.5 py-2 text-xs font-semibold text-foreground shadow-hard backdrop-blur-md hover:bg-muted transition-all cursor-pointer"
+          title="Switch back to Default View (Full Experience)"
+        >
+          <RotateCcw className="size-3.5 text-primary" />
+          <span>Default View</span>
+        </button>
+      </div>
     </div>
   );
 }

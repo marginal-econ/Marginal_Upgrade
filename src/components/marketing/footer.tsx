@@ -134,7 +134,13 @@ function FooterWordmark() {
   );
 }
 
-export function SiteFooter({ onToggleMinimalist }: { onToggleMinimalist?: () => void } = {}) {
+export function SiteFooter({
+  onToggleMinimalist,
+  onToggleTrialView,
+}: {
+  onToggleMinimalist?: () => void;
+  onToggleTrialView?: () => void;
+} = {}) {
   return (
     <footer className="relative overflow-hidden border-t border-border bg-background text-foreground">
       <div
@@ -267,15 +273,15 @@ export function SiteFooter({ onToggleMinimalist }: { onToggleMinimalist?: () => 
             <Link to="/privacy" className="transition-colors hover:text-foreground">
               Privacy
             </Link>
-            {onToggleMinimalist ? (
+            {onToggleTrialView || onToggleMinimalist ? (
               <button
                 type="button"
-                onClick={onToggleMinimalist}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                title="Switch to Minimalist View (Zero animations, clean screen)"
+                onClick={onToggleTrialView || onToggleMinimalist}
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-all cursor-pointer shadow-xs"
+                title="Switch to Trial View (PaperGrinder Edition)"
               >
-                <Minimize2 className="size-3 text-primary" />
-                <span>Minimalist View</span>
+                <Sparkles className="size-3 text-amber-500 animate-pulse" />
+                <span>Trial View</span>
               </button>
             ) : null}
             <span className="ml-auto">Built for one syllabus, and nothing else.</span>
