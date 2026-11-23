@@ -52,7 +52,7 @@ const founders = [
   {
     name: "Suthir R",
     initials: "SR",
-    role: "Co-founder & Design Head",
+    role: "Co-founder and Design Head",
     focus: "Product Design, UI/UX & Brand Identity",
     linkedin: "https://www.linkedin.com/in/suthir-r",
     photo: "/founders/suthir.webp",
@@ -159,7 +159,7 @@ function AboutPage() {
               ))}
             </div>
             <span className="text-sm font-medium text-plum-foreground/85">
-              Founded &amp; created by Saikrish, with Suthir (Co-founder &amp; Design) and Athithya (Marketing)
+              Founded &amp; created by Saikrish, with Suthir (Co-founder and Design Head) and Athithya (Marketing)
             </span>
           </div>
           <div className="mt-7 flex flex-wrap gap-2">
