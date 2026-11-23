@@ -164,7 +164,7 @@ export function SiteFooter({ onToggleMinimalist }: { onToggleMinimalist?: () => 
               About Marginal
             </p>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              Founded and created by Saikrish Karthikeyan, alongside Suthir and Athithya, for one syllabus — Cambridge AS and A Level Economics (9708). We
+              Founded and created by Saikrish Karthikeyan, alongside Suthir (Co-founder &amp; Design Head) and Athithya, for one syllabus — Cambridge AS and A Level Economics (9708). We
               are closing the gap between writing an essay and knowing exactly how to improve it.
             </p>
             <div className="mt-4 flex flex-wrap gap-2" aria-label="Marginal facts">
