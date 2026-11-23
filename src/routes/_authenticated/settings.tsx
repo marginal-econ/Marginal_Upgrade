@@ -1675,7 +1675,7 @@ export function SettingsPage() {
                       <p className="flex items-start gap-1.5">
                         <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
                         <span>
-                          <strong className="text-foreground">Comprehensive Tools:</strong> Full AS &amp; A2 coverage: Paper 1 &amp; 3 MCQs, Paper 2 &amp; 4 essays, vector diagrams, and Live Examiner.
+                          <strong className="text-foreground">Comprehensive Tools:</strong> Full AS &amp; A2 coverage: Paper 1 &amp; 3 MCQs, Paper 2 &amp; 4 essays, vector diagrams, and Definition Hub.
                         </span>
                       </p>
                     </div>

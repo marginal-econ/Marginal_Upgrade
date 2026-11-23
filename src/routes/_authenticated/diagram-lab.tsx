@@ -113,7 +113,7 @@ function DiagramLabPage() {
     const tag = `[DIAGRAM: ${title} | axes: Price (P) / Quantity (Q) | curves: D, S, S+tax | equilibrium: P* = ${metrics.eqP.toFixed(1)}, Q* = ${metrics.eqQ.toFixed(1)} | deadweight_loss: ${metrics.deadweightLoss.toFixed(1)} | accuracy: dynamically plotted using Cambridge Diagram CAD Engine]`;
 
     navigator.clipboard.writeText(tag);
-    toast.success("Copied Cambridge Diagram Tag! You can paste this straight into your essay or Live Examiner.");
+    toast.success("Copied Cambridge Diagram Tag! You can paste this straight into your essay.");
   };
 
   return (

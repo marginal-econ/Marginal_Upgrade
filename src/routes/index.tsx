@@ -83,7 +83,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, live examiner feedback, and Paper 1, 2, 3 & 4 practice for both AS and A Level.",
+          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, line-by-line mark scheme breakdown, and Paper 1, 2, 3 & 4 practice for both AS and A Level.",
       },
       {
         name: "keywords",
@@ -172,7 +172,7 @@ export const Route = createFileRoute("/")({
               "name": "What is Marginal AI?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Marginal AI is the Cambridge International AS & A Level Economics (9708) mastery platform featuring real-time Live Examiner coaching, automated AO1/AO2/AO3 essay grading calibrated against official Cambridge mark schemes, and Paper 1 & 3 MCQ past paper drills.",
+                "text": "Marginal AI is the Cambridge International AS & A Level Economics (9708) mastery platform featuring automated AO1/AO2/AO3 essay grading calibrated against official Cambridge mark schemes, and Paper 1 & 3 MCQ past paper drills.",
               },
             },
             {
@@ -211,7 +211,6 @@ const RIBBON_ITEMS = [
   "Both AS & A Level",
   "8m, 12m & 20m Essays",
   "Papers 1, 2, 3 & 4",
-  "Live Examiner",
   "Multiplayer MCQ Arena",
   "Live 6-Digit Quiz PIN",
   "Score Maximizer",
@@ -319,14 +318,6 @@ const TOOLS = [
     body: "Performance radar tracking projected Cambridge grades, MCQ topic mastery, and syllabus balance.",
     href: "/review",
   },
-  {
-    icon: Sparkles,
-    tile: "bg-purple-600",
-    badge: "AI Coaching",
-    title: "Live Examiner Studio",
-    body: "Real-time AI examiner coaching as you type, with live Socratic hints and misconception alerts.",
-    href: "/live-examiner",
-  },
 ];
 
 const FAQS = [
@@ -340,15 +331,15 @@ const FAQS = [
   },
   {
     q: "Is Marginal free for students?",
-    a: "Yes. Students get free instant access to essay grading, live examiner feedback, and timed Paper 1 & 3 past paper MCQ drills.",
+    a: "Yes. Students get free instant access to essay grading, step-by-step mark breakdown, and timed Paper 1 & 3 past paper MCQ drills.",
   },
   {
     q: "Can Marginal read handwritten essays and diagrams?",
     a: "Yes. Take a photo of your handwritten mock exam or notebook. Our vision OCR extracts the text, isolates diagrams, and evaluates them directly against syllabus standards.",
   },
   {
-    q: "How does the Live Examiner work?",
-    a: "As you write in the Live Examiner studio, it provides real-time Socratic feedback, alerts you to logical gaps in your causal chain, and tracks your AO mark accumulation live.",
+    q: "How does the Multiplayer MCQ Arena work?",
+    a: "Students or teachers can host or join live timed past paper MCQ competitions using a simple 6-digit PIN. You can choose between a focused timed mock sprint or Game Arena mode with strategic power-ups and live leaderboards.",
   },
   {
     q: "Can teachers and schools use Marginal?",
@@ -393,7 +384,7 @@ function Index() {
 
   const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://marginal-econ.com";
   const shareUrl = `${shareOrigin}${invitedBy ? `?ref=${encodeURIComponent(invitedBy)}` : ""}`;
-  const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It gives real-time Live Examiner coaching, breaks down essays into AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, and offers full MCQ past paper practice with resume. Grade unlimited essays free:\n${shareUrl}`;
+  const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It breaks down essays into AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, and offers full MCQ past paper practice with auto-save resume. Grade unlimited essays free:\n${shareUrl}`;
 
   const handleCopyLink = async () => {
     const ok = await copyTextToClipboard(shareUrl);
@@ -842,7 +833,7 @@ function Index() {
                   Start scoring higher in AS & A Level Economics
                 </h2>
                 <p className="mt-4 max-w-md text-sm text-pretty text-plum-foreground/85 md:text-base">
-                  Every candidate gets unlimited Cambridge essay gradings, the real-time Live Examiner, and authentic past paper MCQ drills with auto-save resume completely free.
+                  Every candidate gets unlimited Cambridge essay gradings, full AO1/AO2/AO3 clause audits, and authentic past paper MCQ drills with auto-save resume completely free.
                 </p>
 
                 <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3 relative z-20">
@@ -916,7 +907,7 @@ function Index() {
                   Unlimited Graded Essays + Full MCQ Practice
                 </p>
                 <p className="text-muted-foreground dark:text-emerald-200/80 leading-relaxed">
-                  Anyone who joins through your link gets instant access to unlimited essays marked by our Cambridge 9708 examiner engine, Live Examiner coaching, and past paper drills with no credit card required.
+                  Anyone who joins through your link gets instant access to unlimited essays marked by our Cambridge 9708 examiner engine, AO1/AO2/AO3 clause audits, and past paper drills with no credit card required.
                 </p>
               </div>
             </div>
@@ -937,16 +928,16 @@ function Index() {
                   <span>WhatsApp</span>
                 </a>
                 <a
-                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out Marginal for Cambridge AS & A Level Economics (9708) — unlimited essays graded + Live Examiner & MCQ past paper drills!")}`}
+                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out Marginal for Cambridge AS & A Level Economics (9708) — unlimited essays graded + Cambridge MCQ past paper drills!")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-sky-500/10 hover:border-sky-500/30 hover:text-sky-600 transition-all text-xs font-semibold group cursor-pointer text-center"
                 >
-                  <Send className="size-5 text-sky-500 transition-transform group-hover:scale-110" />
+                  <MessageCircle className="size-5 text-sky-500 transition-transform group-hover:scale-110" />
                   <span>Telegram</span>
                 </a>
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Preparing for Cambridge AS & A Level Economics (9708) with Marginal — unlimited essays graded + Live Examiner & MCQ past paper drills:")}&url=${encodeURIComponent(shareUrl)}`}
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Preparing for Cambridge AS & A Level Economics (9708) with Marginal — unlimited essays graded + Cambridge MCQ past paper drills:")}&url=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all text-xs font-semibold group cursor-pointer text-center"
@@ -1135,8 +1126,8 @@ function SpecimenCard() {
               </ul>
               <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">Calibrated against real 9708 candidates</span>
-                <a href="#graded-exemplar" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
-                  View Full 10/12 Script Exemplar ↓
+                <a href="#benchmarks" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
+                  View Calibration Benchmarks ↓
                 </a>
               </div>
             </div>
@@ -1321,7 +1312,7 @@ function MinimalistHome({
 
           <p className="max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
             {settings.heroDescription ||
-              "Marginal AI is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice."}
+              "Marginal AI is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Cambridge Mark Schemes, and Paper 1 & 3 MCQ practice."}
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -1342,12 +1333,12 @@ function MinimalistHome({
               <span>MCQ Past Papers</span>
             </Link>
             <Link
-              to={isAuthenticated ? "/live-examiner" : "/auth"}
-              search={isAuthenticated ? undefined : ({ redirect: "/live-examiner" } as any)}
+              to={isAuthenticated ? "/quiz" : "/auth"}
+              search={isAuthenticated ? undefined : ({ redirect: "/quiz" } as any)}
               className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted inline-flex items-center gap-2"
             >
-              <Sparkles className="size-4 text-purple-600" />
-              <span>Live Examiner</span>
+              <Gamepad2 className="size-4 text-amber-500" />
+              <span>Multiplayer Quiz PIN</span>
             </Link>
             <Link
               to={isAuthenticated ? "/definitions" : "/auth"}

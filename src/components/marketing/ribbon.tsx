@@ -46,16 +46,6 @@ const DEFAULT_CONFIG: RibbonChipConfig = {
 };
 
 const CHIP_MAP: Record<string, RibbonChipConfig> = {
-  "Live Examiner": {
-    icon: Sparkles,
-    tag: "Real-Time AI",
-    pillClass:
-      "border-purple-500/40 bg-purple-500/10 hover:border-purple-500/60 text-purple-950 dark:text-purple-200 shadow-[0_0_14px_rgba(168,85,247,0.18)]",
-    iconBg: "bg-purple-500/20 text-purple-600 dark:text-purple-300",
-    iconColor: "text-purple-600 dark:text-purple-300",
-    tagClass: "border-purple-500/35 bg-purple-500/15 text-purple-700 dark:text-purple-300",
-    glowDot: "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]",
-  },
   "Score Maximizer": {
     icon: Flame,
     tag: "Exam Tech",

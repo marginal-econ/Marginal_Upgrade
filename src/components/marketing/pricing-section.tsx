@@ -47,7 +47,7 @@ const EDUCATOR_TIERS = [
     annualPrice: 349,
     annualEquivalentMonthly: 29,
     savePct: 17,
-    quota: "8 Graded Essays / mo · 3 Live Examiner Credits",
+    quota: "8 Graded Essays / mo · 3 AI Diagnostic Credits",
     badge: "Most Popular for Teachers",
     popular: true,
     features: [
@@ -55,7 +55,7 @@ const EDUCATOR_TIERS = [
       "Ingest Custom School Mark Schemes into Classroom RAG",
       "Anchor Calibration Suite: Lock Exam-Board Standard Exemplars",
       "8 Cambridge Graded Essays & Diagnostic Reports / mo",
-      "3 Live Socratic Examiner Demo Credits / mo",
+      "3 AI Diagnostic & Calibration Credits / mo",
       "Create Unlimited Cambridge Cohorts & Class Assignments",
       "Class Diagnostic Heatmaps & Weakness Analytics",
       "Gradebook CSV & Spreadsheet Exports",
@@ -64,18 +64,18 @@ const EDUCATOR_TIERS = [
   {
     id: "scholar_plus",
     name: "Senior Educator Pass",
-    tagline: "Expanded assessment capacity: 15 essays & 5 Live Examiner credits for active Cambridge teachers.",
+    tagline: "Expanded assessment capacity: 15 essays & 5 AI Diagnostic credits for active Cambridge teachers.",
     monthlyPrice: 69,
     annualPrice: 690,
     annualEquivalentMonthly: 58,
     savePct: 17,
-    quota: "15 Graded Essays / mo · 5 Live Examiner Credits",
+    quota: "15 Graded Essays / mo · 5 AI Diagnostic Credits",
     badge: "Senior Educator",
     popular: true,
     features: [
       "Everything in Individual Educator Pass",
       "15 Cambridge Graded Essays & Detailed Diagnostic Reports / mo",
-      "5 Live Socratic Examiner Demo Credits / mo",
+      "5 AI Diagnostic & Calibration Credits / mo",
       "Upload and manage custom school mark schemes & rubrics",
       "Full cohort diagnostic heatmaps & weakness analytics",
       "Exemplar showcase & past MCQ papers with Cambridge explanations",
@@ -90,12 +90,12 @@ const EDUCATOR_TIERS = [
     annualPrice: 1190,
     annualEquivalentMonthly: 99,
     savePct: 17,
-    quota: "20 Graded Essays / mo · 10 Live Examiner Credits",
+    quota: "20 Graded Essays / mo · 10 AI Diagnostic Credits",
     badge: "Head of Economics",
     features: [
       "Everything in Individual Educator Pass",
       "20 Cambridge Graded Essays / month",
-      "10 Live Examiner Credits / month",
+      "10 AI Diagnostic Credits / month",
       "Dual-Model Principal Examiner Arbitration",
       "Unlimited Custom Mark Schemes & Syllabus Uploads",
       "Section-Wise Cohort Comparison Matrix",
@@ -155,16 +155,16 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "foundation",
     name: "Foundation Scholar",
-    tagline: "Accessible entry point: flat $19/mo for 8 Cambridge essays & 2 Live Examiner sessions.",
+    tagline: "Accessible entry point: flat $19/mo for 8 Cambridge essays & 2 AI Diagnostic credits.",
     monthlyPrice: 19,
     annualPrice: 190,
     annualEquivalentMonthly: 16,
     savePct: 17,
-    quota: "8 Graded Essays / mo · 2 Live Examiner Credits",
+    quota: "8 Graded Essays / mo · 2 AI Diagnostic Credits",
     badge: "Most Accessible",
     features: [
       "8 Cambridge Graded Essays / month",
-      "2 Live Examiner Credits / month (25 min Real-time AI Coaching)",
+      "2 AI Diagnostic Credits / month (Advanced AO Deep Dives)",
       "Unlimited Instant In-Browser Grammar & Economics Terminology Checks (< 50ms)",
       "Full AO1, AO2, AO3 Diagnostic Reports",
       "Cambridge Definitions Hub & Drills",
@@ -174,16 +174,16 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "scholar_plus",
     name: "Scholar Plus",
-    tagline: "Focused exam booster: flat $35/mo for 15 Cambridge essays & 4 Live Examiner sessions.",
+    tagline: "Focused exam booster: flat $35/mo for 15 Cambridge essays & 4 AI Diagnostic credits.",
     monthlyPrice: 35,
     annualPrice: 349,
     annualEquivalentMonthly: 29,
     savePct: 17,
-    quota: "15 Graded Essays / mo · 4 Live Examiner Credits",
+    quota: "15 Graded Essays / mo · 4 AI Diagnostic Credits",
     badge: "Great Value",
     features: [
       "15 Cambridge Graded Essays / month",
-      "4 Live Examiner Credits / month (30 min Real-time AI Coaching)",
+      "4 AI Diagnostic Credits / month (Advanced AO Deep Dives)",
       "Unlimited Instant In-Browser Grammar & Economics Terminology Checks (< 50ms)",
       "Full AO1, AO2, AO3 Diagnostic Reports & Mark Scheme Matching",
       "Cambridge Definitions Hub & Drills",
@@ -194,17 +194,17 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "pro",
     name: "Pro Accelerator",
-    tagline: "The benchmark for serious Cambridge candidates: 25 essays & 8 Live Examiner sessions.",
+    tagline: "The benchmark for serious Cambridge candidates: 25 essays & 8 AI Diagnostic credits.",
     monthlyPrice: 59,
     annualPrice: 590,
     annualEquivalentMonthly: 49,
     savePct: 17,
-    quota: "25 Graded Essays / mo · 8 Live Examiner Credits",
+    quota: "25 Graded Essays / mo · 8 AI Diagnostic Credits",
     badge: "Most Popular",
     popular: true,
     features: [
       "25 Cambridge Graded Essays / month",
-      "8 Live Examiner Credits / month (35m timed exam drill AI coaching)",
+      "8 AI Diagnostic Credits / month (Timed exam drill analytics)",
       "Unlimited Instant In-Browser Grammar & Terminology Checks",
       "Sub-second Cambridge AO Sentence Diagnostics & Causal Chains",
       "Perfect Essay Generator (AI Model Answers)",
@@ -216,17 +216,17 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "mastery",
     name: "A* Mastery Sprint",
-    tagline: "Peak revision powerhouse for Oct/Nov & May/June exam series: 50 essays & 14 Live Examiner sessions.",
+    tagline: "Peak revision powerhouse for Oct/Nov & May/June exam series: 50 essays & 14 AI Diagnostic credits.",
     monthlyPrice: 99,
     annualPrice: 990,
     annualEquivalentMonthly: 82,
     savePct: 17,
-    quota: "50 Graded Essays / mo · 14 Live Examiner Credits",
+    quota: "50 Graded Essays / mo · 14 AI Diagnostic Credits",
     badge: "A* Target Cohort",
     features: [
       "Multi-Paper Diagnostic Feedback & Evaluative Refinements",
       "50 Cambridge Graded Essays / month",
-      "14 Live Examiner Credits / month (40m extended AI coaching, priority queue)",
+      "14 AI Diagnostic Credits / month (Priority queue evaluation)",
       "Unlimited Instant In-Browser Grammar & Mechanics Checks",
       "Handwritten Essay OCR Scanning (Photo Uploads)",
       "Holistic Review Panel & Syllabus Weakness Heatmap",
@@ -237,17 +237,17 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "elite",
     name: "Cambridge Elite Pass",
-    tagline: "VIP all-inclusive pass for complete syllabus dominance: 75 essays & 22 Live Examiner sessions.",
+    tagline: "VIP all-inclusive pass for complete syllabus dominance: 75 essays & 22 AI Diagnostic credits.",
     monthlyPrice: 179,
     annualPrice: 1790,
     annualEquivalentMonthly: 149,
     savePct: 17,
-    quota: "75 Graded Essays / mo · 22 Live Examiner Credits",
+    quota: "75 Graded Essays / mo · 22 AI Diagnostic Credits",
     badge: "VIP All-Access Pass",
     features: [
       "Comprehensive Cambridge Evaluation Suite (Papers 1, 2, 3 & 4 Coverage)",
       "75 Cambridge Graded Essays / month & Reworks",
-      "22 Live Examiner Credits / month (45m Cambridge exam timing)",
+      "22 AI Diagnostic Credits / month (Extended evaluation timing)",
       "Unlimited Instant In-Browser Grammar & Terminology Checks",
       "Dedicated High-Speed Flash Acceleration Queue",
       "Bespoke Past Paper Exam Series Generation",
@@ -955,7 +955,7 @@ export function PricingSection({ className }: { className?: string }) {
               Compare Features Across All Cambridge 9708 Tiers
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Deep dive into evaluation diagnostics, revision studio modalities, Live Examiner coaching, and speed infrastructure.
+              Deep dive into evaluation diagnostics, revision studio modalities, Cambridge mark schemes, and speed infrastructure.
             </p>
           </div>
 
@@ -1140,14 +1140,14 @@ export function PricingSection({ className }: { className?: string }) {
                     <td colSpan={8} className="py-2.5 px-4 text-xs">
                       <span className="flex items-center gap-2">
                         <School className="size-4 text-purple-500" />
-                        3. Live Examiner &amp; Classroom Cohorts
+                        3. AI Diagnostics &amp; Classroom Cohorts
                       </span>
                     </td>
                   </tr>
                   <tr>
                     <td className="py-3 px-4 font-medium text-foreground">
-                      Live Examiner Credits / month
-                      <span className="block text-[10px] text-muted-foreground font-normal">Real-time Socratic voice &amp; timed exam drills</span>
+                      AI Diagnostic Credits / month
+                      <span className="block text-[10px] text-muted-foreground font-normal">Advanced AO evaluations &amp; timed exam drills</span>
                     </td>
                     <td className="py-3 px-3 text-center font-mono">0</td>
                     <td className="py-3 px-3 text-center font-mono font-bold text-primary">2</td>
@@ -1298,9 +1298,9 @@ export function PricingSection({ className }: { className?: string }) {
                 <Clock className="size-5" />
               </span>
               <div>
-                <h4 className="text-sm font-semibold">Live Examiner AI Credits</h4>
+                <h4 className="text-sm font-semibold">AI Diagnostic Credits</h4>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Real-time Cambridge AO guidance powered by transparent per-essay examiner credits. In-browser grammar, mechanics, and syllabus terminology checks remain unlimited.
+                  Transparent per-essay Cambridge AO guidance and evaluation credits. In-browser grammar, mechanics, and syllabus terminology checks remain unlimited.
                 </p>
               </div>
             </div>

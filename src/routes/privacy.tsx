@@ -117,7 +117,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           <strong>Your class teachers</strong>, while you are enrolled in their class, can view the
           learning activity needed to support you. This includes essay questions and marks, AO
-          breakdowns, MCQ results and topic performance, and Live Examiner progress. Before joining
+          breakdowns, and MCQ results and topic performance. Before joining
           a class, you must explicitly acknowledge this access. Leaving the class removes that
           teacher’s classroom access to your report.
         </p>

@@ -394,13 +394,6 @@ export function DashboardPage() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              {Boolean(me.data?.isAdmin) && (
-                <Button asChild variant="outline" size="sm" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 font-medium">
-                  <Link to="/live-examiner">
-                    <Sparkles className="size-3.5 text-amber-500" /> Live Examiner
-                  </Link>
-                </Button>
-              )}
               <Button asChild variant="outline" size="sm">
                 <Link to="/review">
                   <ClipboardCheck className="size-3.5 text-primary" /> Diagnostics &amp; Review
@@ -952,13 +945,6 @@ export function DashboardPage() {
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <QuickActionCard
-                  to="/live-examiner"
-                  icon={Sparkles}
-                  title="Live Examiner Studio"
-                  badge="Admin Only"
-                  description="Real-time AI essay drafting with instant Cambridge mark evaluation, live AO color coding, and Socratic challenges."
-                />
                 <QuickActionCard
                   to="/chat"
                   icon={MessageSquare}

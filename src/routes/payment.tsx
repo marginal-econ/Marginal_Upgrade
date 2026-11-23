@@ -137,7 +137,7 @@ export const Route = createFileRoute("/payment")({
       {
         name: "description",
         content:
-          "Secure Razorpay payment checkout portal for Cambridge 9708 Economics revision subscriptions and Live Examiner credits.",
+          "Secure Razorpay payment checkout portal for Cambridge 9708 Economics revision subscriptions and evaluation credits.",
       },
     ],
   }),
@@ -150,35 +150,35 @@ const TIER_PRICING = {
     annual: 190,
     annualMonthlyEq: 16,
     savePct: 17,
-    tagline: "Foundation Scholar — 8 essays/mo and 2 Live Examiner credits",
+    tagline: "Foundation Scholar — 8 essays/mo and 2 AI Evaluation credits",
   },
   scholar_plus: {
     monthly: 35,
     annual: 349,
     annualMonthlyEq: 29,
     savePct: 17,
-    tagline: "Scholar Plus — 15 essays/mo and 4 Live Examiner credits",
+    tagline: "Scholar Plus — 15 essays/mo and 4 AI Evaluation credits",
   },
   pro: {
     monthly: 59,
     annual: 590,
     annualMonthlyEq: 49,
     savePct: 17,
-    tagline: "Pro Accelerator — 25 essays/mo, 8 Live Examiner credits, arbitration",
+    tagline: "Pro Accelerator — 25 essays/mo, 8 AI Evaluation credits, arbitration",
   },
   mastery: {
     monthly: 99,
     annual: 990,
     annualMonthlyEq: 82,
     savePct: 17,
-    tagline: "A* Mastery Sprint — 50 essays/mo, 14 Live Examiner credits, handwriting OCR",
+    tagline: "A* Mastery Sprint — 50 essays/mo, 14 AI Evaluation credits, handwriting OCR",
   },
   elite: {
     monthly: 179,
     annual: 1790,
     annualMonthlyEq: 149,
     savePct: 17,
-    tagline: "Cambridge Elite Pass — 75 essays/mo and 22 Live Examiner credits",
+    tagline: "Cambridge Elite Pass — 75 essays/mo and 22 AI Evaluation credits",
   },
 };
 
@@ -765,7 +765,7 @@ function PaymentPortalPage() {
           <div className="space-y-1">
             <h2 className="text-xl font-bold tracking-tight text-foreground">Sign In Required to Pay</h2>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Please sign in to your Marginal account so your Cambridge subscription plan and Live Examiner credits are linked to your profile.
+              Please sign in to your Marginal account so your Cambridge subscription plan and evaluation credits are linked to your profile.
             </p>
           </div>
           <Button asChild className="w-full font-bold shadow-md">
@@ -837,7 +837,7 @@ function PaymentPortalPage() {
               ? "Equip your economics department with bulk student essay allocations, teacher dashboard oversight, and shared mark scheme calibrations."
               : isTeacherMode
               ? `Unlock personal Cambridge 9708 examiner AI marking, custom school mark scheme ingestion, and live Socratic coaching from ${format(19)}/mo.`
-              : "Choose your Cambridge study tier, unlock instant Live Examiner AI credits, and begin scoring higher with official mark scheme calibrations."}
+              : "Choose your Cambridge study tier, unlock instant AI evaluation credits, and begin scoring higher with official mark scheme calibrations."}
           </p>
         </div>
 
@@ -859,7 +859,7 @@ function PaymentPortalPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Essays Remaining: <strong className="text-foreground">{meQuery.data?.subscription?.essaysLimit === 9999 ? "Unlimited" : `${meQuery.data?.subscription?.essaysRemaining} / ${meQuery.data?.subscription?.essaysLimit}`}</strong> · Live Examiner Credits: <strong className="text-foreground">{meQuery.data?.subscription?.liveExaminerCredits}</strong>
+                    Essays Remaining: <strong className="text-foreground">{meQuery.data?.subscription?.essaysLimit === 9999 ? "Unlimited" : `${meQuery.data?.subscription?.essaysRemaining} / ${meQuery.data?.subscription?.essaysLimit}`}</strong> · Evaluation Credits: <strong className="text-foreground">{meQuery.data?.subscription?.liveExaminerCredits}</strong>
                   </p>
                 </div>
               </div>
@@ -1175,21 +1175,21 @@ function PaymentPortalPage() {
                     if (isTeacherMode) {
                       if (tierKey === "foundation") {
                         tierTitle = "Individual Educator AI Pass";
-                        tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 Graded Essay evaluations/mo, 3 Live Examiner coaching credits, full classroom manager";
+                        tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 Graded Essay evaluations/mo, 3 AI Diagnostic credits, full classroom manager";
                         tierBadge = "Educator AI Pass";
                       } else if (tierKey === "scholar_plus") {
                         tierTitle = "Senior Educator Pass";
-                        tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 5 Live Examiner Credits, custom curriculum mark schemes";
+                        tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 5 AI Diagnostic Credits, custom curriculum mark schemes";
                         tierBadge = "Senior Educator";
                       } else if (tierKey === "pro") {
                         tierTitle = "Department Lead Pass";
-                        tierSubtitle = "20 Cambridge Graded Essay evaluations / mo, 10 Live Examiner Credits, Dual-Model Principal Examiner Arbitration";
+                        tierSubtitle = "20 Cambridge Graded Essay evaluations / mo, 10 AI Diagnostic Credits, Dual-Model Principal Examiner Arbitration";
                       } else if (tierKey === "mastery") {
                         tierTitle = "Mastery Department Pass";
-                        tierSubtitle = "45 Graded Essay evaluations/mo, 20 Live Examiner credits, OCR handwriting scan";
+                        tierSubtitle = "45 Graded Essay evaluations/mo, 20 AI Diagnostic credits, OCR handwriting scan";
                       } else if (tierKey === "elite") {
                         tierTitle = "Elite Institutional Pass";
-                        tierSubtitle = "80 Graded Essay evaluations/mo, 35 Live Examiner credits, full evaluation suite";
+                        tierSubtitle = "80 Graded Essay evaluations/mo, 35 AI Diagnostic credits, full evaluation suite";
                       }
                     }
 
@@ -1464,7 +1464,7 @@ function PaymentPortalPage() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Zap className="size-3.5 text-amber-500 shrink-0" />
                         <span className="font-medium text-foreground">
-                          {limits.liveExaminerCredits} Live Examiner AI Credits
+                          {limits.liveExaminerCredits} AI Diagnostic Credits
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-muted-foreground">

@@ -17,7 +17,7 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "Marginal AI is 100% Free for all Cambridge International 9708 Economics students and educators. Unlimited AI essay evaluations, Live Examiner coaching, and past-paper MCQ drills.",
+          "Marginal AI is 100% Free for all Cambridge International 9708 Economics students and educators. Unlimited AI essay evaluations, Cambridge mark scheme audits, and past-paper MCQ drills.",
       },
       { name: "robots", content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" },
       { property: "og:site_name", content: "Marginal AI" },

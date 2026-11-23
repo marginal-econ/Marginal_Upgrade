@@ -114,7 +114,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, live examiner feedback, and Paper 1 & Paper 3 MCQ practice.",
+          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, line-by-line mark scheme breakdown, and Paper 1 & Paper 3 MCQ practice.",
       },
       {
         name: "keywords",

@@ -233,23 +233,6 @@ export function CommandPalette({
         },
       },
       {
-        id: "page-live-examiner",
-        title: "Live Examiner Studio",
-        subtitle: "Real-time AI examiner coaching as you type with Socratic feedback & misconception detection",
-        category: "pages",
-        categoryLabel: "Exam Practice",
-        icon: Sparkles,
-        iconBg: "bg-amber-500/10",
-        iconColor: "text-amber-500",
-        badge: "Under Dev",
-        badgeTone: "border-amber-500/35 text-amber-600 dark:text-amber-400 bg-amber-500/10",
-        keywords: ["live", "examiner", "realtime", "socratic", "editor", "coaching", "writing"],
-        onSelect: () => {
-          navigate({ to: "/live-examiner" });
-          onOpenChange(false);
-        },
-      },
-      {
         id: "page-definitions",
         title: "Definitions Hub",
         subtitle: "7,000+ Cambridge 9708 syllabus definitions, command words, and flashcard drills",
@@ -493,7 +476,7 @@ export function CommandPalette({
       list.push({
         id: "page-admin",
         title: "Admin Console (Root Command)",
-        subtitle: "Manage user directory, coupon codes, live examiner models, and platform controls",
+        subtitle: "Manage user directory, coupon codes, AI models, and platform controls",
         category: "pages",
         categoryLabel: "Administration",
         icon: ShieldCheck,

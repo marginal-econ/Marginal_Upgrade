@@ -305,7 +305,6 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
-      { to: "/live-examiner", label: "Live Examiner Studio", icon: Sparkles, badge: "Lab", adminOnly: true },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, adminOnly: true },
     ],
   },
@@ -364,7 +363,6 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
-      { to: "/live-examiner", label: "Live Examiner Studio", icon: Sparkles, badge: "Lab", adminOnly: true },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, adminOnly: true },
     ],
   },
@@ -1917,25 +1915,6 @@ export function AppShell({
                             <p className="font-semibold leading-tight">Admin Console</p>
                             <p className="text-[10px] text-muted-foreground font-normal">System metrics, users & logs</p>
                           </div>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild className="p-0">
-                        <Link
-                          to="/live-examiner"
-                          className="flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className="size-6 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0">
-                              <Sparkles className="size-3.5 text-amber-500" />
-                            </div>
-                            <div>
-                              <p className="font-semibold leading-tight">Live Examiner Studio</p>
-                              <p className="text-[10px] text-muted-foreground font-normal">Active grading telemetry</p>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-[9px] font-mono border-amber-500/35 text-amber-600">
-                            Beta
-                          </Badge>
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>

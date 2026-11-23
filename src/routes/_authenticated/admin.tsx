@@ -441,7 +441,6 @@ const ADMIN_CATEGORIES = [
       ADMIN_SECTIONS.quiz,
     ],
     externalLinks: [
-      { label: "Live Examiner Studio", to: "/live-examiner", icon: Sparkles, desc: "Real-time AI Essay Examiner (Admin Lab)" },
       { label: "Live Quiz Arena", to: "/quiz", icon: Gamepad2, desc: "Multiplayer Blooket / Quizizz Arena" },
     ],
   },
