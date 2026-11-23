@@ -61,7 +61,6 @@ import {
   Waves,
 } from "@/components/marketing/doodles";
 import { SiteFooter } from "@/components/marketing/footer";
-import { CommandWordDrill } from "@/components/marketing/interactive";
 import { MarkingHand } from "@/components/marketing/mascot";
 import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
@@ -70,7 +69,7 @@ import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { AccuracyCredibilitySection } from "@/components/marketing/accuracy-credibility-section";
-import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
+import { McqShowcaseSection } from "@/components/marketing/mcq-showcase-section";
 import { TeachersSection } from "@/components/marketing/teachers-section";
 import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
 import { CommunityPartnerBanner } from "@/components/marketing/community-partner-banner";
@@ -327,42 +326,6 @@ const TOOLS = [
     title: "Live Examiner Studio",
     body: "Real-time AI examiner coaching as you type, with live Socratic hints and misconception alerts.",
     href: "/live-examiner",
-  },
-];
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Pick or paste your question",
-    body: "Choose from our Cambridge question bank or paste any past-paper question across Papers 2 & 4.",
-  },
-  {
-    n: "02",
-    title: "Add your answer or photo",
-    body: "Type your essay or upload a photo of handwritten exam paper. OCR lifts your writing and diagrams seamlessly.",
-  },
-  {
-    n: "03",
-    title: "Get your mark and rewrite plan",
-    body: "Receive an instant AO1/AO2/AO3 breakdown, mark-scheme citations, and an ordered plan for your next draft.",
-  },
-];
-
-const TRUST = [
-  {
-    icon: BookOpen,
-    title: "Grounded in Cambridge 9708",
-    body: "Every mark and citation is retrieved directly from official Cambridge mark schemes, examiner reports, and syllabus standards.",
-  },
-  {
-    icon: Target,
-    title: "Calibrated to Real Grade Boundaries",
-    body: "Calibrated against hundreds of verified student scripts to ensure standards match real Cambridge examiner grading.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Independent Dual-Pass Audit",
-    body: "Two independent passes correct central-tendency bias so top-band and low-band scripts are scored with precision.",
   },
 ];
 
@@ -675,10 +638,10 @@ function Index() {
                   size="lg"
                   className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
                 >
-                  <a href="#graded-exemplar">
-                    <FileText className="size-4 text-primary shrink-0" />
-                    <span>See Graded Sample</span>
-                  </a>
+                  <Link to="/mcq-live">
+                    <ListChecks className="size-4 text-primary shrink-0" />
+                    <span>Practice MCQs</span>
+                  </Link>
                 </Button>
                 <Button
                   asChild
@@ -739,19 +702,10 @@ function Index() {
         </div>
       </section>
 
-      {/* ── Verified Cambridge Examiner Accuracy & Benchmark ─────────────────── */}
+      {/* ── 1. Verified Cambridge Examiner Accuracy & Benchmark (First) ─────── */}
       <AccuracyCredibilitySection />
 
-      {/* ── Real Graded Essay Showcase (User Scored Exemplar) ────────────── */}
-      <RealEssayShowcase />
-
-      {/* ── Why Marginal Beats Raw AI (Real 12-Mark Stress Test) ─────────── */}
-      <AiComparisonSection />
-
-      {/* ── Cambridge Teachers & Department Workspace ──────────────────────── */}
-      <TeachersSection />
-
-      {/* ── What's inside ────────────────────────────────────────────────── */}
+      {/* ── 2. What We Provide: Core Cambridge 9708 Capabilities ─────────────── */}
       <section
         id="tools"
         className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden"
@@ -760,64 +714,13 @@ function Index() {
         <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
           <Reveal>
             <SectionHeading
-              eyebrow="Cambridge 9708 Tools"
-              title="Eleven specialized tools, one Cambridge syllabus"
+              eyebrow="Cambridge 9708 Capabilities"
+              title="What Marginal Provides"
               lead="Eleven specialized features engineered exclusively for Cambridge AS & A Level Economics (9708)."
             />
           </Reveal>
 
-          {/* Spotlight Banner: Live Multiplayer MCQ Quiz Arena */}
-          <Reveal delay={40}>
-            <div className="mt-8 mb-4 overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/[0.12] via-primary/[0.06] to-purple-500/[0.12] p-5 sm:p-7 shadow-xl relative">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-                <div className="space-y-2 max-w-2xl">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-0.5 text-[11px] font-mono font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 shadow-2xs">
-                      <Gamepad2 className="size-3.5 text-amber-500 animate-pulse" />
-                      NEW: MULTIPLAYER MCQ ARENA
-                    </span>
-                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                      ⚡ 6-Digit PIN · Sign In to Compete &amp; Save Diagnostics
-                    </span>
-                    <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-primary">
-                      Both AS &amp; A Level
-                    </span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-                    Race Cambridge Past Papers Live with Classmates &amp; Teachers
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Choose between <strong className="text-foreground">Serious Exam Sprint</strong> (silent timed mock) or <strong className="text-foreground">Game Arena</strong> with strategic power-ups (Pigouvian Tax, Rival Steals, 50/50 Elimination &amp; Policy Shock Freezes). Live podium and instant mark schemes.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 shrink-0 w-full sm:w-auto">
-                  <Button
-                    asChild
-                    size="lg"
-                    className="h-11 px-5 text-xs sm:text-sm font-extrabold bg-amber-500 hover:bg-amber-600 text-amber-950 shadow-md gap-2"
-                  >
-                    <Link to="/quiz">
-                      <Gamepad2 className="size-4" />
-                      <span>Join with PIN</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-11 px-4 text-xs sm:text-sm font-bold border-2 gap-2"
-                  >
-                    <Link to="/mcq-live">
-                      <Trophy className="size-4 text-primary" />
-                      <span>Host a Quiz (Free)</span>
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Reveal>
-
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {TOOLS.map((tool, index) => {
               const isCenteredStart = TOOLS.length % 4 === 2 && index === TOOLS.length - 2;
               return (
@@ -849,145 +752,39 @@ function Index() {
                         </div>
                       </div>
 
-                    <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                      {tool.body}
-                    </p>
-                  </div>
+                      <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </h3>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {tool.body}
+                      </p>
+                    </div>
 
-                  <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
-                      Cambridge 9708 Engine
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
-                      <span>View tool</span>
-                      <span aria-hidden="true">→</span>
-                    </span>
-                  </div>
-                </Link>
-              </Reveal>
-            );
-          })}
+                    <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
+                        Cambridge 9708 Engine
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
+                        <span>View tool</span>
+                        <span aria-hidden="true">→</span>
+                      </span>
+                    </div>
+                  </Link>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* ── How it works ─────────────────────────────────────────────────── */}
-      <section id="how" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
-        <CosmicAtmosphere variant="cyan" sparkles={true} density="medium" />
-        <Drift speed={-0.09} className="top-16 right-[5%] hidden lg:block pointer-events-none">
-          <Waves className="w-24 text-primary/40" />
-        </Drift>
-        <Drift speed={0.07} className="bottom-20 left-[4%] hidden xl:block pointer-events-none">
-          <Curl className="w-20 -scale-x-100 text-ao1/40" />
-        </Drift>
-        <div className="relative z-10 mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-20">
-          <Reveal>
-            <SectionHeading
-              eyebrow="How it works"
-              title="Three steps, about four minutes"
-              lead="No setup, no onboarding tour. On day one you'll bring one essay you're unsure about."
-            />
-          </Reveal>
+      {/* ── 3. Dedicated Cambridge 9708 MCQ & Arena Section ──────────────────── */}
+      <McqShowcaseSection />
 
-          <Reveal variant="pop" delay={80}>
-            <ol className="pop mt-12 divide-y-[1.5px] divide-ink/12 overflow-hidden bg-card/80 backdrop-blur-xs border border-border/70 shadow-sm">
-              {STEPS.map((step) => (
-                <li
-                  key={step.n}
-                  className="group flex flex-col gap-4 p-6 transition-colors duration-200 hover:bg-accent/40 md:flex-row md:gap-8 md:p-8"
-                >
-                  <span className="pop-sm flex size-10 shrink-0 items-center justify-center bg-primary font-mono text-sm font-semibold text-primary-foreground transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110 shadow-sm">
-                    {step.n}
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-semibold">{step.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                      {step.body}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Reveal>
-        </div>
-      </section>
+      {/* ── 4. Why Marginal Beats Raw AI (Real 12-Mark Stress Test) ─────────── */}
+      <AiComparisonSection />
 
-      {/* ── Command-word drill ───────────────────────────────────────────── */}
-      <section
-        id="drill"
-        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden"
-      >
-        <CosmicAtmosphere variant="purple" sparkles={true} density="medium" />
-        <div className="starfield" aria-hidden="true" />
-        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-12 px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20 lg:grid-cols-[0.85fr_1.15fr]">
-          <Reveal>
-            <p className="eyebrow eyebrow-accent">Command Word Mastery</p>
-            <h2 className="mt-2.5 text-2xl font-bold text-balance md:text-4xl">
-              The command word decides <span className="aurora-text">where the marks are</span>
-            </h2>
-            <p className="mt-3.5 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
-              “Explain” and “assess” test completely different assessment objectives and mark allocations. Learn the difference in seconds.
-            </p>
-            <p className="mt-3 text-xs font-semibold text-muted-foreground">
-              Interactive 2-minute drill · No account required
-            </p>
-          </Reveal>
-
-          <Reveal variant="pop" delay={80}>
-            <CommandWordDrill />
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── Why trust it ─────────────────────────────────────────────────── */}
-      <section id="trust" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
-        <CosmicAtmosphere variant="amber" sparkles={true} density="medium" />
-        <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
-          <Reveal>
-            <SectionHeading
-              eyebrow="Trusted by Cambridge Students"
-              title="Why Cambridge A Level Economics Students Choose Marginal"
-              lead="Calibrated mechanisms designed to evaluate economics answers with examiner precision."
-            />
-          </Reveal>
-
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {TRUST.map((item, index) => (
-              <Reveal key={item.title} variant="pop" delay={index * 80}>
-                <TiltCard max={7} lift={12} className="h-full">
-                  <div className="pop flex h-full flex-col p-6 backdrop-blur-xs bg-card/85 border border-border/70 hover:border-amber-500/40 transition-colors shadow-sm">
-                    <span className="layer-1 flex size-10 items-center justify-center rounded-lg bg-primary/12 text-primary">
-                      <item.icon className="size-5" />
-                    </span>
-                    <h3 className="mt-5 text-base font-semibold">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {item.body}
-                    </p>
-                  </div>
-                </TiltCard>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal delay={100} className="mt-12">
-            <div className="mx-auto max-w-2xl rounded-2xl border border-border/80 bg-card/60 p-6 md:p-8 backdrop-blur-xs shadow-xs text-center sm:text-left space-y-3">
-              <p className="text-sm sm:text-base font-semibold leading-relaxed text-foreground italic">
-                “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory inside out. I refused to let that repeat in AS &amp; A Level. That is why I built Marginal — to give economics students the exact line-by-line mark scheme diagnosis and examiner structuring needed to master the top band.”
-              </p>
-              <div className="text-xs sm:text-[13px] font-bold text-foreground flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
-                <span className="text-primary font-black">Saikrish</span>
-                <span className="text-muted-foreground/60 font-normal">|</span>
-                <span className="font-semibold text-foreground">CS Academy</span>
-                <span className="text-muted-foreground/60 font-normal">|</span>
-                <span className="text-muted-foreground">Founder, Marginal</span>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      {/* ── 5. Cambridge Teachers & Department Workspace ──────────────────────── */}
+      <TeachersSection />
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section id="faq" className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden">

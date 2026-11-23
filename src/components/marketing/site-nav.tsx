@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
 const NAV_SECTIONS: ReadonlyArray<{ id: string; label: string; to?: string }> = [
-  { id: "graded-exemplar", label: "Graded Essays" },
+  { id: "benchmarks", label: "Accuracy" },
   { id: "tools", label: "Features" },
+  { id: "mcqs", label: "MCQs & Arena" },
+  { id: "why-marginal", label: "Marginal vs AI" },
   { id: "teachers-section", label: "For Teachers" },
   { id: "faq", label: "FAQ" },
 ];

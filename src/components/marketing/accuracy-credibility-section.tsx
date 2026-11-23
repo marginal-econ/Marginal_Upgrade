@@ -115,12 +115,13 @@ export function AccuracyCredibilitySection({ className }: { className?: string }
 
   return (
     <section
-      id="examiner-accuracy"
+      id="benchmarks"
       className={cn(
         "relative scroll-mt-20 border-b-[1.5px] border-ink bg-card/60 px-4 py-16 sm:px-6 md:px-10 lg:px-12 xl:px-16 lg:py-24 overflow-hidden",
         className
       )}
     >
+      <div id="examiner-accuracy" className="absolute -top-20" aria-hidden="true" />
       <CosmicAtmosphere variant="default" sparkles={true} density="medium" />
 
       <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px]">
