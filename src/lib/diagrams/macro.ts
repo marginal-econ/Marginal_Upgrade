@@ -1489,4 +1489,331 @@ export const MACRO_DIAGRAMS: DiagramEntry[] = build([
       "Discuss the effectiveness of monetary policy in controlling inflation. [12]",
     ],
   },
+  {
+    id: "import-quota",
+    title: "Effect of an Import Quota",
+    topic: "International Trade",
+    level: "A Level",
+    spec: {
+      xLabel: "Quantity",
+      yLabel: "Price",
+      curves: [
+        {
+          points: [
+            [0, 95],
+            [92, 6],
+          ],
+          label: "D (domestic)",
+          tone: "demand",
+          labelAt: [70, 14],
+        },
+        {
+          points: [
+            [0, 3],
+            [92, 92],
+          ],
+          label: "S (domestic)",
+          tone: "supply",
+          labelAt: [93, 88],
+        },
+        {
+          points: [
+            [4, 26],
+            [92, 26],
+          ],
+          label: "Pw",
+          tone: "neutral",
+          labelAt: [93, 26],
+        },
+        {
+          points: [
+            [18, 3],
+            [92, 75],
+          ],
+          label: "S (dom + quota)",
+          tone: "supply",
+          dashed: true,
+          labelAt: [76, 82],
+        },
+        {
+          points: [
+            [4, 42],
+            [92, 42],
+          ],
+          label: "P (quota)",
+          tone: "warn",
+          labelAt: [93, 42],
+        },
+      ],
+      markers: [
+        { at: [24, 26], label: "Q1", guides: "x" },
+        { at: [40, 42], label: "Q2", guides: "x" },
+        { at: [58, 42], label: "Q3", guides: "x" },
+        { at: [72, 26], label: "Q4", guides: "x" },
+      ],
+      shades: [
+        {
+          points: [
+            [40, 26],
+            [58, 26],
+            [58, 42],
+            [40, 42],
+          ],
+          label: "Quota rent",
+          tone: "primary",
+          labelAt: [49, 34],
+        },
+        {
+          points: [
+            [24, 26],
+            [40, 26],
+            [40, 42],
+          ],
+          label: "DWL (prod)",
+          tone: "danger",
+          labelAt: [32, 31],
+        },
+        {
+          points: [
+            [58, 26],
+            [72, 26],
+            [58, 42],
+          ],
+          label: "DWL (cons)",
+          tone: "danger",
+          labelAt: [65, 31],
+        },
+      ],
+      notes: [
+        { at: [49, 92], text: "Imports capped at physical quota Q2→Q3" },
+        { at: [49, 49], text: "Domestic price forced up from Pw to P(quota)" },
+      ],
+    },
+    represents:
+      "A physical quantitative restriction on the volume of imports, which forces domestic price above world price, expands domestic production, reduces domestic consumption, and creates quota rents.",
+    whyUsed:
+      "Cambridge explicitly examines the difference between price barriers (tariffs) and quantitative barriers (quotas) — particularly who captures the economic surplus (quota rents go to licence holders or exporting foreign firms rather than the domestic government).",
+    whenToDraw:
+      "In any question on trade protectionism, non-tariff barriers, tariffs vs quotas, import substitution, or welfare effects of trade restrictions.",
+    howToRead: [
+      "At free-trade world price Pw, domestic firms supply Q1 and domestic consumers buy Q4, so imports are the wide distance Q1 to Q4.",
+      "The quota sets a legal ceiling on imports equal to the horizontal distance Q2 to Q3.",
+      "Market supply becomes domestic supply plus the quota: S(dom + quota), shifting right by the fixed quota width.",
+      "The intersection of demand and S(dom + quota) establishes the higher domestic price P(quota).",
+      "Domestic production expands from Q1 to Q2 (inefficient reallocation of resources, deadweight loss triangle on the left).",
+      "Domestic consumption contracts from Q4 to Q3 (loss of consumer surplus, deadweight loss triangle on the right).",
+      "The shaded central rectangle is 'quota rent': (P_quota − Pw) × Quota volume. Unlike a tariff where this is government tax revenue, quota rents accrue to whoever holds the import licences or foreign exporting cartels.",
+    ],
+    labelKeys: ["P", "Q", "D", "S", "DWL", "CS"],
+    labelOverrides: {
+      P: "Price — on the vertical axis, showing free-trade world price Pw and the higher domestic price P(quota).",
+      Q: "Quantity — on the horizontal axis, showing domestic production and consumption coordinates.",
+      DWL: "Deadweight welfare loss — the two red triangles: production inefficiency (domestic production of goods that foreign firms could supply cheaper) and consumption distortion (lost consumer utility).",
+    },
+    mistakes: [
+      "Labeling the central rectangle as 'government revenue' — under a quota, the government receives no revenue unless it auctions the import licences.",
+      "Drawing the quota as a horizontal line instead of a parallel rightward shift of the domestic supply curve by the quota quantity.",
+      "Confusing the quantity produced domestically with total quantity consumed.",
+    ],
+    tips: [
+      "In evaluation, always highlight that quotas are more protective than tariffs because foreign exporters cannot overcome a quota by subsidising or depreciating their currency.",
+      "Mention that licence auctioning can convert quota rents into government revenue, making it welfare-equivalent to a tariff.",
+    ],
+    realWorld: [
+      "US sugar import quotas protecting domestic sugarcane farmers by restricting imports from Latin America.",
+      "Historical Multi-Fibre Arrangement (MFA) imposing bilateral quotas on textile exports from developing countries.",
+    ],
+    related: ["tariff-diagram", "exchange-rate-market", "j-curve"],
+    examQuestions: [
+      "Using a diagram, discuss the economic effects of replacing a tariff with an import quota. [12]",
+      "Assess whether a quota is a more effective method of trade protection than an import tariff. [12]",
+    ],
+  },
+  {
+    id: "domestic-subsidies-trade",
+    title: "Production Subsidy to Domestic Import-Competing Producers",
+    topic: "International Trade",
+    level: "A Level",
+    spec: {
+      xLabel: "Quantity",
+      yLabel: "Price",
+      curves: [
+        {
+          points: [
+            [0, 95],
+            [92, 6],
+          ],
+          label: "D (domestic)",
+          tone: "demand",
+          labelAt: [70, 14],
+        },
+        {
+          points: [
+            [0, 3],
+            [92, 92],
+          ],
+          label: "S (domestic)",
+          tone: "supply",
+          labelAt: [93, 88],
+        },
+        {
+          points: [
+            [12, 3],
+            [92, 81],
+          ],
+          label: "S (dom + subsidy)",
+          tone: "supply",
+          dashed: true,
+          labelAt: [80, 86],
+        },
+        {
+          points: [
+            [4, 26],
+            [92, 26],
+          ],
+          label: "Pw",
+          tone: "neutral",
+          labelAt: [93, 26],
+        },
+      ],
+      markers: [
+        { at: [24, 26], label: "Q1", guides: "x" },
+        { at: [38, 26], label: "Q2", guides: "x" },
+        { at: [72, 26], label: "Q3", guides: "x" },
+      ],
+      shades: [
+        {
+          points: [
+            [24, 26],
+            [38, 26],
+            [38, 38],
+            [24, 26],
+          ],
+          label: "DWL (prod)",
+          tone: "danger",
+          labelAt: [32, 29],
+        },
+        {
+          points: [
+            [4, 26],
+            [38, 26],
+            [38, 38],
+            [4, 38],
+          ],
+          label: "Govt subsidy cost",
+          tone: "primary",
+          labelAt: [20, 32],
+        },
+      ],
+      notes: [
+        { at: [49, 92], text: "Imports fall from Q1→Q3 to Q2→Q3" },
+        { at: [49, 18], text: "Consumer price remains at Pw — NO consumer surplus loss" },
+      ],
+    },
+    represents:
+      "A government subsidy granted to domestic producers competing with imports, lowering their marginal cost and expanding domestic production without raising the price paid by domestic consumers.",
+    whyUsed:
+      "A classic Cambridge evaluation comparison: demonstrates why economists often prefer domestic subsidies over tariffs or quotas, because consumer price stays at Pw avoiding consumer deadweight welfare loss.",
+    whenToDraw:
+      "In questions asking to compare protectionist instruments (tariffs, quotas, subsidies) or evaluating infant industry support.",
+    howToRead: [
+      "At world price Pw, domestic producers supply Q1 and domestic consumers buy Q3, with imports equal to Q1 to Q3.",
+      "A per-unit production subsidy shifts the domestic supply curve right/down to S(dom + subsidy).",
+      "Domestic output expands to Q2, cutting imports to Q2 to Q3.",
+      "Crucially, the market price remains at the world price Pw, so consumer surplus is completely unaffected.",
+      "The deadweight welfare loss is limited to the production inefficiency triangle (Q1 to Q2 under S_dom), with the total subsidy cost funded by taxpayers.",
+    ],
+    labelKeys: ["P", "Q", "D", "S", "DWL"],
+    labelOverrides: {
+      DWL: "Production deadweight loss — the only welfare loss, caused by domestic resources producing output at higher marginal cost than world price.",
+    },
+    mistakes: [
+      "Showing the domestic consumer price rising — under an open economy price taker, consumer price stays at Pw.",
+      "Adding a consumption deadweight loss triangle — there is no consumption loss because consumers still pay Pw.",
+    ],
+    tips: [
+      "Use this as top-band Level 4 evaluation: subsidies are less distortionary than tariffs, but create an opportunity cost for government budgets.",
+    ],
+    realWorld: [
+      "US CHIPS and Science Act subsidies for domestic semiconductor fabrication plants.",
+      "EU Common Agricultural Policy (CAP) production payments supporting European farmers.",
+    ],
+    related: ["import-quota", "tariff-diagram"],
+    examQuestions: [
+      "Discuss whether a subsidy to domestic producers is preferable to an import tariff. [12]",
+    ],
+  },
+  {
+    id: "terms-of-trade",
+    title: "Terms of Trade and Relative Price Trends",
+    topic: "International Trade",
+    level: "A Level",
+    spec: {
+      xLabel: "Time / Period",
+      yLabel: "Relative Price Index",
+      curves: [
+        {
+          points: [
+            [8, 48],
+            [30, 48],
+            [50, 72],
+            [90, 72],
+          ],
+          label: "Terms of Trade (Px / Pm × 100)",
+          tone: "accent",
+          labelAt: [70, 78],
+        },
+        {
+          points: [
+            [8, 48],
+            [92, 48],
+          ],
+          label: "Baseline (100)",
+          tone: "neutral",
+          dashed: true,
+          labelAt: [88, 44],
+        },
+      ],
+      markers: [
+        { at: [30, 48], label: "shock", guides: "none" },
+        { at: [50, 72], label: "improvement", guides: "y" },
+      ],
+      notes: [
+        { at: [50, 92], text: "ToT = (Export Price Index ÷ Import Price Index) × 100" },
+        { at: [50, 24], text: "If PEDx + PEDm > 1, higher export prices worsen the current account" },
+      ],
+    },
+    represents:
+      "The relative price of a country's exports in terms of its imports: the purchasing power of a given volume of exports in buying imports.",
+    whyUsed:
+      "Cambridge regularly distinguishes between a 'favourable movement' in the Terms of Trade and an 'improvement in the Balance of Payments' — they frequently move in opposite directions.",
+    whenToDraw:
+      "In questions on commodity price shocks, currency movements, developing country trade, or global inflation.",
+    howToRead: [
+      "Terms of trade is defined as (Index of Export Prices ÷ Index of Import Prices) × 100.",
+      "An increase in the ratio is called a 'favourable movement' or 'improvement': each export unit buys more imports.",
+      "However, whether this improves or worsens the trade balance depends on price elasticity of demand (PEDx and PEDm).",
+      "If export demand is price elastic, higher export prices cause export revenue to fall sharply, worsening the current account.",
+    ],
+    labelKeys: ["ER"],
+    labelOverrides: {
+      ER: "The vertical axis measures the Terms of Trade index: relative export prices compared to import prices.",
+    },
+    mistakes: [
+      "Confusing the Terms of Trade with the Balance of Trade or the exchange rate.",
+      "Assuming an improvement in the Terms of Trade always improves the Current Account balance.",
+    ],
+    tips: [
+      "Always state the Marshall-Lerner condition when evaluating the impact of ToT changes on the trade balance.",
+    ],
+    realWorld: [
+      "Oil-exporting nations experiencing sharp ToT improvements when crude prices spike.",
+      "Agricultural commodity exporters suffering from the Prebisch-Singer hypothesis (secular decline in ToT).",
+    ],
+    related: ["exchange-rate-market", "j-curve", "tariff-diagram"],
+    examQuestions: [
+      "Explain the difference between a favourable movement in the terms of trade and an improvement in the balance of payments. [8]",
+      "Assess the consequences of an improvement in the terms of trade for a developing country. [12]",
+    ],
+  },
 ]);

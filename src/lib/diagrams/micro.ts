@@ -1,4 +1,4 @@
-import { resolveLabels, uShape, type DiagramSpec, type Pt } from "./spec";
+import { ppcCurve, resolveLabels, uShape, type DiagramSpec, type Pt } from "./spec";
 import type { DiagramEntry } from "./types";
 
 /* Shared geometry so every market diagram uses identical conventions. */
@@ -2195,5 +2195,479 @@ export const MICRO_DIAGRAMS: DiagramEntry[] = build([
     realWorld: ["Large conglomerates that later demerged to cut management complexity."],
     related: ["economies-of-scale", "long-run-average-cost"],
     examQuestions: ["Discuss whether firms always benefit from becoming larger. [12]"],
+  },
+  {
+    id: "production-possibility-curve",
+    title: "Production Possibility Curve (PPC)",
+    topic: "Basic Economic Ideas",
+    level: "AS",
+    spec: {
+      xLabel: "Consumer Goods",
+      yLabel: "Capital Goods",
+      curves: [
+        {
+          points: ppcCurve(1),
+          label: "PPC1",
+          tone: "demand",
+          labelAt: [86, 12],
+        },
+        {
+          points: ppcCurve(1.16),
+          label: "PPC2",
+          tone: "accent",
+          dashed: true,
+          labelAt: [94, 20],
+        },
+      ],
+      markers: [
+        { at: [34, 76], label: "A (efficient)", guides: "both" },
+        { at: [68, 44], label: "B (reallocation)", guides: "both" },
+        { at: [30, 32], label: "U (inefficient)", guides: "none" },
+        { at: [82, 82], label: "X (unattainable)", guides: "none" },
+      ],
+      arrows: [
+        { from: [38, 70], to: [60, 48], label: "Opportunity cost" },
+        { from: [50, 56], to: [64, 68], label: "Economic growth" },
+      ],
+      notes: [
+        { at: [50, 94], text: "Concave shape reflects the law of increasing opportunity cost" },
+      ],
+    },
+    represents:
+      "The maximum potential combinations of two goods or services an economy can produce when all available resources are fully and efficiently employed.",
+    whyUsed:
+      "The fundamental Cambridge foundational model: illustrates scarcity, choice, opportunity cost, productive efficiency, unemployment of resources, and long-run economic growth on a single diagram.",
+    whenToDraw:
+      "In questions on scarcity, resource allocation, opportunity cost, reallocation between capital/consumer goods, supply-side potential, and economic growth.",
+    howToRead: [
+      "Any point ON the curve (like A or B) represents productive efficiency and full employment of all factor inputs.",
+      "A movement along the curve from A to B requires giving up capital goods to gain extra consumer goods: the marginal opportunity cost.",
+      "The concave shape (bowed outward from origin) is caused by the law of increasing opportunity cost: factors of production are not equally adaptable to producing both goods.",
+      "Any point INSIDE the curve (like U) indicates unemployed resources, productive inefficiency, or economic recession.",
+      "Any point OUTSIDE the curve (like X) is currently unattainable given the economy's current state of technology and factor endowment.",
+      "An outward shift from PPC1 to PPC2 shows an increase in the economy's productive potential — long-run economic growth.",
+    ],
+    labelKeys: ["Q"],
+    labelOverrides: {
+      Q: "The axes plot quantities of two alternate categories of production: Consumer Goods on the horizontal axis and Capital Goods on the vertical axis.",
+    },
+    mistakes: [
+      "Drawing the PPC as a convex curve (bowed towards origin) — it must be concave due to diminishing returns and imperfect factor adaptability.",
+      "Confusing a movement along the PPC (reallocation) with an outward shift of the PPC (growth in capacity).",
+      "Calling point U 'allocatively inefficient' — PPC only shows productive efficiency, not whether the mix matches society's utility.",
+    ],
+    tips: [
+      "Explain why producing more capital goods at point A causes PPC to shift outward faster in future periods than producing mainly consumer goods at B.",
+      "Use PPC outward shifts to contrast with inward movements when capital stock is destroyed by war or natural disasters.",
+    ],
+    realWorld: [
+      "Post-war reconstruction in Germany shifting the PPC outward through intense capital goods investment.",
+      "Developing economies reallocating agricultural labour into industrial manufacturing.",
+    ],
+    related: ["lras-growth", "output-gaps", "market-equilibrium"],
+    examQuestions: [
+      "Explain, using a production possibility curve diagram, the concepts of opportunity cost and economic growth. [8]",
+      "Discuss whether a country should prioritise the production of capital goods over consumer goods. [12]",
+    ],
+  },
+  {
+    id: "monopolistic-competition",
+    title: "Monopolistic Competition (Short-Run & Long-Run)",
+    topic: "Market Structures",
+    level: "A Level",
+    spec: {
+      xLabel: "Output (Q)",
+      yLabel: "Price, Cost & Revenue",
+      curves: [
+        {
+          points: [
+            [0, 88],
+            [92, 28],
+          ],
+          label: "AR (D)",
+          tone: "demand",
+          labelAt: [88, 34],
+        },
+        {
+          points: [
+            [0, 88],
+            [54, 4],
+          ],
+          label: "MR",
+          tone: "revenue",
+          labelAt: [56, 10],
+        },
+        {
+          points: uShape(50, 34, 30, 44),
+          label: "AC",
+          tone: "cost",
+          labelAt: [82, 78],
+        },
+        {
+          points: [
+            [12, 10],
+            [32, 24],
+            [50, 34],
+            [74, 88],
+          ],
+          label: "MC",
+          tone: "cost",
+          labelAt: [75, 92],
+        },
+      ],
+      markers: [
+        { at: [34, 25], label: "MC=MR", guides: "x" },
+        { at: [34, 66], label: "P (short run)", guides: "both" },
+        { at: [34, 43], label: "C (cost)", guides: "y" },
+      ],
+      shades: [
+        {
+          points: [
+            [0, 43],
+            [34, 43],
+            [34, 66],
+            [0, 66],
+          ],
+          label: "Supernormal profit",
+          tone: "primary",
+          labelAt: [17, 54],
+        },
+      ],
+      notes: [
+        { at: [50, 92], text: "Short run: supernormal profit; Long run: entry shifts AR left until tangent to AC" },
+      ],
+    },
+    represents:
+      "A market structure characterised by many small firms, differentiated products, low barriers to entry and exit, and downward-sloping, highly price-elastic demand curves.",
+    whyUsed:
+      "Cambridge regularly tests the Chamberlin monopolistic competition model to demonstrate how freedom of entry erodes supernormal profits in the long run, and to illustrate the 'excess capacity theorem'.",
+    whenToDraw:
+      "In questions on restaurants, clothing brands, retail competition, advertising, non-price competition, or market structure comparisons.",
+    howToRead: [
+      "Firms face a downward-sloping but relatively price-elastic demand curve (AR) because goods are differentiated with many close substitutes.",
+      "The profit-maximising firm sets output where MC = MR at Q_sr, charging price P_sr on the AR curve.",
+      "In the short run, if P_sr > AC, the firm earns supernormal profit (the shaded rectangle).",
+      "Because barriers to entry are low, abnormal profits attract new competitors producing similar differentiated goods.",
+      "New entry shifts the existing firm's AR curve leftward and makes it more elastic until AR is strictly tangent to AC at the MC = MR output.",
+      "In the long run, only normal profit is earned (P = AC), but the firm operates with 'excess capacity' (producing to the left of the minimum efficient scale on the AC curve).",
+    ],
+    labelKeys: ["P", "Q", "AR", "MR", "AC", "MC", "Profit"],
+    labelOverrides: {
+      Profit: "Supernormal profit in the short run: (P − AC) × Q. In the long run, freedom of entry eliminates this profit.",
+    },
+    mistakes: [
+      "Drawing the demand curve as steep as a monopoly — monopolistic competition has many substitutes, so AR is relatively price-elastic.",
+      "Forgetting the excess capacity theorem: in long-run equilibrium, production does NOT occur at the minimum point of AC.",
+    ],
+    tips: [
+      "Always evaluate that while monopolistic competition lacks productive and allocative efficiency, consumers benefit from variety and product differentiation.",
+    ],
+    realWorld: [
+      "High-street hair salons and boutique coffee shops with slight local brand differentiation.",
+      "Fast-fashion clothing retailers operating with brand loyalty but intense competitive pressure.",
+    ],
+    related: ["perfect-competition", "monopoly", "contestable-markets"],
+    examQuestions: [
+      "Explain the differences between monopolistic competition and perfect competition. [8]",
+      "Discuss whether consumers benefit more from monopolistic competition than from monopoly. [12]",
+    ],
+  },
+  {
+    id: "kinked-demand-curve",
+    title: "Oligopoly: Kinked Demand Curve & Price Rigidity",
+    topic: "Market Structures",
+    level: "A Level",
+    spec: {
+      xLabel: "Quantity",
+      yLabel: "Price, Cost & Revenue",
+      curves: [
+        {
+          points: [
+            [0, 88],
+            [44, 56],
+          ],
+          label: "Elastic demand (rivals do not follow price rise)",
+          tone: "demand",
+          labelAt: [18, 76],
+        },
+        {
+          points: [
+            [44, 56],
+            [92, 14],
+          ],
+          label: "Inelastic demand (rivals match price cut)",
+          tone: "demand",
+          labelAt: [76, 22],
+        },
+        {
+          points: [
+            [0, 88],
+            [44, 24],
+          ],
+          label: "MR upper",
+          tone: "revenue",
+          labelAt: [32, 38],
+        },
+        {
+          points: [
+            [44, -6],
+            [80, -20],
+          ],
+          label: "MR lower",
+          tone: "revenue",
+          labelAt: [60, -10],
+        },
+        {
+          points: [
+            [44, 24],
+            [44, 4],
+          ],
+          label: "MR discontinuity gap",
+          tone: "warn",
+          dashed: true,
+          labelAt: [46, 14],
+        },
+        {
+          points: [
+            [14, 6],
+            [36, 12],
+            [68, 22],
+          ],
+          label: "MC1",
+          tone: "cost",
+          labelAt: [72, 22],
+        },
+        {
+          points: [
+            [14, 16],
+            [36, 22],
+            [68, 32],
+          ],
+          label: "MC2",
+          tone: "cost",
+          dashed: true,
+          labelAt: [72, 32],
+        },
+      ],
+      markers: [
+        { at: [44, 56], label: "Kink (Pk, Qk)", guides: "both" },
+      ],
+      notes: [
+        { at: [50, 94], text: "Cost shifts from MC1 to MC2 leave price (Pk) and output (Qk) completely unchanged" },
+      ],
+    },
+    represents:
+      "Paul Sweezy's oligopoly model explaining price rigidity (sticky prices) and non-price competition in markets dominated by a few interdependent firms.",
+    whyUsed:
+      "A core Cambridge A Level requirement: explains why oligopolists maintain stable prices even when input costs fluctuate, relying on advertising and product differentiation instead of price wars.",
+    whenToDraw:
+      "In questions on oligopoly, game theory, cartel behavior, price rigidity, price wars, and non-price competition.",
+    howToRead: [
+      "The firm perceives an asymmetric reaction from rivals at the prevailing price Pk.",
+      "If it raises price above Pk, rivals will not follow: demand is highly price elastic, so total revenue falls.",
+      "If it cuts price below Pk, rivals immediately match to protect market share: demand is inelastic, so total revenue also falls.",
+      "This creates a sharp kink in the Average Revenue (demand) curve at price Pk and quantity Qk.",
+      "Because the slope of AR changes discontinuously, the Marginal Revenue (MR) curve has a vertical gap (discontinuity) directly beneath the kink.",
+      "Any shift in marginal cost within this vertical gap (from MC1 to MC2) results in the EXACT same profit-maximising output Qk and price Pk: prices are rigid.",
+    ],
+    labelKeys: ["P", "Q", "AR", "MR", "MC"],
+    labelOverrides: {
+      P: "Price — showing the rigid equilibrium price Pk at the vertex of the kink.",
+      Q: "Quantity — showing the stable equilibrium output Qk.",
+      MR: "Marginal revenue — shows a vertical gap directly beneath the kink corresponding to the abrupt change in demand elasticity.",
+    },
+    mistakes: [
+      "Failing to explain WHY the kink exists — it relies on asymmetric assumptions about rival behavior.",
+      "Omitting the vertical discontinuity in the MR curve — without the gap, price rigidity cannot be demonstrated.",
+      "Claiming the model explains how the initial price Pk was set — it only explains why Pk remains rigid once established.",
+    ],
+    tips: [
+      "In evaluation, note that the model does not explain initial price formation, and does not apply during high inflation when all firms raise prices simultaneously.",
+    ],
+    realWorld: [
+      "Supermarket fuel retail: petrol stations rarely raise prices unilaterally, but price cuts are matched within hours.",
+      "Commercial airliner pricing (Boeing vs Airbus) maintaining list-price stability while competing via financing terms.",
+    ],
+    related: ["monopoly", "contestable-markets"],
+    examQuestions: [
+      "Using the kinked demand curve model, explain why prices in an oligopolistic market tend to be rigid. [8]",
+      "Discuss whether collusion is inevitable in an oligopoly. [12]",
+    ],
+  },
+  {
+    id: "monopsony-labour-market",
+    title: "Monopsony in the Labour Market",
+    topic: "Labour Market",
+    level: "A Level",
+    spec: {
+      xLabel: "Quantity of Labour (Workers)",
+      yLabel: "Wage Rate ($ / hr)",
+      curves: [
+        {
+          points: [
+            [8, 12],
+            [90, 78],
+          ],
+          label: "ACL (Supply of Labour)",
+          tone: "supply",
+          labelAt: [86, 84],
+        },
+        {
+          points: [
+            [8, 12],
+            [54, 88],
+          ],
+          label: "MCL (Marginal Cost of Labour)",
+          tone: "cost",
+          labelAt: [56, 92],
+        },
+        {
+          points: [
+            [8, 88],
+            [90, 16],
+          ],
+          label: "MRPL (Demand for Labour)",
+          tone: "demand",
+          labelAt: [88, 22],
+        },
+      ],
+      markers: [
+        { at: [34, 54], label: "MCL = MRPL", guides: "x" },
+        { at: [34, 32], label: "Wm (monopsony wage)", guides: "both" },
+        { at: [50, 46], label: "Competitive (Wc, Lc)", guides: "both" },
+      ],
+      shades: [
+        {
+          points: [
+            [34, 32],
+            [50, 46],
+            [34, 54],
+            [34, 32],
+          ],
+          label: "Deadweight loss",
+          tone: "danger",
+          labelAt: [39, 44],
+        },
+      ],
+      notes: [
+        { at: [50, 94], text: "Wage exploitation: workers paid Wm, which is strictly below their marginal product (MRPL)" },
+      ],
+    },
+    represents:
+      "A labour market where there is only one sole buyer of labour (a monopsonist), giving the employer buying power to suppress wages and employment below competitive market levels.",
+    whyUsed:
+      "A flagship Cambridge A Level labour economics diagram: proves that the Marginal Cost of Labour (MCL) lies above Average Cost of Labour (ACL), and demonstrates wage exploitation and how trade unions or minimum wages can actually increase employment under monopsony.",
+    whenToDraw:
+      "In questions on labour market imperfection, wage determination, minimum wage effects, trade unions, and wage differentials.",
+    howToRead: [
+      "Because the employer is the only buyer of labour, to hire an additional worker it must raise wages for ALL existing workers, making MCL steeper than ACL (labour supply).",
+      "The profit-maximising monopsonist employs labour up to the point where MCL = MRPL at employment level Lm.",
+      "The wage paid is read down from the labour supply curve (ACL) at Wm, which is substantially below the worker's marginal revenue product (MRPL).",
+      "This creates wage exploitation equal to MRPL − Wm per worker, alongside reduced employment compared to competitive market equilibrium (Wc, Lc).",
+      "A legally binding minimum wage set between Wm and Wc can raise BOTH wages and employment simultaneously.",
+    ],
+    labelKeys: ["W", "L", "SL", "DL", "MRP", "DWL"],
+    labelOverrides: {
+      W: "Wage rate — showing the suppressed monopsony wage Wm and the competitive market wage Wc.",
+      L: "Employment — showing lower monopsony employment Lm compared to competitive employment Lc.",
+      DWL: "Deadweight welfare loss caused by labour market under-employment.",
+    },
+    mistakes: [
+      "Reading the monopsony wage off the intersection of MCL and MRPL — wage must be read off the labor supply (ACL) curve.",
+      "Assuming a minimum wage always causes unemployment — under monopsony, a minimum wage makes MCL horizontal and increases employment.",
+    ],
+    tips: [
+      "Use this diagram to evaluate why the UK National Minimum Wage did not cause mass job losses in low-wage sectors with employer market power.",
+    ],
+    realWorld: [
+      "The NHS in the UK acting as a monopsony employer of nurses and junior doctors.",
+      "Isolated mining or factory towns where a single employer controls the regional labour market.",
+    ],
+    related: ["minimum-wage-labour", "trade-union-wage", "labour-market-equilibrium"],
+    examQuestions: [
+      "Using a diagram, explain how a monopsonist determines the wage rate and level of employment. [8]",
+      "Discuss the view that the introduction of a minimum wage will always lead to higher unemployment. [12]",
+    ],
+  },
+  {
+    id: "price-discrimination",
+    title: "Third-Degree Price Discrimination",
+    topic: "Market Structures",
+    level: "A Level",
+    spec: {
+      xLabel: "Output",
+      yLabel: "Price & Cost",
+      curves: [
+        {
+          points: [
+            [4, 90],
+            [44, 20],
+          ],
+          label: "Inelastic Submarket (DA)",
+          tone: "demand",
+          labelAt: [36, 32],
+        },
+        {
+          points: [
+            [48, 70],
+            [92, 10],
+          ],
+          label: "Elastic Submarket (DB)",
+          tone: "demand",
+          labelAt: [82, 22],
+        },
+        {
+          points: [
+            [4, 38],
+            [92, 38],
+          ],
+          label: "MC = Constant",
+          tone: "cost",
+          dashed: true,
+          labelAt: [90, 42],
+        },
+      ],
+      markers: [
+        { at: [20, 62], label: "Pa (higher price)", guides: "both" },
+        { at: [68, 42], label: "Pb (lower price)", guides: "both" },
+      ],
+      notes: [
+        { at: [50, 94], text: "Firms charge higher price (Pa) where PED is inelastic, and lower price (Pb) where PED is elastic" },
+      ],
+    },
+    represents:
+      "A pricing strategy where a firm with monopoly power charges different prices to different groups of consumers for the identical product, based on differences in their price elasticity of demand.",
+    whyUsed:
+      "Cambridge explicitly examines the three necessary conditions for price discrimination (market power, distinct identifiable consumer groups with different PEDs, and prevention of market resale/arbitrage) and its welfare impact.",
+    whenToDraw:
+      "In questions on monopoly pricing, airline ticket pricing, train fares, student discounts, and equity vs efficiency.",
+    howToRead: [
+      "The market is divided into distinct submarkets: Submarket A has price-inelastic demand (e.g. peak-time business travellers), and Submarket B has price-elastic demand (e.g. leisure tourists).",
+      "Profit maximisation requires the firm to equate Marginal Cost to Marginal Revenue in each submarket: MC = MRA = MRB.",
+      "In Submarket A (inelastic), consumers are less sensitive to price, so the firm charges a higher price Pa.",
+      "In Submarket B (elastic), consumers have substitutes or lower willingness to pay, so the firm charges a lower price Pb.",
+      "Total profit is strictly higher than if a single uniform price were charged across all buyers.",
+    ],
+    labelKeys: ["P", "Q", "AR", "MR", "MC", "Profit"],
+    labelOverrides: {
+      P: "Price — showing price Pa in the inelastic market and lower price Pb in the elastic market.",
+      Q: "Quantity sold in each submarket.",
+    },
+    mistakes: [
+      "Confusing price discrimination with price differentiation due to differences in production costs.",
+      "Forgetting to mention the prevention of resale (arbitrage) as an essential condition.",
+    ],
+    tips: [
+      "Evaluate both producer surplus gain and consumer welfare: some low-income consumers gain access to services (e.g. off-peak travel) they could not otherwise afford.",
+    ],
+    realWorld: [
+      "Airlines charging business travellers booking 2 days prior higher fares than tourists booking months in advance.",
+      "Software and cinema discounts for students and seniors.",
+    ],
+    related: ["monopoly", "monopoly-profit-maximisation", "consumer-surplus"],
+    examQuestions: [
+      "Explain the conditions necessary for a firm to practice price discrimination successfully. [8]",
+      "Discuss whether price discrimination is always beneficial to consumers. [12]",
+    ],
   },
 ]);
