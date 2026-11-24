@@ -752,9 +752,8 @@ function Index() {
             />
           </Reveal>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 flex flex-wrap justify-center gap-5">
             {TOOLS.map((tool, index) => {
-              const isCenteredStart = TOOLS.length % 4 === 2 && index === TOOLS.length - 2;
               const isExternal = "external" in tool && tool.external;
               const cardContent = (
                 <>
@@ -801,14 +800,14 @@ function Index() {
                   key={tool.title}
                   variant="pop"
                   delay={index * 35}
-                  className={cn(isCenteredStart && "lg:col-start-2")}
+                  className="w-full sm:w-[calc((100%-1.25rem)/2-0.5px)] lg:w-[calc((100%-3.75rem)/4-0.5px)] flex flex-col"
                 >
                   {isExternal ? (
                     <a
                       href={tool.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-sky-500/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                      className="pop pop-press group flex h-full flex-1 flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-sky-500/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline"
                     >
                       {cardContent}
                     </a>
@@ -816,7 +815,7 @@ function Index() {
                     <Link
                       to={isAuthenticated ? tool.href : "/auth"}
                       search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
-                      className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                      className="pop pop-press group flex h-full flex-1 flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline"
                     >
                       {cardContent}
                     </Link>
