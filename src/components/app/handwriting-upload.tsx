@@ -382,7 +382,7 @@ export function HandwritingUpload({
           <input
             ref={cameraInput}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             capture="environment"
             multiple
             className="hidden"
