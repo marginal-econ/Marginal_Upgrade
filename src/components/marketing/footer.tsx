@@ -12,6 +12,7 @@ import { Minimize2, Sparkles } from "lucide-react";
 import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 const PRODUCT_LINKS = [
+  { label: "Marginal Lite (Quick Practice) ↗", href: "https://lite.marginal-econ.com/", external: true },
   { label: "Watch it mark", href: "/#try" },
   { label: "What you get back", href: "/#result" },
   { label: "What's inside", href: "/#tools" },
@@ -188,12 +189,23 @@ export function SiteFooter({
             <ul className="mt-4 space-y-2.5 text-sm">
               {PRODUCT_LINKS.map((link) => (
                 <li key={link.href}>
-                  <a
-                    href={link.href}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </a>
+                  {"external" in link && link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-600 dark:text-sky-400 font-semibold transition-colors hover:text-sky-500"
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <a
+                      href={link.href}
+                      className="text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -273,6 +285,14 @@ export function SiteFooter({
             <Link to="/privacy" className="transition-colors hover:text-foreground">
               Privacy
             </Link>
+            <a
+              href="https://lite.marginal-econ.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-500 transition-colors inline-flex items-center gap-1"
+            >
+              Marginal Lite ↗
+            </a>
             {onToggleTrialView || onToggleMinimalist ? (
               <button
                 type="button"

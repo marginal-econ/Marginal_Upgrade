@@ -4,21 +4,35 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { GraduationCap, Menu, School, X } from "lucide-react";
+import { ExternalLink, GraduationCap, Menu, School, X, Zap } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
-const NAV_SECTIONS: ReadonlyArray<{ id: string; label: string; to?: string }> = [
+type NavSection = {
+  id: string;
+  label: string;
+  to?: string;
+  href?: string;
+  external?: boolean;
+};
+
+const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   { id: "benchmarks", label: "Accuracy" },
   { id: "tools", label: "Features" },
   { id: "mcqs", label: "MCQs & Arena" },
   { id: "why-marginal", label: "Marginal vs AI" },
   { id: "teachers-section", label: "For Teachers" },
+  {
+    id: "marginal-lite",
+    label: "Marginal Lite",
+    href: "https://lite.marginal-econ.com/",
+    external: true,
+  },
   { id: "faq", label: "FAQ" },
 ];
 
-const SECTION_IDS = NAV_SECTIONS.filter((s) => !("to" in s)).map((section) => section.id);
+const SECTION_IDS = NAV_SECTIONS.filter((s) => !("to" in s) && !s.external).map((section) => section.id);
 
 /** Returns the id of the section currently occupying the viewport. */
 function useScrollSpy(ids: readonly string[]) {
@@ -72,7 +86,23 @@ export function SiteNavLinks() {
       className="hidden items-center gap-3.5 xl:gap-6 2xl:gap-8 text-xs xl:text-sm font-medium lg:flex shrink-0 whitespace-nowrap"
     >
       {NAV_SECTIONS.map((section) => {
-        if ("to" in section) {
+        if (section.external && section.href) {
+          return (
+            <a
+              key={section.id}
+              href={section.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-link whitespace-nowrap shrink-0 text-sky-600 dark:text-sky-400 font-bold hover:text-sky-500 transition-colors text-xs xl:text-sm inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-sky-500/10"
+              title="Visit Marginal Lite (https://lite.marginal-econ.com/)"
+            >
+              <Zap className="size-3 text-sky-500" />
+              <span>{section.label}</span>
+              <ExternalLink className="size-2.5 opacity-70" />
+            </a>
+          );
+        }
+        if ("to" in section && section.to) {
           return (
             <Link
               key={section.id}
@@ -173,7 +203,25 @@ export function SiteNavMobile() {
       >
         <nav aria-label="Mobile sections" className="pop pop-in mt-2 overflow-hidden p-2">
           {NAV_SECTIONS.map((section) => {
-            if ("to" in section) {
+            if (section.external && section.href) {
+              return (
+                <a
+                  key={section.id}
+                  href={section.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={close}
+                  className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="size-4 text-sky-500" />
+                    <span>{section.label}</span>
+                  </div>
+                  <ExternalLink className="size-3.5 opacity-70" />
+                </a>
+              );
+            }
+            if ("to" in section && section.to) {
               return (
                 <Link
                   key={section.id}

@@ -35,6 +35,7 @@ import {
   Gamepad2,
   Trophy,
   Wand2,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -242,6 +243,15 @@ const OBJECTIVES = [
 
 // Specialized features engineered for Cambridge 9708 Economics.
 const TOOLS = [
+  {
+    icon: Zap,
+    tile: "bg-sky-600",
+    badge: "Speed Edition",
+    title: "Marginal Lite (Quick Practice)",
+    body: "Lightweight, lightning-fast revision portal with zero setup. Instant access to questions, flashcards, and rapid practice drills.",
+    href: "https://lite.marginal-econ.com/",
+    external: true,
+  },
   {
     icon: Gamepad2,
     tile: "bg-amber-600",
@@ -474,6 +484,17 @@ function Index() {
               <span className="hidden sm:inline">Teacher: Sign Up</span>
               <span className="sm:hidden">Teachers</span>
             </Link>
+            <a
+              href="https://lite.marginal-econ.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 hover:border-sky-500/60 transition-all shadow-2xs whitespace-nowrap"
+              title="Marginal Lite (Quick Practice Edition)"
+            >
+              <Zap className="size-3.5 text-sky-500 shrink-0" />
+              <span>Marginal Lite</span>
+              <ExternalLink className="size-2.5 opacity-70" />
+            </a>
             <Link
               to="/auth"
               className="hidden rounded-lg px-3 py-1.5 text-xs xl:text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex whitespace-nowrap"
@@ -534,6 +555,16 @@ function Index() {
                   <Users className="size-3 text-emerald-500" />
                   100+ Active Users
                 </span>
+                <a
+                  href="https://lite.marginal-econ.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-sky-500/15 border border-sky-500/40 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5 shadow-2xs hover:bg-sky-500/25 hover:border-sky-500/60 transition-all cursor-pointer"
+                  title="Visit Marginal Lite (https://lite.marginal-econ.com/)"
+                >
+                  <Zap className="size-3 text-sky-500" />
+                  <span>Marginal Lite Edition ↗</span>
+                </a>
               </div>
             </Reveal>
 
@@ -722,6 +753,47 @@ function Index() {
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {TOOLS.map((tool, index) => {
               const isCenteredStart = TOOLS.length % 4 === 2 && index === TOOLS.length - 2;
+              const isExternal = "external" in tool && tool.external;
+              const cardContent = (
+                <>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
+                      >
+                        <tool.icon className="size-5" />
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
+                          {tool.badge}
+                        </span>
+                        <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                          {String(index + 1).padStart(2, "0")} / {String(TOOLS.length).padStart(2, "0")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+                      <span>{tool.title}</span>
+                      {isExternal && <ExternalLink className="size-3.5 opacity-70 shrink-0" />}
+                    </h3>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {tool.body}
+                    </p>
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
+                      {isExternal ? "Speed Edition" : "Cambridge 9708 Engine"}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
+                      <span>{isExternal ? "Open Lite" : "View tool"}</span>
+                      <span aria-hidden="true">{isExternal ? "↗" : "→"}</span>
+                    </span>
+                  </div>
+                </>
+              );
+
               return (
                 <Reveal
                   key={tool.title}
@@ -729,46 +801,24 @@ function Index() {
                   delay={index * 35}
                   className={cn(isCenteredStart && "lg:col-start-2")}
                 >
-                  <Link
-                    to={isAuthenticated ? tool.href : "/auth"}
-                    search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
-                    className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
-                        >
-                          <tool.icon className="size-5" />
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
-                            {tool.badge}
-                          </span>
-                          <span className="font-mono text-[10px] text-muted-foreground font-semibold">
-                            {String(index + 1).padStart(2, "0")} / {String(TOOLS.length).padStart(2, "0")}
-                          </span>
-                        </div>
-                      </div>
-
-                      <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                        {tool.title}
-                      </h3>
-                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                        {tool.body}
-                      </p>
-                    </div>
-
-                    <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
-                        Cambridge 9708 Engine
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
-                        <span>View tool</span>
-                        <span aria-hidden="true">→</span>
-                      </span>
-                    </div>
-                  </Link>
+                  {isExternal ? (
+                    <a
+                      href={tool.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-sky-500/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                    >
+                      {cardContent}
+                    </a>
+                  ) : (
+                    <Link
+                      to={isAuthenticated ? tool.href : "/auth"}
+                      search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
+                      className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                    >
+                      {cardContent}
+                    </Link>
+                  )}
                 </Reveal>
               );
             })}
@@ -1378,10 +1428,29 @@ function TrialHome({
             <Link to="/quiz" className="hover:text-foreground transition-colors">
               Quiz Arena
             </Link>
+            <a
+              href="https://lite.marginal-econ.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground text-sky-600 dark:text-sky-400 font-semibold transition-colors inline-flex items-center gap-1"
+            >
+              <Zap className="size-3 text-sky-500" />
+              <span>Marginal Lite ↗</span>
+            </a>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle className="size-8" />
+
+            <a
+              href="https://lite.marginal-econ.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1 rounded-xs border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20"
+            >
+              <Zap className="size-3 text-sky-500" />
+              <span>Marginal Lite</span>
+            </a>
 
             <Link
               to="/teacher-auth"
