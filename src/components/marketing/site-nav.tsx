@@ -23,13 +23,17 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   { id: "mcqs", label: "MCQs & Arena" },
   { id: "why-marginal", label: "vs AI" },
   { id: "teachers-section", label: "Teachers" },
+  { id: "faq", label: "FAQ" },
+];
+
+const MOBILE_NAV_SECTIONS: ReadonlyArray<NavSection> = [
+  ...NAV_SECTIONS,
   {
     id: "marginal-lite",
     label: "Marginal Lite",
     href: "https://lite.marginal-econ.com/",
     external: true,
   },
-  { id: "faq", label: "FAQ" },
 ];
 
 const SECTION_IDS = NAV_SECTIONS.filter((s) => !("to" in s) && !s.external).map((section) => section.id);
@@ -202,7 +206,7 @@ export function SiteNavMobile() {
         className="absolute inset-x-3 top-full z-50 lg:hidden"
       >
         <nav aria-label="Mobile sections" className="pop pop-in mt-2 overflow-hidden p-2">
-          {NAV_SECTIONS.map((section) => {
+          {MOBILE_NAV_SECTIONS.map((section) => {
             if (section.external && section.href) {
               return (
                 <a

@@ -474,10 +474,23 @@ function Index() {
             <SiteNavMobile />
             <ThemeToggle />
 
+            {/* ONE button at the corner linking to Marginal Lite */}
+            <a
+              href="https://lite.marginal-econ.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 hover:border-sky-500/60 transition-all shadow-xs hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+              title="Open Marginal Lite (https://lite.marginal-econ.com/)"
+            >
+              <Zap className="size-3.5 text-sky-500 fill-sky-500 group-hover:scale-110 transition-transform" />
+              <span>Marginal Lite</span>
+              <ExternalLink className="size-2.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+            </a>
+
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
-              className="hidden min-[420px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              className="hidden min-[500px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
               title="Official Cambridge 9708 Teacher & Department Registration"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
@@ -1417,19 +1430,22 @@ function TrialHome({
             <Link to="/quiz" className="hover:text-foreground transition-colors">
               Quiz Arena
             </Link>
-            <a
-              href="https://lite.marginal-econ.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground text-sky-600 dark:text-sky-400 font-semibold transition-colors inline-flex items-center gap-1"
-            >
-              <Zap className="size-3 text-sky-500" />
-              <span>Marginal Lite ↗</span>
-            </a>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle className="size-8" />
+
+            <a
+              href="https://lite.marginal-econ.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xs border border-sky-500/40 bg-sky-500/10 px-2 sm:px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 shadow-2xs whitespace-nowrap"
+              title="Open Marginal Lite"
+            >
+              <Zap className="size-3 text-sky-500 fill-sky-500" />
+              <span>Marginal Lite</span>
+              <ExternalLink className="size-2.5 opacity-60" />
+            </a>
 
             <Link
               to="/teacher-auth"
