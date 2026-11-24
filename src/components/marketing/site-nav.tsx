@@ -29,8 +29,8 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
 const MOBILE_NAV_SECTIONS: ReadonlyArray<NavSection> = [
   ...NAV_SECTIONS,
   {
-    id: "marginal-lite",
-    label: "Marginal Lite",
+    id: "marginalite",
+    label: "Marginalite (IGCSE 0455)",
     href: "https://lite.marginal-econ.com/",
     external: true,
   },
@@ -215,10 +215,10 @@ export function SiteNavMobile() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={close}
-                  className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 transition-colors"
+                  className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-500/10 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Zap className="size-4 text-sky-500" />
+                    <img src="/marginal-m-icon-clean.png" alt="Marginalite" className="size-4 object-contain" />
                     <span>{section.label}</span>
                   </div>
                   <ExternalLink className="size-3.5 opacity-70" />

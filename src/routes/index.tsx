@@ -244,11 +244,12 @@ const OBJECTIVES = [
 // Specialized features engineered for Cambridge 9708 Economics.
 const TOOLS = [
   {
-    icon: Zap,
-    tile: "bg-sky-600",
-    badge: "Speed Edition",
-    title: "Marginal Lite (Quick Practice)",
-    body: "Lightweight, lightning-fast revision portal with zero setup. Instant access to questions, flashcards, and rapid practice drills.",
+    icon: Sparkles,
+    img: "/marginal-m-icon-clean.png",
+    tile: "bg-purple-600",
+    badge: "Cambridge IGCSE",
+    title: "Marginalite (IGCSE 0455)",
+    body: "The complete Cambridge IGCSE Economics (0455) platform with instant dual-pass AI essay grading, Paper 2 Section A Data Response, and timed Paper 1 MCQ practice.",
     href: "https://lite.marginal-econ.com/",
     external: true,
   },
@@ -474,16 +475,23 @@ function Index() {
             <SiteNavMobile />
             <ThemeToggle />
 
-            {/* ONE button at the corner linking to Marginal Lite */}
+            {/* ONE button at the corner linking to Marginalite (Cambridge IGCSE) */}
             <a
               href="https://lite.marginal-econ.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 hover:border-sky-500/60 transition-all shadow-xs hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
-              title="Open Marginal Lite (https://lite.marginal-econ.com/)"
+              className="group inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-2 sm:px-2.5 py-1.5 text-xs font-bold text-foreground hover:bg-purple-500/20 hover:border-purple-500/60 transition-all shadow-xs hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+              title="Marginalite | Cambridge IGCSE Economics (0455) Platform"
             >
-              <Zap className="size-3.5 text-sky-500 fill-sky-500 group-hover:scale-110 transition-transform" />
-              <span>Marginal Lite</span>
+              <img
+                src="/marginal-m-icon-clean.png"
+                alt="Marginalite logo"
+                className="size-4 shrink-0 object-contain transition-transform group-hover:scale-110"
+              />
+              <span>Marginalite</span>
+              <span className="rounded bg-purple-500/20 border border-purple-500/40 px-1 py-0.2 text-[9.5px] font-mono font-black text-purple-700 dark:text-purple-300">
+                IGCSE
+              </span>
               <ExternalLink className="size-2.5 opacity-60 group-hover:opacity-100 transition-opacity" />
             </a>
 
@@ -561,11 +569,11 @@ function Index() {
                   href="https://lite.marginal-econ.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-sky-500/15 border border-sky-500/40 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5 shadow-2xs hover:bg-sky-500/25 hover:border-sky-500/60 transition-all cursor-pointer"
-                  title="Visit Marginal Lite (https://lite.marginal-econ.com/)"
+                  className="rounded-full bg-purple-500/15 border border-purple-500/40 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs hover:bg-purple-500/25 hover:border-purple-500/60 transition-all cursor-pointer"
+                  title="Visit Marginalite - Cambridge IGCSE Economics (0455)"
                 >
-                  <Zap className="size-3 text-sky-500" />
-                  <span>Marginal Lite Edition ↗</span>
+                  <img src="/marginal-m-icon-clean.png" alt="Marginalite" className="size-3 shrink-0 object-contain" />
+                  <span>Marginalite (IGCSE 0455) ↗</span>
                 </a>
               </div>
             </Reveal>
@@ -762,7 +770,11 @@ function Index() {
                       <span
                         className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
                       >
-                        <tool.icon className="size-5" />
+                        {"img" in tool && tool.img ? (
+                          <img src={tool.img as string} alt={tool.title} className="size-6 object-contain" />
+                        ) : (
+                          <tool.icon className="size-5" />
+                        )}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
@@ -785,10 +797,10 @@ function Index() {
 
                   <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
                     <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
-                      {isExternal ? "Speed Edition" : "Cambridge 9708 Engine"}
+                      {isExternal ? "Cambridge 0455 Engine" : "Cambridge 9708 Engine"}
                     </span>
                     <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
-                      <span>{isExternal ? "Open Lite" : "View tool"}</span>
+                      <span>{isExternal ? "Open Marginalite" : "View tool"}</span>
                       <span aria-hidden="true">{isExternal ? "↗" : "→"}</span>
                     </span>
                   </div>
@@ -1438,11 +1450,14 @@ function TrialHome({
               href="https://lite.marginal-econ.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xs border border-sky-500/40 bg-sky-500/10 px-2 sm:px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 shadow-2xs whitespace-nowrap"
-              title="Open Marginal Lite"
+              className="inline-flex items-center gap-1.5 rounded-xs border border-purple-500/40 bg-purple-500/10 px-2 sm:px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-purple-500/20 shadow-2xs whitespace-nowrap"
+              title="Marginalite - Cambridge IGCSE Economics (0455)"
             >
-              <Zap className="size-3 text-sky-500 fill-sky-500" />
-              <span>Marginal Lite</span>
+              <img src="/marginal-m-icon-clean.png" alt="Marginalite logo" className="size-3.5 object-contain" />
+              <span>Marginalite</span>
+              <span className="rounded bg-purple-500/20 px-1 py-0.2 text-[9px] font-mono font-bold text-purple-700 dark:text-purple-300">
+                IGCSE
+              </span>
               <ExternalLink className="size-2.5 opacity-60" />
             </a>
 

@@ -12,7 +12,7 @@ import { Minimize2, Sparkles } from "lucide-react";
 import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 const PRODUCT_LINKS = [
-  { label: "Marginal Lite (Quick Practice) ↗", href: "https://lite.marginal-econ.com/", external: true },
+  { label: "Marginalite (IGCSE Economics 0455) ↗", href: "https://lite.marginal-econ.com/", external: true },
   { label: "Watch it mark", href: "/#try" },
   { label: "What you get back", href: "/#result" },
   { label: "What's inside", href: "/#tools" },
@@ -289,9 +289,9 @@ export function SiteFooter({
               href="https://lite.marginal-econ.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-500 transition-colors inline-flex items-center gap-1"
+              className="font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-500 transition-colors inline-flex items-center gap-1"
             >
-              Marginal Lite ↗
+              Marginalite (IGCSE) ↗
             </a>
             {onToggleTrialView || onToggleMinimalist ? (
               <button
