@@ -3016,14 +3016,21 @@ function GradePage() {
 
           {/* Slide-out Handwriting OCR Drawer */}
           {ocrDrawerOpen && (
-            <div className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200">
-              <div className="w-full max-w-lg bg-card border-l border-border h-full flex flex-col shadow-2xl p-6 space-y-4 animate-in slide-in-from-right duration-300">
+            <div
+              className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOcrDrawerOpen(false);
+              }}
+            >
+              <div className="w-full max-w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border-l border-border h-full flex flex-col shadow-2xl p-4 sm:p-6 space-y-4 animate-in slide-in-from-right duration-300">
                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div className="flex items-center gap-2">
-                    <Camera className="size-5 text-primary" />
+                    <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <Camera className="size-4.5" />
+                    </div>
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Import Handwriting Scanner</h3>
-                      <p className="text-xs text-muted-foreground">Transcribe handwritten pages directly into script</p>
+                      <p className="text-xs text-muted-foreground">Transcribe handwritten exam pages directly into candidate script</p>
                     </div>
                   </div>
                   <Button
@@ -3031,12 +3038,12 @@ function GradePage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setOcrDrawerOpen(false)}
-                    className="size-8 rounded-xl"
+                    className="size-8 rounded-xl cursor-pointer"
                   >
                     <X className="size-4" />
                   </Button>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto pr-1">
                   <HandwritingUpload
                     hint={question}
                     onText={(text) => {
@@ -3054,11 +3061,18 @@ function GradePage() {
 
           {/* Slide-out Mark Scheme Vision Drawer */}
           {markSchemeDrawerOpen && (
-            <div className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200">
-              <div className="w-full max-w-lg bg-card border-l border-border h-full flex flex-col shadow-2xl p-6 space-y-4 animate-in slide-in-from-right duration-300">
+            <div
+              className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setMarkSchemeDrawerOpen(false);
+              }}
+            >
+              <div className="w-full max-w-full sm:max-w-xl md:max-w-2xl bg-card border-l border-border h-full flex flex-col shadow-2xl p-4 sm:p-6 space-y-4 animate-in slide-in-from-right duration-300">
                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div className="flex items-center gap-2">
-                    <FileText className="size-5 text-primary" />
+                    <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <FileText className="size-4.5" />
+                    </div>
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Vision Mark Scheme</h3>
                       <p className="text-xs text-muted-foreground">Attach screenshots of official Cambridge mark scheme</p>
@@ -3069,7 +3083,7 @@ function GradePage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setMarkSchemeDrawerOpen(false)}
-                    className="size-8 rounded-xl"
+                    className="size-8 rounded-xl cursor-pointer"
                   >
                     <X className="size-4" />
                   </Button>
