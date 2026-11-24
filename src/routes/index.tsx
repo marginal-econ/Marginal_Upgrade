@@ -463,48 +463,37 @@ function Index() {
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="relative mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:px-10 lg:px-12 xl:px-16 sm:py-3">
-          <Link to="/">
+        <div className="relative mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between gap-2.5 lg:gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 py-2 sm:py-2.5">
+          <Link to="/" className="shrink-0">
             <Wordmark />
           </Link>
 
           <SiteNavLinks />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <SiteNavMobile />
             <ThemeToggle />
 
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
-              className="hidden min-[420px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              className="hidden min-[420px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
               title="Official Cambridge 9708 Teacher & Department Registration"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="hidden sm:inline">Teacher: Sign Up</span>
-              <span className="sm:hidden">Teachers</span>
+              <span className="hidden xl:inline">Teacher: Sign Up</span>
+              <span className="xl:hidden">Teachers</span>
             </Link>
-            <a
-              href="https://lite.marginal-econ.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 hover:border-sky-500/60 transition-all shadow-2xs whitespace-nowrap"
-              title="Marginal Lite (Quick Practice Edition)"
-            >
-              <Zap className="size-3.5 text-sky-500 shrink-0" />
-              <span>Marginal Lite</span>
-              <ExternalLink className="size-2.5 opacity-70" />
-            </a>
             <Link
               to="/auth"
-              className="hidden rounded-lg px-3 py-1.5 text-xs xl:text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex whitespace-nowrap"
+              className="hidden rounded-lg px-2.5 sm:px-3 py-1.5 text-xs xl:text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex whitespace-nowrap"
             >
               Sign in
             </Link>
             <Magnetic strength={8}>
               <Link
                 to="/auth"
-                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
+                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg shrink-0"
               >
                 <span className="hidden min-[380px]:inline">Get Started Free</span>
                 <span className="min-[380px]:hidden">Get Started</span>
@@ -1441,16 +1430,6 @@ function TrialHome({
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle className="size-8" />
-
-            <a
-              href="https://lite.marginal-econ.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1 rounded-xs border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20"
-            >
-              <Zap className="size-3 text-sky-500" />
-              <span>Marginal Lite</span>
-            </a>
 
             <Link
               to="/teacher-auth"

@@ -21,8 +21,8 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   { id: "benchmarks", label: "Accuracy" },
   { id: "tools", label: "Features" },
   { id: "mcqs", label: "MCQs & Arena" },
-  { id: "why-marginal", label: "Marginal vs AI" },
-  { id: "teachers-section", label: "For Teachers" },
+  { id: "why-marginal", label: "vs AI" },
+  { id: "teachers-section", label: "Teachers" },
   {
     id: "marginal-lite",
     label: "Marginal Lite",
@@ -83,7 +83,7 @@ export function SiteNavLinks() {
   return (
     <nav
       aria-label="Sections"
-      className="hidden items-center gap-3.5 xl:gap-6 2xl:gap-8 text-xs xl:text-sm font-medium lg:flex shrink-0 whitespace-nowrap"
+      className="hidden items-center gap-2.5 lg:gap-3 xl:gap-5 2xl:gap-7 text-xs xl:text-sm font-medium lg:flex shrink-0 whitespace-nowrap"
     >
       {NAV_SECTIONS.map((section) => {
         if (section.external && section.href) {
@@ -93,10 +93,10 @@ export function SiteNavLinks() {
               href={section.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="nav-link whitespace-nowrap shrink-0 text-sky-600 dark:text-sky-400 font-bold hover:text-sky-500 transition-colors text-xs xl:text-sm inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-sky-500/10"
+              className="nav-link whitespace-nowrap shrink-0 text-sky-600 dark:text-sky-400 font-bold hover:text-sky-500 transition-colors text-xs xl:text-sm inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 shadow-2xs"
               title="Visit Marginal Lite (https://lite.marginal-econ.com/)"
             >
-              <Zap className="size-3 text-sky-500" />
+              <Zap className="size-3 text-sky-500 fill-sky-500" />
               <span>{section.label}</span>
               <ExternalLink className="size-2.5 opacity-70" />
             </a>
