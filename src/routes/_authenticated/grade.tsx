@@ -527,7 +527,6 @@ function GradePage() {
   const [diagramSearch, setDiagramSearch] = useState("");
   const [diagramFilterSection, setDiagramFilterSection] = useState<"all" | "Microeconomics" | "Macroeconomics" | "custom">("all");
   const [activeViewTab, setActiveViewTab] = useState<"editor" | "report">("editor");
-  const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [isEditingAfterGrade, setIsEditingAfterGrade] = useState(false);
   const [isDocDragging, setIsDocDragging] = useState(false);
@@ -540,7 +539,21 @@ function GradePage() {
 
   const essayInputRef = useRef<HTMLTextAreaElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
-  const reportRef = useRef<HTMLDivElement>(null);
+
+  // Lock background scroll & support Escape key when the Diagnostic Report popup is open
+  useEffect(() => {
+    if (!detailedBreakdownOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDetailedBreakdownOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [detailedBreakdownOpen]);
 
   // Auto-launch guided spotlight tour for first-time visitors
   useEffect(() => {
@@ -1037,7 +1050,7 @@ function GradePage() {
     },
     onSuccess: (data) => {
       setResult({ grading: data.grading as Grading, essayId: data.essayId });
-      setShowDetailedReport(false);
+      setDetailedBreakdownOpen(false);
       setActiveViewTab("report");
       setIsEditingAfterGrade(false);
       setActiveCommentId(null);
@@ -1050,12 +1063,7 @@ function GradePage() {
       } catch {}
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
       setTimeout(() => {
-        const target = document.getElementById("candidate-report-header");
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else {
-          reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
+        document.getElementById("candidate-report-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 150);
     },
     onError: (error: Error) => {
@@ -1420,7 +1428,16 @@ function GradePage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDetailedBreakdownOpen(true)}
+                          className="text-xs font-semibold rounded-xl gap-1.5 cursor-pointer"
+                        >
+                          <FileText className="size-3.5 text-muted-foreground" />
+                          <span>View Report</span>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -1958,41 +1975,12 @@ function GradePage() {
 
                             <Button
                               type="button"
-                              variant="outline"
                               size="sm"
                               onClick={() => setDetailedBreakdownOpen(true)}
-                              className="h-7 px-2.5 rounded-lg text-xs font-medium gap-1 cursor-pointer bg-background/80 hover:bg-muted"
+                              className="h-7 px-3 rounded-lg text-xs font-semibold gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
                             >
-                              <Eye className="size-3 text-muted-foreground" />
-                              <span className="hidden sm:inline">Quick Dialog</span>
-                            </Button>
-
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => {
-                                if (!showDetailedReport) {
-                                  setShowDetailedReport(true);
-                                  setTimeout(() => {
-                                    reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                                  }, 80);
-                                } else {
-                                  setShowDetailedReport(false);
-                                }
-                              }}
-                              className="h-7 px-2.5 rounded-lg text-xs font-semibold gap-1 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
-                              {showDetailedReport ? (
-                                <>
-                                  <ChevronUp className="size-3" />
-                                  <span>Hide Report</span>
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="size-3" />
-                                  <span>Full Report</span>
-                                </>
-                              )}
+                              <FileText className="size-3" />
+                              <span>View Report</span>
                             </Button>
                           </div>
                         </div>
@@ -2365,135 +2353,6 @@ function GradePage() {
                   </div>
                 )}
 
-                {/* Collapsed State: Sleek Banner to Expand Full Candidate Diagnostic Report (only when editing; in Pass 4 review the Full Report toggle is already in the verdict bar) */}
-                {result && isEditingAfterGrade && !showDetailedReport && (
-                  <div className="pt-4 border-t border-border/60">
-                    <div className="rounded-2xl border border-dashed border-border/80 bg-card/60 hover:bg-card/90 transition-all p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary font-bold shrink-0">
-                          <Award className="size-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm text-foreground">
-                              Cambridge 9708 Candidate Diagnostic Report
-                            </span>
-                            <Badge variant="outline" className="border-border/80 text-[10px] font-mono">
-                              {result.grading.total_mark}/{result.grading.max_mark} Marks
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Full criteria matrix, AO1/AO2/AO3 rubrics, examiner diagnosis &amp; model exemplars.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDetailedBreakdownOpen(true)}
-                          className="h-8 px-2.5 text-xs font-semibold gap-1.5 cursor-pointer"
-                        >
-                          <Eye className="size-3.5 text-muted-foreground" />
-                          <span>Quick Dialog ↗</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => {
-                            setShowDetailedReport(true);
-                            setTimeout(() => {
-                              reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                            }, 50);
-                          }}
-                          className="h-8 px-3 text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
-                        >
-                          <ChevronDown className="size-3.5" />
-                          <span>Show Full Report</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Expanded Full Cambridge Candidate Diagnostic Report (Opened On Demand) */}
-                {result && showDetailedReport && (
-                  <div ref={reportRef} id="detailed-report-section" className="space-y-6 pt-6 border-t border-border/70 w-full min-w-0 animate-in fade-in duration-200">
-                    <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-primary/[0.08] via-card to-card border border-primary/25 shadow-xs">
-                      <div className="flex items-center gap-3.5">
-                        <div className="size-11 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-black text-base shadow-xs shrink-0">
-                          <Award className="size-6 text-primary" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <h3 className="font-bold text-base sm:text-lg text-foreground">
-                              Complete Cambridge 9708 Candidate Diagnostic Report
-                            </h3>
-                            <Badge className="bg-primary text-primary-foreground font-bold text-xs px-2.5 py-0.5 shadow-xs">
-                              {result.grading.total_mark} / {result.grading.max_mark} Marks
-                            </Badge>
-                            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-semibold text-xs">
-                              {result.grading.band}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Detailed criteria breakdown across Knowledge (AO1), Analysis (AO2), Evaluation (AO3), syllabus missing elements &amp; model exemplars.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDetailedBreakdownOpen(true)}
-                          className="gap-1.5 text-xs font-semibold border-border/80 hover:bg-muted cursor-pointer"
-                        >
-                          <Eye className="size-3.5 text-muted-foreground" />
-                          <span>Popout Dialog ↗</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setShowDetailedReport(false);
-                            document.getElementById("candidate-report-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          }}
-                          className="gap-1.5 text-xs font-semibold border-border/80 hover:bg-muted cursor-pointer text-muted-foreground hover:text-foreground"
-                        >
-                          <ChevronUp className="size-3.5" />
-                          <span>Hide Report</span>
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Full Comprehensive Candidate Report */}
-                    <div id="report-section" className="rounded-3xl border border-border/80 bg-card p-5 sm:p-8 shadow-xs">
-                      <MarkBreakdown grading={result.grading} question={question} />
-                    </div>
-
-                    {/* Bottom Hide Report Action Bar */}
-                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                      <span className="text-xs text-muted-foreground font-mono">Cambridge 9708 Diagnostic Report</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowDetailedReport(false);
-                          document.getElementById("candidate-report-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}
-                        className="gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                      >
-                        <ChevronUp className="size-3.5" />
-                        <span>Hide Report &amp; Return to Manuscript</span>
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -2963,29 +2822,53 @@ function GradePage() {
             </div>
           )}
 
-          {/* Full Detailed Breakdown Dialog / Modal */}
+          {/* Scrollable Minimalist Diagnostic Report Popup Modal */}
           {detailedBreakdownOpen && result && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
-              <div className="w-full max-w-4xl bg-card border border-border rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Award className="size-5 text-primary" />
-                    <div>
-                      <h3 className="font-bold text-base text-foreground">Complete Cambridge Diagnostic Report</h3>
-                      <p className="text-xs text-muted-foreground">Score: {result.grading.total_mark} / {result.grading.max_mark} · {result.grading.band}</p>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Cambridge 9708 Diagnostic Report"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setDetailedBreakdownOpen(false);
+              }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 backdrop-blur-sm p-3 sm:p-6 animate-in fade-in duration-150"
+            >
+              <div className="w-full max-w-4xl max-h-[88vh] flex flex-col bg-card border border-border/80 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+                {/* Sticky Minimalist Header */}
+                <div className="shrink-0 flex items-center justify-between gap-3 px-5 sm:px-7 py-3.5 border-b border-border/60 bg-card">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                    <div className="px-2.5 py-0.5 rounded-lg bg-primary text-primary-foreground font-black text-xs inline-flex items-baseline gap-0.5 shrink-0">
+                      <span>{result.grading.total_mark}</span>
+                      <span className="text-[10px] font-semibold opacity-80">/{result.grading.max_mark}</span>
                     </div>
+                    <h3 className="font-bold text-sm sm:text-base text-foreground truncate">
+                      Diagnostic Report
+                    </h3>
+                    <Badge variant="outline" className="border-primary/35 bg-primary/10 text-primary font-semibold text-[11px] shrink-0">
+                      {result.grading.band}
+                    </Badge>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDetailedBreakdownOpen(false)}
-                    className="size-8 rounded-xl"
-                  >
-                    <X className="size-4" />
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="hidden sm:inline text-[11px] font-mono text-muted-foreground/70">
+                      Esc
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDetailedBreakdownOpen(false)}
+                      className="size-8 rounded-lg hover:bg-muted cursor-pointer"
+                      aria-label="Close diagnostic report"
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
                 </div>
-                <MarkBreakdown grading={result.grading} />
+
+                {/* Independently Scrollable Report Body */}
+                <div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7 py-5">
+                  <MarkBreakdown grading={result.grading} question={question} />
+                </div>
               </div>
             </div>
           )}
