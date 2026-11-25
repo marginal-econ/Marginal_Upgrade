@@ -32,6 +32,7 @@ import { Route as AuthenticatedDefinitionsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDiagramLabRouteImport } from './routes/_authenticated/diagram-lab'
 import { Route as AuthenticatedDiagramsRouteImport } from './routes/_authenticated/diagrams'
 import { Route as AuthenticatedEssayGeneratorRouteImport } from './routes/_authenticated/essay-generator'
+import { Route as AuthenticatedExamplesRouteImport } from './routes/_authenticated/examples'
 import { Route as AuthenticatedGradeRouteImport } from './routes/_authenticated/grade'
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
 import { Route as AuthenticatedLiveExaminerRouteImport } from './routes/_authenticated/live-examiner'
@@ -175,6 +176,11 @@ const AuthenticatedEssayGeneratorRoute =
     path: '/essay-generator',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExamplesRoute = AuthenticatedExamplesRouteImport.update({
+  id: '/examples',
+  path: '/examples',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGradeRoute = AuthenticatedGradeRouteImport.update({
   id: '/grade',
   path: '/grade',
@@ -321,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/diagrams': typeof AuthenticatedDiagramsRoute
   '/essay-generator': typeof AuthenticatedEssayGeneratorRoute
+  '/examples': typeof AuthenticatedExamplesRoute
   '/grade': typeof AuthenticatedGradeRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/live-examiner': typeof AuthenticatedLiveExaminerRoute
@@ -367,6 +374,7 @@ export interface FileRoutesByTo {
   '/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/diagrams': typeof AuthenticatedDiagramsRoute
   '/essay-generator': typeof AuthenticatedEssayGeneratorRoute
+  '/examples': typeof AuthenticatedExamplesRoute
   '/grade': typeof AuthenticatedGradeRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/live-examiner': typeof AuthenticatedLiveExaminerRoute
@@ -415,6 +423,7 @@ export interface FileRoutesById {
   '/_authenticated/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/_authenticated/diagrams': typeof AuthenticatedDiagramsRoute
   '/_authenticated/essay-generator': typeof AuthenticatedEssayGeneratorRoute
+  '/_authenticated/examples': typeof AuthenticatedExamplesRoute
   '/_authenticated/grade': typeof AuthenticatedGradeRoute
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
   '/_authenticated/live-examiner': typeof AuthenticatedLiveExaminerRoute
@@ -463,6 +472,7 @@ export interface FileRouteTypes {
     | '/diagram-lab'
     | '/diagrams'
     | '/essay-generator'
+    | '/examples'
     | '/grade'
     | '/knowledge'
     | '/live-examiner'
@@ -509,6 +519,7 @@ export interface FileRouteTypes {
     | '/diagram-lab'
     | '/diagrams'
     | '/essay-generator'
+    | '/examples'
     | '/grade'
     | '/knowledge'
     | '/live-examiner'
@@ -556,6 +567,7 @@ export interface FileRouteTypes {
     | '/_authenticated/diagram-lab'
     | '/_authenticated/diagrams'
     | '/_authenticated/essay-generator'
+    | '/_authenticated/examples'
     | '/_authenticated/grade'
     | '/_authenticated/knowledge'
     | '/_authenticated/live-examiner'
@@ -759,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEssayGeneratorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/examples': {
+      id: '/_authenticated/examples'
+      path: '/examples'
+      fullPath: '/examples'
+      preLoaderRoute: typeof AuthenticatedExamplesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/grade': {
       id: '/_authenticated/grade'
       path: '/grade'
@@ -929,6 +948,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDiagramLabRoute: typeof AuthenticatedDiagramLabRoute
   AuthenticatedDiagramsRoute: typeof AuthenticatedDiagramsRoute
   AuthenticatedEssayGeneratorRoute: typeof AuthenticatedEssayGeneratorRoute
+  AuthenticatedExamplesRoute: typeof AuthenticatedExamplesRoute
   AuthenticatedGradeRoute: typeof AuthenticatedGradeRoute
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
   AuthenticatedLiveExaminerRoute: typeof AuthenticatedLiveExaminerRoute
@@ -964,6 +984,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDiagramLabRoute: AuthenticatedDiagramLabRoute,
   AuthenticatedDiagramsRoute: AuthenticatedDiagramsRoute,
   AuthenticatedEssayGeneratorRoute: AuthenticatedEssayGeneratorRoute,
+  AuthenticatedExamplesRoute: AuthenticatedExamplesRoute,
   AuthenticatedGradeRoute: AuthenticatedGradeRoute,
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
   AuthenticatedLiveExaminerRoute: AuthenticatedLiveExaminerRoute,

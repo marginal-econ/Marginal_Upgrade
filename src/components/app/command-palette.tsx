@@ -32,6 +32,7 @@ import {
   FileText,
   Info,
   Sliders,
+  Globe2,
 } from "lucide-react";
 import * as React from "react";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -281,6 +282,23 @@ export function CommandPalette({
         keywords: ["cad", "diagram lab", "interactive", "sandbox", "graph", "curves", "tax", "monopoly", "lorenz", "phillips", "ppc"],
         onSelect: () => {
           navigate({ to: "/diagram-lab", search: {} as any });
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "page-examples",
+        title: "Real-World Examples & Essay Integration Bank",
+        subtitle: "High-value Cambridge 9708 case studies with AO2 integration chains, A* sentences & AO3 evaluation pivots",
+        category: "pages",
+        categoryLabel: "Syllabus Hub",
+        icon: Globe2,
+        iconBg: "bg-amber-500/10",
+        iconColor: "text-amber-500",
+        badge: "AO2 & AO3",
+        badgeTone: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10",
+        keywords: ["examples", "real world", "case studies", "evidence", "integration", "ao2", "ao3", "essay", "sugar tax", "tariff", "inflation"],
+        onSelect: () => {
+          navigate({ to: "/examples", search: {} as any });
           onOpenChange(false);
         },
       },

@@ -44,6 +44,7 @@ import {
   Search as SearchIcon,
   FileText,
   Info,
+  Globe2,
 } from "lucide-react";
 import * as React from "react";
 import type { ReactNode } from "react";
@@ -293,6 +294,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Interactive" },
+      { to: "/examples", label: "Real-World Examples", icon: Globe2, badge: "AO2 & AO3" },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
       { to: "/command-words", label: "Command Words", icon: Target },
@@ -352,6 +354,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Interactive" },
+      { to: "/examples", label: "Real-World Examples", icon: Globe2, badge: "AO2 & AO3" },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
       { to: "/command-words", label: "Command Words", icon: Target },

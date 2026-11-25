@@ -29,6 +29,7 @@ import {
   UsersRound,
   FileSpreadsheet,
   Wand2,
+  Globe2,
 } from "lucide-react";
 import { useMemo, useState, useEffect, useCallback } from "react";
 
@@ -928,6 +929,13 @@ export function DashboardPage() {
               title="Diagram CAD Library"
               badge="19 Interactive Models"
               description="Interactive Cambridge 9708 vector studio — manipulate curves, taxes, tariffs, monopolies, AD/AS, and export SVGs."
+            />
+            <QuickActionCard
+              to="/examples"
+              icon={Globe2}
+              title="Real-World Examples Bank"
+              badge="AO2 & AO3"
+              description="Curated Cambridge 9708 case studies across micro, macro & trade with A* essay integration templates and evaluation pivots."
             />
             <QuickActionCard
               to="/paper-matrix"
