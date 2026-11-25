@@ -923,6 +923,13 @@ export function DashboardPage() {
               description="Filter hundreds of past paper essay and MCQ questions, or generate fresh syllabus prompts."
             />
             <QuickActionCard
+              to="/diagram-lab"
+              icon={Sliders}
+              title="Diagram CAD Library"
+              badge="19 Interactive Models"
+              description="Interactive Cambridge 9708 vector studio — manipulate curves, taxes, tariffs, monopolies, AD/AS, and export SVGs."
+            />
+            <QuickActionCard
               to="/paper-matrix"
               icon={Flame}
               title="Paper Predictor"
@@ -951,13 +958,6 @@ export function DashboardPage() {
                   title="Cambridge Chat Lab"
                   badge="Voice AI"
                   description="Interactive conversational economics examiner with 100% syllabus grounding, voiceover studio, and auto-draft essays."
-                />
-                <QuickActionCard
-                  to="/diagram-lab"
-                  icon={Sliders}
-                  title="Diagram CAD Lab"
-                  badge="Vector CAD"
-                  description="Interactive vector economics canvas. Manipulate curves, equilibrium points, deadweight loss, and tax shifts."
                 />
               </div>
             </div>

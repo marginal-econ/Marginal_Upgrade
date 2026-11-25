@@ -292,6 +292,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
+      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Interactive" },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
       { to: "/command-words", label: "Command Words", icon: Target },
@@ -350,6 +351,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
+      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Interactive" },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
       { to: "/command-words", label: "Command Words", icon: Target },

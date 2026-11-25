@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, BookMarked, Globe2, Lightbulb, Plus, Search, Tags } from "lucide-react";
+import { AlertTriangle, BookMarked, Globe2, Lightbulb, Plus, Search, Sliders, Tags } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
@@ -128,13 +128,20 @@ function DiagramLibraryPage() {
         title="Diagram library"
         description={`${DIAGRAMS.length} Cambridge 9708 diagrams drawn to exam convention — with label definitions, examiner tips, common mistakes and real-world examples.`}
         action={
-          me.data?.isAdmin ? (
-            <Link to="/admin" search={{ tab: "diagrams" }}>
-              <Button size="sm" className="gap-1.5">
-                <Plus className="size-4" /> Add custom diagram
+          <div className="flex items-center gap-2">
+            <Link to="/diagram-lab" search={{}}>
+              <Button variant="secondary" size="sm" className="gap-1.5">
+                <Sliders className="size-4" /> Open Interactive CAD Lab
               </Button>
             </Link>
-          ) : null
+            {me.data?.isAdmin ? (
+              <Link to="/admin" search={{ tab: "diagrams" }}>
+                <Button size="sm" className="gap-1.5">
+                  <Plus className="size-4" /> Add custom diagram
+                </Button>
+              </Link>
+            ) : null}
+          </div>
         }
       />
 

@@ -1,50 +1,70 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ArrowRight,
   Award,
-  BookOpen,
+  BookMarked,
   CheckCircle2,
   Copy,
-  HelpCircle,
-  Layers,
+  Download,
   LineChart,
-  Lock,
   RotateCcw,
   Sliders,
   Sparkles,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { ChainedChamber } from "@/components/app/chained-chamber";
 import { InteractiveDiagramCanvas } from "@/components/diagram-lab/interactive-diagram-canvas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getMe } from "@/lib/account.functions";
 import {
+  buildDiagramTag,
   CAMBRIDGE_DIAGRAM_DRILLS,
   calculateMetrics,
   DEFAULT_DIAGRAM_STATES,
+  DIAGRAM_PRESET_META,
+  PRESET_CATEGORIES,
 } from "@/lib/diagram-lab/math";
-import type { DiagramPreset, DiagramState } from "@/lib/diagram-lab/types";
+import type {
+  DiagramPreset,
+  DiagramState,
+  ExternalityMode,
+  LabourMode,
+  LrasMode,
+  TradeMode,
+} from "@/lib/diagram-lab/types";
+import { cn } from "@/lib/utils";
+
+const VALID_PRESETS = new Set<string>(Object.keys(DEFAULT_DIAGRAM_STATES));
 
 export const Route = createFileRoute("/_authenticated/diagram-lab")({
+  validateSearch: (search: Record<string, unknown>): { preset?: DiagramPreset } => ({
+    preset:
+      typeof search.preset === "string" && VALID_PRESETS.has(search.preset)
+        ? (search.preset as DiagramPreset)
+        : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Interactive Diagram CAD & Geometry Lab — Cambridge 9708" },
+      { title: "Interactive Diagram CAD Library — Cambridge 9708 Economics" },
       {
         name: "description",
         content:
-          "Interactive vector economics canvas for Cambridge 9708. Dynamically manipulate curves, test elasticity, and calculate consumer surplus, deadweight loss, and tax incidence with zero AI cost.",
+          "Interactive vector economics CAD library for Cambridge 9708 AS & A Level. Dynamically construct all 19 core micro, macro, and international trade diagrams with live metrics.",
       },
     ],
   }),
@@ -52,32 +72,27 @@ export const Route = createFileRoute("/_authenticated/diagram-lab")({
 });
 
 function DiagramLabPage() {
-  const navigate = useNavigate();
-  const getMeFn = useServerFn(getMe);
-  const meQuery = useQuery({
-    queryKey: ["me"],
-    queryFn: () => getMeFn(),
-    staleTime: 30_000,
-  });
+  const routeSearch = Route.useSearch();
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const isAdmin = meQuery.data?.isAdmin ?? false;
-
+  const initialPreset: DiagramPreset = routeSearch.preset ?? "tax";
   const [activeTab, setActiveTab] = useState<"sandbox" | "drills">("sandbox");
-  const [preset, setPreset] = useState<DiagramPreset>("tax");
-  const [state, setState] = useState<DiagramState>(DEFAULT_DIAGRAM_STATES.tax);
+  const [preset, setPreset] = useState<DiagramPreset>(initialPreset);
+  const [state, setState] = useState<DiagramState>(DEFAULT_DIAGRAM_STATES[initialPreset]);
+
+  useEffect(() => {
+    if (routeSearch.preset) {
+      setPreset(routeSearch.preset);
+      setState(DEFAULT_DIAGRAM_STATES[routeSearch.preset]);
+      setActiveTab("sandbox");
+    }
+  }, [routeSearch.preset]);
 
   // Drill mode state
   const [activeDrillIndex, setActiveDrillIndex] = useState(0);
   const activeDrill = CAMBRIDGE_DIAGRAM_DRILLS[activeDrillIndex]!;
   const [drillEvaluated, setDrillEvaluated] = useState(false);
 
-  // Experimental Labs are strictly confidential to platform administrators
-  if (!meQuery.isLoading && !isAdmin) {
-    navigate({ to: "/dashboard", replace: true });
-    return null;
-  }
-
-  // Switch preset
   const handlePresetChange = (newPreset: DiagramPreset) => {
     setPreset(newPreset);
     setState(DEFAULT_DIAGRAM_STATES[newPreset]);
@@ -85,8 +100,8 @@ function DiagramLabPage() {
   };
 
   const metrics = useMemo(() => calculateMetrics(state), [state]);
+  const meta = DIAGRAM_PRESET_META[state.preset];
 
-  // Drill check
   const drillResult = useMemo(
     () => activeDrill.targetCheck(state, metrics),
     [activeDrill, state, metrics],
@@ -95,42 +110,67 @@ function DiagramLabPage() {
   const resetCurrent = () => {
     setState(DEFAULT_DIAGRAM_STATES[state.preset]);
     setDrillEvaluated(false);
-    toast.info("Diagram reset to default Cambridge calibration.");
+    toast.info("Diagram reset to default Cambridge 9708 calibration.");
   };
 
   const copyDiagramTag = () => {
-    const title =
-      state.preset === "tax"
-        ? "Specific Indirect Tax on Inelastic Good"
-        : state.preset === "tariff"
-          ? "Tariff on Imported Manufactured Goods"
-          : state.preset === "price_floor"
-            ? "Minimum Price (Price Floor) above Equilibrium"
-            : state.preset === "externality"
-              ? "Negative Production Externality with MSC > MPC"
-              : "Market Demand and Supply Equilibrium";
-
-    const tag = `[DIAGRAM: ${title} | axes: Price (P) / Quantity (Q) | curves: D, S, S+tax | equilibrium: P* = ${metrics.eqP.toFixed(1)}, Q* = ${metrics.eqQ.toFixed(1)} | deadweight_loss: ${metrics.deadweightLoss.toFixed(1)} | accuracy: dynamically plotted using Cambridge Diagram CAD Engine]`;
-
+    const tag = buildDiagramTag(state, metrics);
     navigator.clipboard.writeText(tag);
-    toast.success("Copied Cambridge Diagram Tag! You can paste this straight into your essay.");
+    toast.success("Copied Cambridge [DIAGRAM: ...] Tag! Paste it directly into your essay.");
   };
+
+  const downloadSvg = () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cambridge-9708-${state.preset}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${meta.shortTitle} as vector SVG.`);
+  };
+
+  const usesLinearSD =
+    state.preset === "supply_demand" ||
+    state.preset === "tax" ||
+    state.preset === "subsidy" ||
+    state.preset === "price_floor" ||
+    state.preset === "price_ceiling" ||
+    state.preset === "externality" ||
+    state.preset === "labour_market" ||
+    state.preset === "macro_ad_as" ||
+    state.preset === "tariff" ||
+    state.preset === "forex";
 
   return (
     <>
       <PageHeader
-        title="Diagram CAD & Geometry Lab"
-        description="Interactive vector economics sandbox for Cambridge 9708. Adjust curve slopes, simulate taxes & tariffs, and evaluate consumer surplus and deadweight loss with mathematical precision."
+        title="Diagram CAD Library"
+        description="Interactive vector economics studio for Cambridge 9708 AS & A Level — 19 parametric micro, macro & trade models with live welfare, profit, and elasticity calculations."
         action={
-          <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            100% Deterministic · Zero AI Cost
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Link to="/diagrams">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <BookMarked className="size-3.5" /> Static Reference Library
+              </Button>
+            </Link>
+            <Badge
+              variant="outline"
+              className="hidden sm:inline-flex border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            >
+              19 Syllabus Models
+            </Badge>
+          </div>
         }
       />
 
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
         {/* Top Control Bar */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/80 pb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/80 pb-4">
           <Tabs
             value={activeTab}
             onValueChange={(val) => {
@@ -140,25 +180,29 @@ function DiagramLabPage() {
                 const targetPreset = activeDrill.preset;
                 setPreset(targetPreset);
                 setState(DEFAULT_DIAGRAM_STATES[targetPreset]);
+                setDrillEvaluated(false);
               }
             }}
           >
             <TabsList className="grid grid-cols-2 w-72">
               <TabsTrigger value="sandbox" className="flex items-center gap-1.5 text-xs">
-                <Sliders className="size-3.5" /> Freeform Sandbox
+                <Sliders className="size-3.5" /> CAD Sandbox (19)
               </TabsTrigger>
               <TabsTrigger value="drills" className="flex items-center gap-1.5 text-xs">
-                <Award className="size-3.5 text-amber-500" /> Cambridge Drills
+                <Award className="size-3.5 text-amber-500" /> Exam Drills ({CAMBRIDGE_DIAGRAM_DRILLS.length})
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={resetCurrent} className="text-xs">
               <RotateCcw className="size-3.5 mr-1" /> Reset
             </Button>
+            <Button variant="outline" size="sm" onClick={downloadSvg} className="text-xs">
+              <Download className="size-3.5 mr-1" /> Export SVG
+            </Button>
             <Button variant="secondary" size="sm" onClick={copyDiagramTag} className="text-xs">
-              <Copy className="size-3.5 mr-1" /> Copy [DIAGRAM: ...] Tag
+              <Copy className="size-3.5 mr-1" /> Copy [DIAGRAM] Tag
             </Button>
           </div>
         </div>
@@ -169,33 +213,42 @@ function DiagramLabPage() {
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                  >
                     Drill {activeDrillIndex + 1} of {CAMBRIDGE_DIAGRAM_DRILLS.length}
                   </Badge>
-                  <span className="text-xs font-mono text-muted-foreground">{activeDrill.paperReference}</span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {activeDrill.paperReference}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   {CAMBRIDGE_DIAGRAM_DRILLS.map((d, idx) => (
                     <button
                       key={d.id}
+                      type="button"
                       onClick={() => {
                         setActiveDrillIndex(idx);
                         setPreset(d.preset);
                         setState(DEFAULT_DIAGRAM_STATES[d.preset]);
                         setDrillEvaluated(false);
                       }}
-                      className={`size-7 rounded-md text-xs font-semibold transition-all ${
+                      className={cn(
+                        "size-7 rounded-md text-xs font-semibold transition-all",
                         activeDrillIndex === idx
                           ? "bg-amber-600 text-white shadow-xs"
-                          : "bg-muted/80 text-muted-foreground hover:bg-muted"
-                      }`}
+                          : "bg-muted/80 text-muted-foreground hover:bg-muted",
+                      )}
                     >
                       {idx + 1}
                     </button>
                   ))}
                 </div>
               </div>
-              <CardTitle className="text-base font-bold text-foreground mt-1">{activeDrill.title}</CardTitle>
+              <CardTitle className="text-base font-bold text-foreground mt-1">
+                {activeDrill.title}
+              </CardTitle>
               <CardDescription className="text-xs text-foreground/80 leading-relaxed">
                 {activeDrill.prompt}
               </CardDescription>
@@ -215,7 +268,9 @@ function DiagramLabPage() {
                       </span>
                     )
                   ) : (
-                    <span className="text-muted-foreground">Adjust curves on canvas and click Evaluate</span>
+                    <span className="text-muted-foreground">
+                      Adjust curves on canvas and click Evaluate
+                    </span>
                   )}
                   {drillEvaluated && (
                     <p className="text-[11px] text-muted-foreground mt-1 leading-normal">
@@ -240,257 +295,645 @@ function DiagramLabPage() {
           {/* LEFT: CANVAS VIEW */}
           <div className="xl:col-span-7 space-y-4 min-w-0">
             <Card className="border-border shadow-xs overflow-hidden">
-              <CardHeader className="py-3 px-4 border-b border-border/60 flex flex-row items-center justify-between bg-muted/20">
-                <div>
+              <CardHeader className="py-3 px-4 border-b border-border/60 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-muted/20">
+                <div className="min-w-0">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <LineChart className="size-4 text-primary" />
-                    Cambridge Vector Coordinate Plane
+                    <LineChart className="size-4 text-primary shrink-0" />
+                    <span className="truncate">{meta.title}</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {meta.level}
+                    </Badge>
                   </CardTitle>
-                  <CardDescription className="text-[11px]">
-                    Hover over any shaded area or curve to inspect economic significance.
+                  <CardDescription className="text-[11px] mt-0.5">
+                    {meta.syllabusTopics}
                   </CardDescription>
                 </div>
                 {activeTab === "sandbox" && (
                   <Select value={preset} onValueChange={(v) => handlePresetChange(v as DiagramPreset)}>
-                    <SelectTrigger className="w-44 h-8 text-xs">
+                    <SelectTrigger className="w-full sm:w-56 h-8 text-xs font-medium bg-background">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tax">Indirect Specific Tax</SelectItem>
-                      <SelectItem value="price_floor">Minimum Price (Floor)</SelectItem>
-                      <SelectItem value="price_ceiling">Maximum Price (Ceiling)</SelectItem>
-                      <SelectItem value="tariff">Import Tariff</SelectItem>
-                      <SelectItem value="externality">Negative Externality</SelectItem>
-                      <SelectItem value="macro_ad_as">Macro AD / SRAS</SelectItem>
+                    <SelectContent className="max-h-96">
+                      {PRESET_CATEGORIES.map((group) => (
+                        <SelectGroup key={group.category}>
+                          <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            {group.category} ({group.items.length})
+                          </SelectLabel>
+                          {group.items.map((item) => (
+                            <SelectItem key={item.id} value={item.id} className="text-xs">
+                              {item.shortTitle}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
               </CardHeader>
               <CardContent className="p-4 bg-card flex justify-center">
-                <InteractiveDiagramCanvas state={state} metrics={metrics} className="w-full" />
+                <InteractiveDiagramCanvas
+                  svgRef={svgRef}
+                  state={state}
+                  metrics={metrics}
+                  className="w-full"
+                />
               </CardContent>
             </Card>
 
-            {/* LIVE SURPLUS & WELFARE TABLE */}
+            {/* DYNAMIC 4-CARD KPI STRIP */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
-                <span className="text-[11px] text-muted-foreground font-medium">Equilibrium Price</span>
-                <p className="text-base font-bold font-mono text-foreground">
-                  P* = {metrics.eqP.toFixed(1)}
-                </p>
-                <span className="text-[10px] text-muted-foreground block">
-                  Initial P₀ = {metrics.initialP.toFixed(1)}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
-                <span className="text-[11px] text-muted-foreground font-medium">Equilibrium Quantity</span>
-                <p className="text-base font-bold font-mono text-foreground">
-                  Q* = {metrics.eqQ.toFixed(1)}
-                </p>
-                <span className="text-[10px] text-muted-foreground block">
-                  Initial Q₀ = {metrics.initialQ.toFixed(1)}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
-                <span className="text-[11px] text-muted-foreground font-medium">Consumer Surplus</span>
-                <p className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                  {metrics.consumerSurplus.toFixed(0)} units²
-                </p>
-                <span className="text-[10px] text-muted-foreground block">Area below D, above P</span>
-              </div>
-
-              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
-                <span className="text-[11px] text-muted-foreground font-medium">Deadweight Loss</span>
-                <p className="text-base font-bold font-mono text-rose-600 dark:text-rose-400">
-                  {metrics.deadweightLoss.toFixed(1)} units²
-                </p>
-                <span className="text-[10px] text-muted-foreground block">Welfare triangle</span>
-              </div>
+              {metrics.kpiCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="p-3 rounded-lg border border-border bg-muted/20 space-y-1"
+                >
+                  <span className="text-[11px] text-muted-foreground font-medium block truncate">
+                    {card.label}
+                  </span>
+                  <p
+                    className={cn(
+                      "text-base font-bold font-mono truncate",
+                      card.tone === "emerald" && "text-emerald-600 dark:text-emerald-400",
+                      card.tone === "rose" && "text-rose-600 dark:text-rose-400",
+                      card.tone === "purple" && "text-purple-600 dark:text-purple-400",
+                      card.tone === "amber" && "text-amber-600 dark:text-amber-400",
+                      (!card.tone || card.tone === "default") && "text-foreground",
+                    )}
+                  >
+                    {card.value}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground block truncate">
+                    {card.subtext}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* RIGHT: INTERACTIVE SLIDERS & PARAMETER CONTROLS */}
+          {/* RIGHT: CONTEXTUAL INTERACTIVE CONTROLS */}
           <div className="xl:col-span-5 space-y-4 min-w-0">
             <Card className="border-border shadow-xs">
               <CardHeader className="pb-3 border-b border-border/60">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Sliders className="size-4 text-primary" />
-                  Curve Parameters &amp; Elasticity Sliders
+                  Curve Parameters &amp; Policy Controls
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  Manipulate slopes to simulate elastic vs inelastic goods, or apply government policy wedges.
-                </CardDescription>
+                <CardDescription className="text-xs">{meta.description}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4.5 p-4 text-xs">
-                {/* Demand Slope / Elasticity */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center font-medium">
-                    <Label className="text-xs">Demand Elasticity Slope ({state.demandSlope.toFixed(2)})</Label>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {state.demandSlope >= 1.0 ? "Relatively Inelastic" : "Relatively Elastic"}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[state.demandSlope]}
-                    min={0.3}
-                    max={1.5}
-                    step={0.05}
-                    onValueChange={([val]) => setState((s) => ({ ...s, demandSlope: val ?? 0.8 }))}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Steeper slope = lower Price Elasticity of Demand (PED). Flatter slope = higher PED.
-                  </p>
-                </div>
+              <CardContent className="space-y-4 p-4 text-xs">
+                {/* ── PPC CONTROLS ── */}
+                {state.preset === "ppc" && (
+                  <>
+                    <SliderControl
+                      label={`Opportunity Cost Curvature (${state.ppcCurvature.toFixed(1)})`}
+                      badge={state.ppcCurvature > 1.25 ? "Concave (Increasing)" : "Linear (Constant)"}
+                      value={state.ppcCurvature}
+                      min={1.0}
+                      max={3.5}
+                      step={0.1}
+                      onChange={(v) => setState((s) => ({ ...s, ppcCurvature: v }))}
+                    />
+                    <SliderControl
+                      label={`Consumer Goods Growth (ΔX: ${state.ppcGrowthX >= 0 ? `+${state.ppcGrowthX}` : state.ppcGrowthX})`}
+                      badge="Pivotal / Outward"
+                      value={state.ppcGrowthX}
+                      min={-15}
+                      max={18}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, ppcGrowthX: v }))}
+                    />
+                    <SliderControl
+                      label={`Capital Goods Growth (ΔY: ${state.ppcGrowthY >= 0 ? `+${state.ppcGrowthY}` : state.ppcGrowthY})`}
+                      badge="Pivotal / Outward"
+                      value={state.ppcGrowthY}
+                      min={-15}
+                      max={18}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, ppcGrowthY: v }))}
+                    />
+                    <SliderControl
+                      label="Resource Allocation Mix (Point A)"
+                      badge={`${Math.round(state.ppcPointT * 100)}% Consumer`}
+                      value={state.ppcPointT}
+                      min={0.12}
+                      max={0.88}
+                      step={0.02}
+                      onChange={(v) => setState((s) => ({ ...s, ppcPointT: v }))}
+                    />
+                    <SliderControl
+                      label="Productive Efficiency Scale"
+                      badge={
+                        state.ppcEfficiency < 0.97
+                          ? "Inside (Unemployed)"
+                          : state.ppcEfficiency > 1.03
+                            ? "Outside (Unattainable)"
+                            : "On Frontier"
+                      }
+                      value={state.ppcEfficiency}
+                      min={0.55}
+                      max={1.18}
+                      step={0.02}
+                      onChange={(v) => setState((s) => ({ ...s, ppcEfficiency: v }))}
+                    />
+                  </>
+                )}
 
-                {/* Supply Slope / Elasticity */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center font-medium">
-                    <Label className="text-xs">Supply Elasticity Slope ({state.supplySlope.toFixed(2)})</Label>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {state.supplySlope >= 1.0 ? "Relatively Inelastic" : "Relatively Elastic"}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[state.supplySlope]}
-                    min={0.3}
-                    max={1.5}
-                    step={0.05}
-                    onValueChange={([val]) => setState((s) => ({ ...s, supplySlope: val ?? 0.8 }))}
-                  />
-                </div>
+                {/* ── FIRM THEORY CONTROLS (MONOPOLY / PERFECT COMP / MONOPOLISTIC / KINKED) ── */}
+                {(state.preset === "monopoly" || state.preset === "monopolistic_comp") && (
+                  <>
+                    <SliderControl
+                      label={`Demand (AR) Shift (${state.demandShift >= 0 ? `+${state.demandShift}` : state.demandShift})`}
+                      badge={state.preset === "monopolistic_comp" ? "Entry shifts AR left" : "Market demand"}
+                      value={state.demandShift}
+                      min={-24}
+                      max={20}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, demandShift: v }))}
+                    />
+                    <SliderControl
+                      label={`AR Elasticity Slope (${state.demandSlope.toFixed(2)})`}
+                      badge={state.demandSlope >= 0.85 ? "Inelastic (Monopoly)" : "Elastic (Substitutes)"}
+                      value={state.demandSlope}
+                      min={0.45}
+                      max={1.35}
+                      step={0.05}
+                      onChange={(v) => setState((s) => ({ ...s, demandSlope: v }))}
+                    />
+                    <SliderControl
+                      label={`Average Cost (AC) Base: £${state.firmFixedCost}`}
+                      badge="Shifts AC & MC"
+                      value={state.firmFixedCost}
+                      min={14}
+                      max={52}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, firmFixedCost: v }))}
+                    />
+                  </>
+                )}
 
-                {/* Demand Shift */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center font-medium">
-                    <Label className="text-xs">Demand Shift ΔD ({state.demandShift >= 0 ? `+${state.demandShift}` : state.demandShift})</Label>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {state.demandShift > 0 ? "Outward (Right)" : state.demandShift < 0 ? "Inward (Left)" : "Zero Shift"}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[state.demandShift]}
-                    min={-25}
-                    max={25}
+                {state.preset === "perfect_competition" && (
+                  <>
+                    <SliderControl
+                      label={`Market Price (P = AR = MR): £${state.marketPrice}`}
+                      badge={
+                        state.marketPrice > state.firmFixedCost + 2
+                          ? "SR Supernormal Profit"
+                          : state.marketPrice < state.firmFixedCost - 2
+                            ? "SR Economic Loss"
+                            : "LR Normal Profit"
+                      }
+                      value={state.marketPrice}
+                      min={22}
+                      max={76}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, marketPrice: v }))}
+                    />
+                    <SliderControl
+                      label={`Minimum Average Cost (min AC): £${state.firmFixedCost}`}
+                      badge="LR Equilibrium P"
+                      value={state.firmFixedCost}
+                      min={22}
+                      max={54}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, firmFixedCost: v }))}
+                    />
+                  </>
+                )}
+
+                {state.preset === "kinked_demand" && (
+                  <SliderControl
+                    label={`Marginal Cost (MC) Shift (${state.mcShift >= 0 ? `+${state.mcShift}` : state.mcShift})`}
+                    badge={state.mcShift >= -12 && state.mcShift <= 11 ? "Inside MR Gap → Rigid P*" : "Outside Gap → P Changes"}
+                    value={state.mcShift}
+                    min={-18}
+                    max={22}
                     step={1}
-                    onValueChange={([val]) => setState((s) => ({ ...s, demandShift: val ?? 0 }))}
+                    onChange={(v) => setState((s) => ({ ...s, mcShift: v }))}
+                    hint="Keep MC between -12 and +11 to prove why oligopolists keep price rigid at P* despite rising costs."
                   />
-                </div>
+                )}
 
-                {/* Policy Specific Controls depending on preset */}
-                {state.preset === "tax" && (
-                  <div className="space-y-2 pt-2 border-t border-border/60">
-                    <div className="flex justify-between items-center font-medium">
-                      <Label className="text-xs text-purple-600 dark:text-purple-400 font-bold">
-                        Specific Indirect Tax per unit: £{state.taxAmount}
-                      </Label>
-                      <span className="text-[11px] font-mono text-muted-foreground">
-                        Yield: £{metrics.taxRevenue.toFixed(0)}
-                      </span>
-                    </div>
-                    <Slider
-                      value={[state.taxAmount]}
+                {/* ── PHILLIPS CURVE CONTROLS ── */}
+                {state.preset === "phillips_curve" && (
+                  <>
+                    <SliderControl
+                      label={`Current Unemployment Rate: ${state.unemploymentRate.toFixed(1)}%`}
+                      badge="Movement along SRPC"
+                      value={state.unemploymentRate}
+                      min={1.8}
+                      max={9.0}
+                      step={0.1}
+                      onChange={(v) => setState((s) => ({ ...s, unemploymentRate: v }))}
+                    />
+                    <SliderControl
+                      label={`Natural Rate / NAIRU (LRPC): ${state.nairu.toFixed(1)}%`}
+                      badge="Supply-side shift"
+                      value={state.nairu}
+                      min={3.0}
+                      max={7.5}
+                      step={0.1}
+                      onChange={(v) => setState((s) => ({ ...s, nairu: v }))}
+                    />
+                    <SliderControl
+                      label={`Inflation Expectations Shift (${state.srpcShift >= 0 ? `+${state.srpcShift.toFixed(1)}` : state.srpcShift.toFixed(1)}%)`}
+                      badge="Shifts SRPC"
+                      value={state.srpcShift}
+                      min={-1.5}
+                      max={5.0}
+                      step={0.2}
+                      onChange={(v) => setState((s) => ({ ...s, srpcShift: v }))}
+                    />
+                  </>
+                )}
+
+                {/* ── MONEY MARKET CONTROLS ── */}
+                {state.preset === "money_market" && (
+                  <>
+                    <SliderControl
+                      label={`Money Supply Shift (ΔMs: ${state.moneySupplyShift >= 0 ? `+${state.moneySupplyShift}` : state.moneySupplyShift})`}
+                      badge={state.moneySupplyShift > 0 ? "Expansionary" : state.moneySupplyShift < 0 ? "Contractionary" : "Unchanged"}
+                      value={state.moneySupplyShift}
+                      min={-24}
+                      max={30}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, moneySupplyShift: v }))}
+                    />
+                    <SliderControl
+                      label={`Liquidity Preference Shift (ΔLp: ${state.demandShift >= 0 ? `+${state.demandShift}` : state.demandShift})`}
+                      badge="Money demand"
+                      value={state.demandShift}
+                      min={-18}
+                      max={18}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, demandShift: v }))}
+                    />
+                  </>
+                )}
+
+                {/* ── LORENZ CURVE CONTROLS ── */}
+                {state.preset === "lorenz_curve" && (
+                  <>
+                    <SliderControl
+                      label={`Income Inequality Exponent (${state.giniExponent.toFixed(2)})`}
+                      badge={`Gini = ${metrics.giniCoefficient.toFixed(3)}`}
+                      value={state.giniExponent}
+                      min={1.0}
+                      max={6.0}
+                      step={0.1}
+                      onChange={(v) => setState((s) => ({ ...s, giniExponent: v }))}
+                    />
+                    <SliderControl
+                      label={`Post-Tax Comparison Curve (${state.giniCompareExponent < 1 ? "Off" : state.giniCompareExponent.toFixed(2)})`}
+                      badge="Fiscal redistribution"
+                      value={state.giniCompareExponent}
                       min={0}
+                      max={5.0}
+                      step={0.1}
+                      onChange={(v) => setState((s) => ({ ...s, giniCompareExponent: v }))}
+                      hint="Set to 0 to hide, or lower than the primary curve to show progressive taxation reducing Gini."
+                    />
+                  </>
+                )}
+
+                {/* ── J-CURVE CONTROLS ── */}
+                {state.preset === "j_curve" && (
+                  <>
+                    <SliderControl
+                      label={`Short-Run Deterioration Depth (${state.jCurveDip})`}
+                      badge="Short-run inelasticity"
+                      value={state.jCurveDip}
+                      min={5}
                       max={35}
                       step={1}
-                      onValueChange={([val]) => setState((s) => ({ ...s, taxAmount: val ?? 0 }))}
+                      onChange={(v) => setState((s) => ({ ...s, jCurveDip: v }))}
                     />
-                    {state.taxAmount > 0 && (
-                      <div className="rounded-md bg-muted/40 p-2.5 space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span>Consumer Tax Burden:</span>
-                          <span className="font-semibold text-foreground">{metrics.consumerTaxBurdenPct.toFixed(0)}%</span>
-                        </div>
-                        <div className="flex justify-between text-[11px]">
-                          <span>Producer Tax Burden:</span>
-                          <span className="font-semibold text-foreground">{metrics.producerTaxBurdenPct.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-amber-500/30 rounded-full overflow-hidden flex">
-                          <div
-                            className="bg-purple-600 h-full"
-                            style={{ width: `${metrics.consumerTaxBurdenPct}%` }}
-                          />
+                    <SliderControl
+                      label={`Long-Run Marshall-Lerner Recovery (+${state.jCurveRecovery})`}
+                      badge={`|PEDx|+|PEDm| ≈ ${metrics.marshallLernerSum.toFixed(2)}`}
+                      value={state.jCurveRecovery}
+                      min={0}
+                      max={42}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, jCurveRecovery: v }))}
+                    />
+                  </>
+                )}
+
+                {/* ── LINEAR S&D / MACRO / TRADE / LABOUR / EXTERNALITY CONTROLS ── */}
+                {usesLinearSD && (
+                  <>
+                    {/* Mode toggles where applicable */}
+                    {state.preset === "externality" && (
+                      <div className="space-y-1.5 pb-2 border-b border-border/60">
+                        <Label className="text-xs font-semibold">Externality Type (All 4 Cambridge Models)</Label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {(
+                            [
+                              ["neg_prod", "Neg. Production (MSC>MPC)"],
+                              ["pos_cons", "Pos. Consumption (Merit)"],
+                              ["neg_cons", "Neg. Consumption (Demerit)"],
+                              ["pos_prod", "Pos. Production (MSC<MPC)"],
+                            ] as [ExternalityMode, string][]
+                          ).map(([mode, label]) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setState((s) => ({ ...s, externalityMode: mode }))}
+                              className={cn(
+                                "rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors text-left",
+                                state.externalityMode === mode
+                                  ? "border-primary bg-primary/10 text-primary font-semibold"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted",
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
 
-                {state.preset === "price_floor" && (
-                  <div className="space-y-2 pt-2 border-t border-border/60">
-                    <div className="flex justify-between items-center font-medium">
-                      <Label className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                        Minimum Price Floor (P_min): £{state.priceControl ?? 50}
-                      </Label>
-                      <span className="text-[11px] font-mono text-muted-foreground">
-                        Surplus: {metrics.shortageOrSurplus > 0 ? `+${metrics.shortageOrSurplus.toFixed(1)} units` : "None"}
-                      </span>
-                    </div>
-                    <Slider
-                      value={[state.priceControl ?? 50]}
-                      min={30}
-                      max={80}
-                      step={1}
-                      onValueChange={([val]) => setState((s) => ({ ...s, priceControl: val ?? 50 }))}
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      Must be set above free-market equilibrium to create binding intervention.
-                    </p>
-                  </div>
-                )}
-
-                {state.preset === "tariff" && (
-                  <div className="space-y-2 pt-2 border-t border-border/60">
-                    <div className="flex justify-between items-center font-medium">
-                      <Label className="text-xs text-violet-600 dark:text-violet-400 font-bold">
-                        Import Tariff Amount: £{state.tariffAmount}
-                      </Label>
-                      <span className="text-[11px] font-mono text-muted-foreground">
-                        Gov Tariff Yield: £{metrics.tariffRevenue.toFixed(0)}
-                      </span>
-                    </div>
-                    <Slider
-                      value={[state.tariffAmount]}
-                      min={0}
-                      max={30}
-                      step={1}
-                      onValueChange={([val]) => setState((s) => ({ ...s, tariffAmount: val ?? 0 }))}
-                    />
-                    <div className="rounded-md bg-muted/40 p-2.5 text-[11px] space-y-1">
-                      <div className="flex justify-between">
-                        <span>Imports without Tariff:</span>
-                        <span className="font-semibold">{metrics.importsWithoutTariff.toFixed(1)} units</span>
+                    {state.preset === "macro_ad_as" && (
+                      <div className="space-y-1.5 pb-2 border-b border-border/60">
+                        <Label className="text-xs font-semibold">LRAS School of Thought</Label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {(
+                            [
+                              ["classical", "Classical (Vertical LRAS)"],
+                              ["keynesian", "Keynesian (3-Range L-Curve)"],
+                            ] as [LrasMode, string][]
+                          ).map(([mode, label]) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setState((s) => ({ ...s, lrasMode: mode }))}
+                              className={cn(
+                                "rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors",
+                                state.lrasMode === mode
+                                  ? "border-primary bg-primary/10 text-primary font-semibold"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted",
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Imports with Tariff:</span>
-                        <span className="font-semibold text-primary">{metrics.importsWithTariff.toFixed(1)} units</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    )}
 
-                {state.preset === "externality" && (
-                  <div className="space-y-2 pt-2 border-t border-border/60">
-                    <div className="flex justify-between items-center font-medium">
-                      <Label className="text-xs text-rose-600 dark:text-rose-400 font-bold">
-                        Marginal External Cost (MEC): £{state.externalityCost}
-                      </Label>
-                      <span className="text-[11px] font-mono text-muted-foreground">
-                        MSC = MPC + £{state.externalityCost}
-                      </span>
-                    </div>
-                    <Slider
-                      value={[state.externalityCost]}
-                      min={0}
-                      max={35}
-                      step={1}
-                      onValueChange={([val]) => setState((s) => ({ ...s, externalityCost: val ?? 0 }))}
+                    {state.preset === "labour_market" && (
+                      <div className="space-y-1.5 pb-2 border-b border-border/60">
+                        <Label className="text-xs font-semibold">Labour Market Structure</Label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(
+                            [
+                              ["competitive", "Competitive"],
+                              ["min_wage", "Min. Wage"],
+                              ["monopsony", "Monopsony"],
+                            ] as [LabourMode, string][]
+                          ).map(([mode, label]) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setState((s) => ({ ...s, labourMode: mode }))}
+                              className={cn(
+                                "rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors",
+                                state.labourMode === mode
+                                  ? "border-primary bg-primary/10 text-primary font-semibold"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted",
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {state.preset === "tariff" && (
+                      <div className="space-y-1.5 pb-2 border-b border-border/60">
+                        <Label className="text-xs font-semibold">Protectionist Policy Tool</Label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(
+                            [
+                              ["tariff", "Import Tariff"],
+                              ["quota", "Import Quota"],
+                              ["domestic_subsidy", "Trade Subsidy"],
+                            ] as [TradeMode, string][]
+                          ).map(([mode, label]) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setState((s) => ({ ...s, tradeMode: mode }))}
+                              className={cn(
+                                "rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors",
+                                state.tradeMode === mode
+                                  ? "border-primary bg-primary/10 text-primary font-semibold"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted",
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Common Slopes */}
+                    <SliderControl
+                      label={
+                        state.preset === "macro_ad_as"
+                          ? `AD Slope (${state.demandSlope.toFixed(2)})`
+                          : `Demand Elasticity Slope (${state.demandSlope.toFixed(2)})`
+                      }
+                      badge={state.demandSlope >= 1.0 ? "Inelastic" : "Elastic"}
+                      value={state.demandSlope}
+                      min={0.35}
+                      max={1.5}
+                      step={0.05}
+                      onChange={(v) => setState((s) => ({ ...s, demandSlope: v }))}
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                      Shifts the social cost curve upwards, revealing the welfare loss triangle from market failure.
-                    </p>
-                  </div>
+
+                    {!(state.preset === "macro_ad_as" && state.lrasMode === "keynesian") && (
+                      <SliderControl
+                        label={
+                          state.preset === "macro_ad_as"
+                            ? `SRAS Slope (${state.supplySlope.toFixed(2)})`
+                            : `Supply Elasticity Slope (${state.supplySlope.toFixed(2)})`
+                        }
+                        badge={state.supplySlope >= 1.0 ? "Inelastic" : "Elastic"}
+                        value={state.supplySlope}
+                        min={0.35}
+                        max={1.5}
+                        step={0.05}
+                        onChange={(v) => setState((s) => ({ ...s, supplySlope: v }))}
+                      />
+                    )}
+
+                    <SliderControl
+                      label={
+                        state.preset === "macro_ad_as"
+                          ? `Aggregate Demand Shift ΔAD (${state.demandShift >= 0 ? `+${state.demandShift}` : state.demandShift})`
+                          : `Demand Shift ΔD (${state.demandShift >= 0 ? `+${state.demandShift}` : state.demandShift})`
+                      }
+                      badge={state.demandShift > 0 ? "Right" : state.demandShift < 0 ? "Left" : "Zero"}
+                      value={state.demandShift}
+                      min={-25}
+                      max={25}
+                      step={1}
+                      onChange={(v) => setState((s) => ({ ...s, demandShift: v }))}
+                    />
+
+                    {(state.preset === "supply_demand" ||
+                      state.preset === "forex" ||
+                      (state.preset === "macro_ad_as" && state.lrasMode === "classical")) && (
+                      <SliderControl
+                        label={
+                          state.preset === "macro_ad_as"
+                            ? `SRAS Shift ΔSRAS (${state.supplyShift >= 0 ? `+${state.supplyShift}` : state.supplyShift})`
+                            : `Supply Shift ΔS (${state.supplyShift >= 0 ? `+${state.supplyShift}` : state.supplyShift})`
+                        }
+                        badge={state.supplyShift > 0 ? "Inward (Cost-Push)" : state.supplyShift < 0 ? "Outward" : "Zero"}
+                        value={state.supplyShift}
+                        min={-22}
+                        max={22}
+                        step={1}
+                        onChange={(v) => setState((s) => ({ ...s, supplyShift: v }))}
+                      />
+                    )}
+
+                    {state.preset === "macro_ad_as" && (
+                      <SliderControl
+                        label={`LRAS Capacity Shift (Y_fe = ${(state.lrasOutput + state.lrasShift).toFixed(0)})`}
+                        badge={state.lrasShift > 0 ? "LR Growth" : "Static"}
+                        value={state.lrasShift}
+                        min={-15}
+                        max={22}
+                        step={1}
+                        onChange={(v) => setState((s) => ({ ...s, lrasShift: v }))}
+                      />
+                    )}
+
+                    {/* Policy-specific wedges */}
+                    {state.preset === "tax" && (
+                      <div className="space-y-2 pt-2 border-t border-border/60">
+                        <SliderControl
+                          label={`Specific Indirect Tax: £${state.taxAmount}`}
+                          badge={`Yield: £${metrics.taxRevenue.toFixed(0)}`}
+                          value={state.taxAmount}
+                          min={0}
+                          max={35}
+                          step={1}
+                          onChange={(v) => setState((s) => ({ ...s, taxAmount: v }))}
+                        />
+                        {state.taxAmount > 0 && (
+                          <div className="rounded-md bg-muted/40 p-2.5 space-y-1">
+                            <div className="flex justify-between text-[11px]">
+                              <span>Consumer Tax Burden:</span>
+                              <span className="font-semibold">{metrics.consumerTaxBurdenPct.toFixed(0)}%</span>
+                            </div>
+                            <div className="flex justify-between text-[11px]">
+                              <span>Producer Tax Burden:</span>
+                              <span className="font-semibold">{metrics.producerTaxBurdenPct.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-amber-500/30 rounded-full overflow-hidden flex">
+                              <div
+                                className="bg-purple-600 h-full"
+                                style={{ width: `${metrics.consumerTaxBurdenPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {state.preset === "subsidy" && (
+                      <div className="space-y-2 pt-2 border-t border-border/60">
+                        <SliderControl
+                          label={`Per-Unit Subsidy: £${state.subsidyAmount}`}
+                          badge={`Cost: £${metrics.subsidyCost.toFixed(0)}`}
+                          value={state.subsidyAmount}
+                          min={0}
+                          max={32}
+                          step={1}
+                          onChange={(v) => setState((s) => ({ ...s, subsidyAmount: v }))}
+                        />
+                      </div>
+                    )}
+
+                    {(state.preset === "price_floor" ||
+                      state.preset === "price_ceiling" ||
+                      (state.preset === "labour_market" && state.labourMode === "min_wage")) && (
+                      <div className="space-y-2 pt-2 border-t border-border/60">
+                        <SliderControl
+                          label={
+                            state.preset === "labour_market"
+                              ? `National Minimum Wage (W_min): £${state.priceControl ?? 62}`
+                              : state.preset === "price_floor"
+                                ? `Minimum Price Floor (P_min): £${state.priceControl ?? 65}`
+                                : `Maximum Price Ceiling (P_max): £${state.priceControl ?? 35}`
+                          }
+                          badge={
+                            state.preset === "price_ceiling"
+                              ? metrics.shortageOrSurplus < 0
+                                ? `Shortage: ${Math.abs(metrics.shortageOrSurplus).toFixed(1)}`
+                                : "Non-binding"
+                              : metrics.shortageOrSurplus > 0
+                                ? `Surplus: +${metrics.shortageOrSurplus.toFixed(1)}`
+                                : "Non-binding"
+                          }
+                          value={state.priceControl ?? 50}
+                          min={18}
+                          max={82}
+                          step={1}
+                          onChange={(v) => setState((s) => ({ ...s, priceControl: v }))}
+                        />
+                      </div>
+                    )}
+
+                    {state.preset === "tariff" && (
+                      <div className="space-y-2 pt-2 border-t border-border/60">
+                        <SliderControl
+                          label={`World Price (Pw): £${state.worldPrice}`}
+                          badge="Free-trade price"
+                          value={state.worldPrice}
+                          min={16}
+                          max={42}
+                          step={1}
+                          onChange={(v) => setState((s) => ({ ...s, worldPrice: v }))}
+                        />
+                        <SliderControl
+                          label={
+                            state.tradeMode === "quota"
+                              ? `Quota Price Wedge: £${state.tariffAmount}`
+                              : state.tradeMode === "domestic_subsidy"
+                                ? `Domestic Production Subsidy: £${state.tariffAmount}`
+                                : `Import Tariff Rate: £${state.tariffAmount}`
+                          }
+                          badge={`Imports: ${metrics.importsWithTariff.toFixed(1)} u`}
+                          value={state.tariffAmount}
+                          min={0}
+                          max={28}
+                          step={1}
+                          onChange={(v) => setState((s) => ({ ...s, tariffAmount: v }))}
+                        />
+                      </div>
+                    )}
+
+                    {state.preset === "externality" && (
+                      <div className="space-y-2 pt-2 border-t border-border/60">
+                        <SliderControl
+                          label={`Externality Divergence (MEC / MEB): £${state.externalityCost}`}
+                          badge={`DWL: ${metrics.deadweightLoss.toFixed(1)} u²`}
+                          value={state.externalityCost}
+                          min={0}
+                          max={35}
+                          step={1}
+                          onChange={(v) => setState((s) => ({ ...s, externalityCost: v }))}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -498,15 +941,55 @@ function DiagramLabPage() {
             {/* CAMBRIDGE EXAMINER TIP BOX */}
             <div className="p-3.5 rounded-lg border border-primary/20 bg-primary/5 text-xs space-y-1.5">
               <span className="font-semibold text-primary flex items-center gap-1.5">
-                <Sparkles className="size-3.5" /> Cambridge Marking Convention Note:
+                <Sparkles className="size-3.5" /> Cambridge 9708 Examiner Convention:
               </span>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Cambridge 9708 examiners award up to <strong>3 marks</strong> under AO1/AO2 for diagrams. To secure full credit: always label both axes with units, draw equilibrium drop-lines to the axes (P₁, Q₁), and state the direction of curve shifts explicitly in your written paragraph.
+                Examiners award up to <strong>3–4 marks</strong> for accurately labelled diagrams.
+                Always label both axes (<strong>{meta.yAxis}</strong> vs <strong>{meta.xAxis}</strong>),
+                draw dashed drop-lines to equilibria, and explain the exact shift or shaded area in your
+                written analysis.
               </p>
             </div>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function SliderControl({
+  label,
+  badge,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  hint,
+}: {
+  label: string;
+  badge?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (val: number) => void;
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center gap-2 font-medium">
+        <Label className="text-xs">{label}</Label>
+        {badge && <span className="text-[11px] font-mono text-muted-foreground shrink-0">{badge}</span>}
+      </div>
+      <Slider
+        value={[value]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={([val]) => onChange(val ?? value)}
+      />
+      {hint && <p className="text-[11px] text-muted-foreground leading-snug">{hint}</p>}
+    </div>
   );
 }

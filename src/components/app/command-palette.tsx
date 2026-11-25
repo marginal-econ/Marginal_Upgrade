@@ -31,6 +31,7 @@ import {
   Filter,
   FileText,
   Info,
+  Sliders,
 } from "lucide-react";
 import * as React from "react";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -258,11 +259,28 @@ export function CommandPalette({
         icon: LineChart,
         iconBg: "bg-violet-500/10",
         iconColor: "text-violet-500",
-        badge: "30+ Models",
+        badge: "69 Models",
         badgeTone: "border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10",
         keywords: ["diagrams", "curves", "micro", "macro", "ad-as", "ppc", "externality", "monopoly", "tariff"],
         onSelect: () => {
           navigate({ to: "/diagrams", search: {} as any });
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "page-diagram-lab",
+        title: "Diagram CAD Library (Interactive)",
+        subtitle: "19 interactive Cambridge 9708 vector models with live sliders, surplus, DWL, profit & SVG export",
+        category: "pages",
+        categoryLabel: "Syllabus Hub",
+        icon: Sliders,
+        iconBg: "bg-emerald-500/10",
+        iconColor: "text-emerald-500",
+        badge: "Vector CAD",
+        badgeTone: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+        keywords: ["cad", "diagram lab", "interactive", "sandbox", "graph", "curves", "tax", "monopoly", "lorenz", "phillips", "ppc"],
+        onSelect: () => {
+          navigate({ to: "/diagram-lab", search: {} as any });
           onOpenChange(false);
         },
       },
