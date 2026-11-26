@@ -18,8 +18,10 @@ import {
   Trophy,
   Compass,
   Check,
+  PlayCircle,
 } from "lucide-react";
 
+import { openPlatformTourVideo } from "@/components/app/platform-tour-video";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
 import { FEATURE_TUTORIALS, type FeatureTutorial } from "@/lib/tutorials-data";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -214,16 +216,32 @@ export function FeatureTutorialDialog() {
               </span>
             </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={closeTutorial}
-              className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-              title="Close guide"
-            >
-              <X className="size-4" />
-              <span className="sr-only">Close</span>
-            </Button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  closeTutorial();
+                  openPlatformTourVideo();
+                }}
+                className="h-7 px-2.5 rounded-full text-[11px] font-semibold border-primary/30 bg-primary/8 text-primary hover:bg-primary/15 gap-1 cursor-pointer"
+                title="Watch the 1:43 platform feature tour video"
+              >
+                <PlayCircle className="size-3.5" />
+                <span>Watch 1:43 Video</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closeTutorial}
+                className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                title="Close guide"
+              >
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-3">

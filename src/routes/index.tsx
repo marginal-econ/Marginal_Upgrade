@@ -36,7 +36,9 @@ import {
   Trophy,
   Wand2,
   Zap,
+  PlayCircle,
 } from "lucide-react";
+import { PlatformTourVideoModal } from "@/components/app/platform-tour-video";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -394,6 +396,7 @@ function Index() {
   }, []);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [tourVideoOpen, setTourVideoOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
@@ -694,7 +697,18 @@ function Index() {
                     <span>Live Quiz (PIN)</span>
                   </Link>
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setTourVideoOpen(true)}
+                  className="h-12 px-4 text-sm font-semibold border-2 border-primary/35 bg-primary/8 hover:bg-primary/15 text-primary gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
+                >
+                  <PlayCircle className="size-4 shrink-0" />
+                  <span>Watch 1:43 Tour</span>
+                </Button>
               </div>
+              <PlatformTourVideoModal open={tourVideoOpen} onOpenChange={setTourVideoOpen} />
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                   <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> No credit card required
