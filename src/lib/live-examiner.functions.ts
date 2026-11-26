@@ -20,6 +20,20 @@ import { classifySentence } from "@/lib/live-examiner/sentence-engine";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { cleanStars } from "@/lib/utils";
 import { extractQuestionTopicTokens, detectOffTopicConcept } from "./live-examiner/topic-relevance";
+import { segmentEssay } from "./live-examiner/segment";
+import { essayHasDiagram } from "./examiner/writing-quality";
+import {
+  buildBlueprintCompilerPrompt,
+  buildCompactDeltaSystemPrompt,
+  buildCompactDeltaUserPrompt,
+  buildFallbackBlueprint,
+  CompactDeltaResponseSchema,
+  QuestionRubricBlueprintSchema,
+  reconcileVerifiedMark,
+  verifyDeltaIssues,
+  type DirtySentencePayload,
+  type QuestionRubricBlueprint,
+} from "./live-examiner/delta-engine";
 
 type AuthContextLike = {
   id?: string;
@@ -31,12 +45,11 @@ type AuthContextLike = {
 
 function assertAdminOnlyAccess(auth?: AuthContextLike | null) {
   if (!auth) {
-    throw new Error("Live Examiner is currently restricted to the Marginal Administrator.");
+    throw new Error("Please sign in to use Live Examiner.");
   }
   const userId = auth.userId ?? auth.id ?? auth.user?.id;
-  const email = auth.email ?? auth.user?.email ?? undefined;
-  if (!auth.isAdmin && !isMarginalAdmin({ userId, email })) {
-    throw new Error("Live Examiner is currently restricted to the Marginal Administrator.");
+  if (!userId) {
+    throw new Error("Please sign in to use Live Examiner.");
   }
 }
 
@@ -166,6 +179,7 @@ const PrepareContextInput = z.object({
   level: z.enum(["as", "a2"]),
   topic: z.string().trim().max(200),
   question: z.string().trim().min(5).max(2000),
+  maxMark: z.coerce.number().int().positive().max(30).optional().default(12),
 });
 
 export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
@@ -210,8 +224,74 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
       ? `${renderedSources}\n\n${anchorBlock}`
       : renderedSources || anchorBlock;
 
+    // Compile one-time Question Rubric Blueprint (~200 tokens, cached for the entire session)
+    let blueprint: QuestionRubricBlueprint = buildFallbackBlueprint({
+      question: data.question,
+      level: data.level,
+      maxMark: data.maxMark,
+      contextBlock,
+    });
+
+    try {
+      const { chat } = await import("./ai.server");
+      const { MODEL_LIVE_CANDIDATE } = await import("./examiner/config");
+      const { extractFirstJsonObject } = await import("./examiner/json");
+
+      const bpRes = await timeoutFallback(
+        chat({
+          model: MODEL_LIVE_CANDIDATE,
+          feature: "live_examiner_blueprint",
+          userId: context.userId,
+          temperature: 0,
+          maxCompletionTokens: 280,
+          json: true,
+          messages: [
+            {
+              role: "system",
+              content: buildBlueprintCompilerPrompt({
+                question: data.question,
+                level: data.level,
+                maxMark: data.maxMark,
+                contextBlock,
+              }),
+            },
+            { role: "user", content: "Compile the Cambridge 9708 rubric blueprint JSON now." },
+          ],
+        }),
+        null,
+        3500,
+      );
+
+      if (bpRes?.text) {
+        const parsed = extractFirstJsonObject(bpRes.text) as Record<string, unknown>;
+        const keyTerms = Array.isArray(parsed.keyTerms)
+          ? parsed.keyTerms.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 4)
+          : [];
+        const analysisMechanisms = Array.isArray(parsed.analysisMechanisms)
+          ? parsed.analysisMechanisms.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 4)
+          : [];
+        const evaluationAngles = Array.isArray(parsed.evaluationAngles)
+          ? parsed.evaluationAngles.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 3)
+          : [];
+
+        if (keyTerms.length > 0 || analysisMechanisms.length > 0) {
+          blueprint = {
+            ...blueprint,
+            keyTerms: keyTerms.length > 0 ? keyTerms : blueprint.keyTerms,
+            analysisMechanisms: analysisMechanisms.length > 0 ? analysisMechanisms : blueprint.analysisMechanisms,
+            evaluationAngles: blueprint.requiresEvaluation
+              ? (evaluationAngles.length > 0 ? evaluationAngles : blueprint.evaluationAngles)
+              : [],
+          };
+        }
+      }
+    } catch {
+      // Deterministic fallback blueprint is already populated
+    }
+
     return {
       contextBlock,
+      blueprint,
       sourceCount: sources.length,
       anchorsUsed: anchors.length,
     };
@@ -236,6 +316,20 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
 //    clean passage costs one (cheap) call, not two.
 // ---------------------------------------------------------------------------
 
+const DirtySentenceInputSchema = z.object({
+  i: z.number().int().positive(),
+  id: z.string(),
+  hash: z.string(),
+  text: z.string().min(1).max(2000),
+  paragraphIndex: z.number().int().nonnegative().default(0),
+});
+
+const PriorSummaryInputSchema = z.object({
+  ao: z.enum(["ao1", "ao2", "ao3", "no_credit"]),
+  strength: z.number().int().min(0).max(2).optional(),
+  gist: z.string().max(120),
+});
+
 const CheckInput = z.object({
   essayText: z.string().trim().min(2, "That's too short to check.").max(40_000),
   previousText: z.string().max(40_000).optional(),
@@ -249,6 +343,10 @@ const CheckInput = z.object({
   /** Rendered syllabus context from prepareLiveExaminerContext — passed
    *  through verbatim so this call never re-embeds/re-retrieves. */
   contextBlock: z.string().max(20_000).nullish().transform((v) => v || ""),
+  /** Optional Delta-Rubric fields (Live Examiner 3.0) */
+  dirtySentences: z.array(DirtySentenceInputSchema).max(MAX_SENTENCES_PER_CALL).optional(),
+  priorSummaries: z.array(PriorSummaryInputSchema).max(40).optional(),
+  blueprint: QuestionRubricBlueprintSchema.nullish(),
 });
 
 const CandidateSchema = IssueSchema.extend({ confidence: z.number().min(0).max(1) });
@@ -713,73 +811,131 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
-    const currentSentences = splitSentences(data.essayText);
+    // Segment the real essay preserving authentic paragraphIndex (fixes monolithic-block bug!)
+    const allSegments = segmentEssay(data.essayText);
+    const currentSentences = allSegments.map((s) => s.text);
     const previousSentences = data.previousText ? splitSentences(data.previousText) : [];
     const carriedIssues = data.previousIssues ?? [];
 
-    const diffed =
-      previousSentences.length > 0
-        ? diffSentences(previousSentences, currentSentences)
-        : currentSentences.map((sentence) => ({ sentence, changed: true }));
+    // Resolve dirty sentences: prefer explicit delta payload from Live Examiner 3.0 client,
+    // otherwise diff against previousText for backwards compatibility.
+    let dirtyPayloads: DirtySentencePayload[] = [];
+    let unchangedSentenceSet = new Set<string>();
 
-    const unchangedSentenceSet = new Set(
-      diffed.filter((entry) => !entry.changed).map((entry) => entry.sentence),
-    );
-    const changedSentences = diffed.filter((entry) => entry.changed).map((entry) => entry.sentence);
+    if (data.dirtySentences && data.dirtySentences.length > 0) {
+      dirtyPayloads = data.dirtySentences.slice(0, MAX_SENTENCES_PER_CALL).map((d, idx) => ({
+        i: idx + 1,
+        id: d.id,
+        hash: d.hash,
+        text: d.text,
+        paragraphIndex: d.paragraphIndex,
+      }));
+      const dirtyTexts = new Set(dirtyPayloads.map((d) => d.text));
+      unchangedSentenceSet = new Set(currentSentences.filter((s) => !dirtyTexts.has(s)));
+    } else {
+      const diffed =
+        previousSentences.length > 0
+          ? diffSentences(previousSentences, currentSentences)
+          : currentSentences.map((sentence) => ({ sentence, changed: true }));
+
+      unchangedSentenceSet = new Set(
+        diffed.filter((entry) => !entry.changed).map((entry) => entry.sentence),
+      );
+      const changedTextSet = new Set(
+        diffed.filter((entry) => entry.changed).map((entry) => entry.sentence),
+      );
+      dirtyPayloads = allSegments
+        .filter((seg) => seg.isComplete && changedTextSet.has(seg.text))
+        .slice(0, MAX_SENTENCES_PER_CALL)
+        .map((seg, idx) => ({
+          i: idx + 1,
+          id: seg.id,
+          hash: seg.hash,
+          text: seg.text,
+          paragraphIndex: seg.paragraphIndex,
+        }));
+    }
 
     const carryForward = () =>
       carriedIssues
         .filter((issue) => unchangedSentenceSet.has(issue.context))
         .map(({ id: _id, ...issue }) => issue);
 
-    // Nothing new to check (e.g. only whitespace changed) — no model call.
-    if (changedSentences.length === 0) {
+    // Nothing new to check (e.g. only whitespace changed or all sentences cached) — ZERO tokens spent.
+    if (dirtyPayloads.length === 0) {
       const surviving = dedupeAndCap(carryForward());
-      // predictedMark omitted (not undefined-but-typed) on purpose: the
-      // client treats a missing field as "no fresh estimate this round,
-      // keep showing the last one" — see useLiveExaminerCheck.
       return {
         issues: surviving,
         classifications: [] as LiveExaminerAoClassification[],
+        sentenceResults: [] as Array<{
+          sentenceId: string;
+          sentenceHash: string;
+          ao: "ao1" | "ao2" | "ao3" | "no_credit";
+          sub?: string | null;
+          strength: number;
+          reason: string;
+          issues: LiveExaminerIssue[];
+        }>,
         classifiedContexts: [] as string[],
         clean: surviving.length === 0,
         checkedText: data.essayText,
         predictedMark: undefined as PredictedMark | null | undefined,
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       };
     }
 
-    const toSend = changedSentences.slice(0, MAX_SENTENCES_PER_CALL);
+    const toSend = dirtyPayloads.map((d) => d.text);
 
-    // Deterministic pass first — zero cost, zero latency, needs no AI
-    // confirmation since these are exact-string glossary and 4-layer grammar/misconception matches.
-    const misconceptionIssues: LiveExaminerIssue[] = toSend.flatMap((s, idx) =>
-      checkEconomicMisconceptions(s, `det_misc_${idx}`).map((iss) => ({
-        original: iss.original,
-        suggestion: iss.suggestion || "",
-        category: iss.category as any,
-        severity: iss.severity,
-        explanation: iss.explanation,
-        context: s,
-        evidence: iss.evidence,
-        aoImpact: iss.aoImpact,
-      }))
+    // Compile/reuse Question Rubric Blueprint (0 tokens if passed from prepareLiveExaminerContext)
+    const blueprint: QuestionRubricBlueprint =
+      data.blueprint ??
+      buildFallbackBlueprint({
+        question: data.question,
+        level: data.level,
+        maxMark: data.maxMark,
+        contextBlock: data.contextBlock,
+      });
+
+    // Deterministic pass on dirty sentences — zero tokens, zero latency
+    const localIssueKeys = new Set<string>();
+    const misconceptionIssues: LiveExaminerIssue[] = dirtyPayloads.flatMap((d) =>
+      checkEconomicMisconceptions(d.text, d.id).map((iss) => {
+        localIssueKeys.add(`${d.hash}::${iss.original.toLowerCase()}`);
+        return {
+          original: iss.original,
+          suggestion: iss.suggestion || "",
+          category: iss.category as any,
+          severity: iss.severity,
+          explanation: iss.explanation,
+          context: d.text,
+          evidence: iss.evidence,
+          aoImpact: iss.aoImpact,
+        };
+      }),
     );
-    const grammarDeterministic: LiveExaminerIssue[] = analyzeGrammarAndMechanics(toSend).map(
-      ({ ruleId: _ruleId, startOffset: _start, endOffset: _end, ...issue }) => issue,
+    const grammarDeterministic: LiveExaminerIssue[] = dirtyPayloads.flatMap((d) =>
+      analyzeGrammarAndMechanics([d.text]).map(
+        ({ ruleId: _ruleId, startOffset: _start, endOffset: _end, ...issue }) => {
+          localIssueKeys.add(`${d.hash}::${issue.original.toLowerCase()}`);
+          return issue;
+        },
+      ),
     );
-    const offTopicDeterministic: LiveExaminerIssue[] = toSend.flatMap((s) => {
-      const check = detectOffTopicConcept(s, data.question);
+    const offTopicDeterministic: LiveExaminerIssue[] = dirtyPayloads.flatMap((d) => {
+      const check = detectOffTopicConcept(d.text, data.question);
       if (!check.isOffTopic) return [];
+      const orig = check.offTopicConcept || d.text;
+      localIssueKeys.add(`${d.hash}::${orig.toLowerCase()}`);
       return [
         {
-          original: check.offTopicConcept || s,
+          original: orig,
           suggestion: check.relevantConcept || "Address question prompt concepts",
           category: "application",
           severity: "high",
           explanation:
             check.reason ||
-            `Off-topic concept: Writing about unrelated concepts earns 0 marks under Cambridge 9708 mark schemes.`,
-          context: s,
+            "Off-topic concept: Writing about unrelated concepts earns 0 marks under Cambridge 9708 mark schemes.",
+          context: d.text,
           evidence: "Cambridge 9708: Marks are awarded strictly for relevance to the question prompt.",
           aoImpact: "0 marks awarded under Cambridge 9708.",
         },
@@ -791,6 +947,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       ...grammarDeterministic,
       ...offTopicDeterministic,
     ];
+
     const rubric = buildQuestionRubric({
       question: data.question,
       level: data.level,
@@ -798,278 +955,229 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       contextBlock: data.contextBlock,
     });
 
-    // Compact context block so live keystroke checks use ~350 tokens instead of ~4,500
-    const compactedContext = compactSyllabusContext(data.contextBlock);
+    const cleanProse = data.essayText.replace(/\[DIAGRAM:[^\]]*\]/gi, " ").trim();
+    const wordCount = cleanProse ? cleanProse.split(/\s+/).filter(Boolean).length : 0;
+    const paragraphCount = Math.max(
+      1,
+      new Set(allSegments.map((s) => s.paragraphIndex)).size,
+    );
 
-    // Fast-path: if the student typed 1-3 words and deterministic rules already caught the issue(s),
-    // return in 0ms without any network round-trip to the LLM.
-    const wordCount = data.essayText.trim().split(/\s+/).filter(Boolean).length;
-    if (wordCount <= 3 && deterministic.length > 0) {
+    // Fast-path: tiny fragment (< 8 words) -> 0 AI tokens!
+    if (wordCount < 8) {
       const merged = dedupeAndCap([...carryForward(), ...deterministic]);
       return {
         issues: merged,
         classifications: [] as LiveExaminerAoClassification[],
+        sentenceResults: [],
         classifiedContexts: toSend,
         clean: merged.length === 0,
         checkedText: data.essayText,
         predictedMark: null,
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       };
     }
 
-    const shouldEstimateMark = data.essayText.trim().length >= 8;
-
     try {
       const { chat } = await import("./ai.server");
-      const { MODEL_LIVE_CHECK, MODEL_LIVE_CANDIDATE } =
-        await import("./examiner/config");
+      const { MODEL_LIVE_CANDIDATE } = await import("./examiner/config");
       const { extractFirstJsonObject } = await import("./examiner/json");
 
-      // Single unified fast Mistral call: checks sentences, classifies AOs, and estimates running mark in one round-trip.
-      const targetBlock = toSend.map((sentence, index) => `${index + 1}. ${sentence}`).join("\n");
-      const userPrompt = shouldEstimateMark
-        ? `SENTENCES TO CHECK:\n${targetBlock}\n\nFULL ANSWER SO FAR (for predicted_mark):\n${data.essayText}`
-        : `SENTENCES TO CHECK:\n${targetBlock}`;
+      // Extract the last 1-2 verbatim sentences immediately before the dirty block for causal continuity (~35 tokens)
+      const dirtyHashSet = new Set(dirtyPayloads.map((d) => d.hash));
+      const firstDirtyIdx = allSegments.findIndex((s) => dirtyHashSet.has(s.hash));
+      const precedingContext =
+        firstDirtyIdx > 0
+          ? allSegments
+              .slice(Math.max(0, firstDirtyIdx - 2), firstDirtyIdx)
+              .filter((s) => s.isComplete && !/^\[DIAGRAM:/i.test(s.text.trim()))
+              .map((s) => s.text)
+          : [];
 
-      const candidateResult = await chat({
+      // Single ultra-compact Delta AI call (~420 system tokens + dirty sentences only + compact JSON output)
+      const systemPrompt = buildCompactDeltaSystemPrompt({
+        question: data.question,
+        level: data.level,
+        maxMark: data.maxMark,
+        blueprint,
+      });
+      const userPrompt = buildCompactDeltaUserPrompt({
+        dirtySentences: dirtyPayloads,
+        priorSummaries: data.priorSummaries ?? [],
+        essayStats: {
+          wordCount,
+          paragraphCount,
+          hasDiagram: essayHasDiagram(data.essayText),
+        },
+        precedingContext,
+      });
+
+      const dynamicMaxTokens = Math.min(950, 350 + dirtyPayloads.length * 45);
+      const deltaResult = await chat({
         model: MODEL_LIVE_CANDIDATE,
         feature: "live_examiner_check",
         userId: context.userId,
         temperature: 0,
-        maxCompletionTokens: 900,
+        maxCompletionTokens: dynamicMaxTokens,
         json: true,
         messages: [
-          {
-            role: "system",
-            content: buildCandidateSystemPrompt(
-              data.question,
-              data.level,
-              data.maxMark,
-              compactedContext,
-              shouldEstimateMark,
-            ),
-          },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
       });
 
-      const raw = extractFirstJsonObject(candidateResult.text);
-      let predictedMark: PredictedMark | null = null;
-      if (shouldEstimateMark && raw && typeof raw === "object" && "predicted_mark" in raw) {
-        try {
-          predictedMark = sanitisePredictedMark(
-            (raw as Record<string, unknown>).predicted_mark,
-            data.maxMark,
-            data.question,
-            data.essayText,
-          );
-        } catch {
-          predictedMark = null;
+      const rawJson = extractFirstJsonObject(deltaResult.text);
+      const parsedDelta = CompactDeltaResponseSchema.safeParse(rawJson);
+      const deltaData = parsedDelta.success
+        ? parsedDelta.data
+        : { c: [], iss: [], hits: undefined, m: undefined };
+
+      // 6-Point Deterministic Verification Gate (0 extra AI tokens!)
+      const gate = verifyDeltaIssues({
+        rawIssues: deltaData.iss,
+        dirtySentences: dirtyPayloads,
+        blueprint,
+        localIssueKeys,
+      });
+
+      // Track sentences with deterministic misconceptions/off-topic as fatal too
+      for (const d of dirtyPayloads) {
+        if (
+          detectOffTopicConcept(d.text, data.question).isOffTopic ||
+          checkEconomicMisconceptions(d.text, d.id).length > 0
+        ) {
+          gate.fatalSentenceIndices.add(d.i);
         }
       }
-      const issuesRaw = Array.isArray(raw.issues) ? raw.issues : [];
-      const classificationsRaw = Array.isArray(raw.classifications) ? raw.classifications : [];
-      const classifications = classificationsRaw.flatMap<LiveExaminerAoClassification>((item) => {
-        const record = (item ?? {}) as Record<string, unknown>;
-        const idx = Number(record.sentence_index);
-        const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
-        let original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
-        let explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
-        let ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
-          ? (record.ao as (typeof AO_CODES)[number])
-          : null;
-        if (!sentence || !ao) return [];
-        if (/\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
 
-        // Off-topic sentences cannot earn Cambridge AO credit
-        const offTopicCheck = detectOffTopicConcept(sentence, data.question);
-        if (offTopicCheck.isOffTopic) return [];
+      // Compute exact verified AO evidence counts across prior verified + current delta
+      const aiClassByIdx = new Map(deltaData.c.map((item) => [item.i, item]));
+      let ao1Sentences = (data.priorSummaries ?? []).filter((p) => p.ao === "ao1").length;
+      let ao2Sentences = (data.priorSummaries ?? []).filter((p) => p.ao === "ao2").length;
+      let ao3Sentences = (data.priorSummaries ?? []).filter((p) => p.ao === "ao3").length;
+      let hasConcludingJudgement = false;
 
-        // Cross-check with deterministic sentence classifier: if the sentence is a high-confidence
-        // AO1 definition (e.g. "Free trade is when..." or "Free trade can lead to specialisation where..."),
-        // prevent the LLM from misclassifying it as AO2 Analysis.
-        const detClassification = classifySentence(sentence);
-        if (detClassification && detClassification.ao === "AO1" && detClassification.confidence >= 0.9) {
-          ao = "AO1";
-          explanation = detClassification.explanation;
+      for (const d of dirtyPayloads) {
+        if (/\[DIAGRAM:[^\]]*\]/i.test(d.text)) continue;
+        if (gate.fatalSentenceIndices.has(d.i)) continue;
+        const aiCls = aiClassByIdx.get(d.i);
+        if (!aiCls || aiCls.ao === "NO_CREDIT") continue;
+        const resolvedAo = !blueprint.requiresEvaluation && aiCls.ao === "AO3" ? "AO2" : aiCls.ao;
+        if (resolvedAo === "AO1") ao1Sentences++;
+        else if (resolvedAo === "AO2") ao2Sentences++;
+        else if (resolvedAo === "AO3") ao3Sentences++;
+        if (aiCls.sub === "conclusion" || aiCls.sub === "judgement") {
+          hasConcludingJudgement = true;
         }
+      }
 
-        // If model returns a partial phrase or exact sentence, prefer whole sentence
-        // so highlighting is clean, seamless, and unbroken across the entire sentence.
-        if (!original || !sentence.toLowerCase().includes(original.toLowerCase()) || original.length > sentence.trim().length * 0.6) {
-          original = sentence.trim();
-        } else {
-          const localIndex = sentence.toLowerCase().indexOf(original.toLowerCase());
-          if (localIndex !== -1) {
-            original = sentence.slice(localIndex, localIndex + original.length);
-          } else {
-            original = sentence.trim();
+      // Count any uncorrected fatal misconceptions across the full essay
+      const fullEssayDetMisconceptions = allSegments.reduce(
+        (count, seg) => count + (checkEconomicMisconceptions(seg.text, seg.id).length > 0 ? 1 : 0),
+        0,
+      );
+      const fatalMisconceptionCount = Math.max(
+        gate.fatalSentenceIndices.size,
+        fullEssayDetMisconceptions,
+      );
+
+      // Reconcile verified running mark (uses REAL multi-paragraph essayText + verified AO counts!)
+      const reconciled = reconcileVerifiedMark({
+        aiMark: deltaData.m,
+        essayText: data.essayText,
+        question: data.question,
+        maxMark: data.maxMark,
+        blueprint,
+        verifiedCounts: {
+          ao1Sentences,
+          ao2Sentences,
+          ao3Sentences,
+          hasConcludingJudgement,
+          fatalMisconceptionCount,
+        },
+      });
+
+      const predictedMark: PredictedMark | null = reconciled
+        ? {
+            total_mark: reconciled.total_mark,
+            confidence: reconciled.confidence,
+            headline: reconciled.headline,
+            ao_breakdown: reconciled.ao_breakdown,
           }
-        }
+        : null;
 
-        return [
-          {
-            original,
-            context: sentence,
-            ao,
-            explanation: explanation || `${ao} creditworthy evidence identified by the examiner.`,
-          },
-        ];
-      });
-      if (predictedMark && predictedMark.total_mark === 0) {
-        classifications.length = 0;
-      }
-      const candidates = issuesRaw.flatMap<Candidate>((item) => {
-        const record = (item ?? {}) as Record<string, unknown>;
-        const idx = Number(record.sentence_index);
-        const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
-        let original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
-        let suggestion = typeof record.suggestion === "string" ? stripAsterisks(record.suggestion) : "";
-        const explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
-        const evidence = typeof record.evidence === "string" ? stripAsterisks(record.evidence) : "";
-        const confidence = Number(record.confidence);
-        const parsedCategory = CATEGORIES.includes(record.category as (typeof CATEGORIES)[number])
-          ? (record.category as (typeof CATEGORIES)[number])
-          : null;
-        const parsedSeverity = SEVERITIES.includes(record.severity as (typeof SEVERITIES)[number])
-          ? (record.severity as (typeof SEVERITIES)[number])
-          : "medium";
-        if (!sentence || !original || !suggestion || !parsedCategory) return [];
-        if (original.toLowerCase().trim() === suggestion.toLowerCase().trim()) return [];
-        if (!Number.isFinite(confidence) || confidence < CONFIDENCE_THRESHOLD) return [];
+      const isZeroMark = predictedMark !== null && predictedMark.total_mark === 0;
 
-        // Normalize issue spans to minimal replacements and guard against sentence chopping
-        const normalized = normalizeIssueSpan({
-          sentence,
-          original,
-          suggestion,
-          category: parsedCategory,
-        });
-        if (!normalized) return [];
+      // Build exact-indexed sentenceResults & legacy classifications
+      const classifications: LiveExaminerAoClassification[] = [];
+      const sentenceResults: Array<{
+        sentenceId: string;
+        sentenceHash: string;
+        ao: "ao1" | "ao2" | "ao3" | "no_credit";
+        sub?: string | null;
+        strength: number;
+        reason: string;
+        issues: LiveExaminerIssue[];
+      }> = [];
 
-        original = stripAsterisks(normalized.original);
-        suggestion = cleanSuggestion(stripAsterisks(normalized.suggestion));
+      for (const d of dirtyPayloads) {
+        if (/\[DIAGRAM:[^\]]*\]/i.test(d.text)) continue;
 
-        if (original.toLowerCase().trim() === suggestion.toLowerCase().trim()) return [];
+        const aiCls = aiClassByIdx.get(d.i);
+        const isFatal = gate.fatalSentenceIndices.has(d.i) || isZeroMark;
+        const sentAiIssues: LiveExaminerIssue[] = gate.verifiedIssues
+          .filter((vi) => vi.sentenceIndex === d.i)
+          .map(({ sentenceIndex: _si, sentenceId: _sid, sentenceHash: _sh, ...rest }) => rest);
 
-        // Suppress low-confidence or pedantic grammar/clarity noise
-        if ((parsedCategory === "grammar" || parsedCategory === "clarity") && confidence < 0.70) {
-          return [];
-        }
+        let tag: "ao1" | "ao2" | "ao3" | "no_credit" = "no_credit";
+        let reason = "No direct Cambridge 9708 credit identified.";
+        let strength = 0;
 
-        // Guard against a hallucinated correction that doesn't even
-        // appear in the sentence it claims to fix.
-        if (!sentence.toLowerCase().includes(original.toLowerCase())) return [];
-        // Economics claims need real proof: the cited evidence must
-        // literally exist in the retrieved syllabus material, checked
-        // here rather than trusted from the model's own claim.
-        if (
-          parsedCategory === "economics_accuracy" &&
-          data.contextBlock &&
-          !evidenceAppearsInContext(evidence, data.contextBlock) &&
-          !/off[- ]topic/i.test(explanation + " " + evidence)
-        ) {
-          return [];
-        }
-        return [
-          {
-            original,
-            suggestion,
-            category: parsedCategory,
-            severity: parsedSeverity,
-            explanation: explanation || "Flagged by the examiner check.",
-            context: sentence,
-            evidence: evidence || undefined,
-            confidence,
-          },
-        ];
-      });
+        if (!isFatal && aiCls && aiCls.ao !== "NO_CREDIT") {
+          let resolvedAo = aiCls.ao;
+          // Enforce non-evaluative command word (e.g. 8-mark "Explain" never awards AO3)
+          if (!blueprint.requiresEvaluation && resolvedAo === "AO3") {
+            resolvedAo = "AO2";
+          }
+          tag = resolvedAo.toLowerCase() as "ao1" | "ao2" | "ao3";
+          reason = stripAsterisks(aiCls.r) || `${resolvedAo} creditworthy economics.`;
+          strength = aiCls.s ?? 1;
 
-      let freshIssues: LiveExaminerIssue[] = [];
-
-      // Split off the mechanical, high-confidence candidates so they skip
-      // Stage 2 entirely (see AUTO_KEEP_CATEGORIES above) — they show up a
-      // full round trip sooner. Everything else (every AO-judgement
-      // category, and any lower-confidence mechanical one) still goes
-      // through independent verification exactly as before; accuracy on
-      // the categories that actually affect a mark is unchanged.
-      const autoKept: LiveExaminerIssue[] = [];
-      const needsVerification: Candidate[] = [];
-      for (const candidate of candidates) {
-        if (
-          AUTO_KEEP_CATEGORIES.has(candidate.category) &&
-          candidate.confidence >= AUTO_KEEP_CONFIDENCE
-        ) {
-          const { confidence: _confidence, ...issue } = candidate;
-          autoKept.push(issue);
-        } else {
-          needsVerification.push(candidate);
-        }
-      }
-
-      // ---- Stage 2: independent verification ----
-      // Only spend a second call when there are still candidates that need
-      // it — a clean passage, or one where everything was auto-kept, never
-      // pays for verification it doesn't need.
-      if (needsVerification.length > 0) {
-        const candidateBlock = needsVerification
-          .map(
-            (c, index) =>
-              `${index + 1}. [${c.category}] Student wrote: "${c.context}"\n   Flagged phrase: "${c.original}" → suggested: "${c.suggestion}"\n   Claimed reason: ${c.explanation}\n   Evidence offered: ${c.evidence || "(none)"}`,
-          )
-          .join("\n\n");
-
-        const verifyResult = await chat({
-          model: MODEL_LIVE_CHECK,
-          feature: "live_examiner_verify",
-          userId: context.userId,
-          temperature: 0,
-          maxCompletionTokens: 400,
-          json: true,
-          messages: [
-            {
-              role: "system",
-              content: buildVerifierSystemPrompt(data.question, compactedContext),
-            },
-            { role: "user", content: `CANDIDATES:\n\n${candidateBlock}` },
-          ],
-        });
-
-        const verifyRaw = extractFirstJsonObject(verifyResult.text);
-        const verdicts = Array.isArray(verifyRaw.verdicts) ? verifyRaw.verdicts : [];
-        const verdictByIndex = new Map<number, { keep: boolean; explanation?: string }>();
-        for (const v of verdicts) {
-          const record = (v ?? {}) as Record<string, unknown>;
-          const idx = Number(record.index);
-          if (!Number.isInteger(idx)) continue;
-          verdictByIndex.set(idx, {
-            keep: record.keep === true,
-            explanation: typeof record.explanation === "string" ? record.explanation : undefined,
+          classifications.push({
+            original: d.text.trim(),
+            context: d.text,
+            ao: resolvedAo,
+            explanation: reason,
           });
+        } else if (isFatal) {
+          reason = isZeroMark
+            ? "Off-topic or zero-credit response for this question prompt."
+            : "Contains an economic misconception or off-topic claim — fix to earn AO credit.";
         }
 
-        const verified = needsVerification
-          .map((candidate, i) => {
-            const verdict = verdictByIndex.get(i + 1);
-            if (!verdict?.keep) return null;
-            const { confidence: _confidence, ...issue } = candidate;
-            return { ...issue, explanation: stripAsterisks(verdict.explanation || issue.explanation) };
-          })
-          .filter((item): item is LiveExaminerIssue => item !== null);
-
-        // Trickle new issues in rather than dumping all of them at once.
-        freshIssues = [...autoKept, ...verified].slice(0, MAX_NEW_ISSUES_PER_CALL);
-      } else {
-        freshIssues = autoKept.slice(0, MAX_NEW_ISSUES_PER_CALL);
+        sentenceResults.push({
+          sentenceId: d.id,
+          sentenceHash: d.hash,
+          ao: tag,
+          sub: isFatal ? null : (aiCls?.sub ?? null),
+          strength,
+          reason,
+          issues: sentAiIssues,
+        });
       }
 
-      const merged = dedupeAndCap([...carryForward(), ...deterministic, ...freshIssues]);
+      const verifiedAiIssues: LiveExaminerIssue[] = gate.verifiedIssues
+        .slice(0, MAX_NEW_ISSUES_PER_CALL)
+        .map(({ sentenceIndex: _si, sentenceId: _sid, sentenceHash: _sh, ...rest }) => rest);
 
-      const sentenceObjects = currentSentences.map((s, idx) => ({
-        id: `s_${idx}`,
-        text: s,
-        paragraphIndex: 0,
-        sentenceIndex: idx,
-        isComplete: true,
+      const merged = dedupeAndCap([...carryForward(), ...deterministic, ...verifiedAiIssues]);
+
+      // Build authentic multi-paragraph ledger
+      const sentenceObjects = allSegments.map((s) => ({
+        id: s.id,
+        text: s.text,
+        paragraphIndex: s.paragraphIndex,
+        sentenceIndex: s.sentenceIndex,
+        isComplete: s.isComplete,
       }));
 
       const semanticClassifications = evaluateParagraphSemantics({
@@ -1079,14 +1187,15 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         rubric,
       });
 
-      for (const c of classifications) {
-        const match = semanticClassifications.find(
-          (sc) =>
-            sc.evidence.toLowerCase().includes(c.original.toLowerCase()) ||
-            c.original.toLowerCase().includes(sc.evidence.toLowerCase())
-        );
-        if (match && c.ao) {
-          match.primaryAO = c.ao as any;
+      const resByHash = new Map(sentenceResults.map((r) => [r.sentenceHash, r]));
+      for (const seg of allSegments) {
+        const sr = resByHash.get(seg.hash);
+        if (!sr) continue;
+        const match = semanticClassifications.find((sc) => sc.sentenceId === seg.id);
+        if (match) {
+          match.primaryAO =
+            sr.ao === "no_credit" ? "NO_CREDIT" : (sr.ao.toUpperCase() as "AO1" | "AO2" | "AO3");
+          match.economicFunction = sr.reason;
         }
       }
 
@@ -1097,18 +1206,23 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         isAiVerified: true,
       });
 
-      const feedbackResult = generateFeedbackAndOpportunities({
-        ledger: ledgerResult.ledger,
-        rubric,
-        aoBreakdown: ledgerResult.aoBreakdown,
-        totalWords: wordCount,
-      });
-
       if (predictedMark) {
         ledgerResult.totalMark = predictedMark.total_mark;
         ledgerResult.aoBreakdown.ao1.awarded = predictedMark.ao_breakdown.knowledge.awarded;
         ledgerResult.aoBreakdown.ao2.awarded = predictedMark.ao_breakdown.analysis.awarded;
         ledgerResult.aoBreakdown.ao3.awarded = predictedMark.ao_breakdown.evaluation.awarded;
+        ledgerResult.aoBreakdown.ao1.coveragePct =
+          blueprint.split.ao1_marks > 0
+            ? Math.round((predictedMark.ao_breakdown.knowledge.awarded / blueprint.split.ao1_marks) * 100)
+            : 100;
+        ledgerResult.aoBreakdown.ao2.coveragePct =
+          blueprint.split.ao2_marks > 0
+            ? Math.round((predictedMark.ao_breakdown.analysis.awarded / blueprint.split.ao2_marks) * 100)
+            : 100;
+        ledgerResult.aoBreakdown.ao3.coveragePct =
+          blueprint.split.ao3_marks > 0
+            ? Math.round((predictedMark.ao_breakdown.evaluation.awarded / blueprint.split.ao3_marks) * 100)
+            : 100;
         ledgerResult.status = "verified";
         ledgerResult.markRange = [
           Math.max(0, predictedMark.total_mark - (predictedMark.total_mark === 0 ? 0 : 1)),
@@ -1116,14 +1230,41 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         ];
       }
 
+      const feedbackResult = generateFeedbackAndOpportunities({
+        ledger: ledgerResult.ledger,
+        rubric,
+        aoBreakdown: ledgerResult.aoBreakdown,
+        totalWords: wordCount,
+      });
+
+      // Prepend AI's question-specific highest-mark next step if provided
+      if (reconciled?.nextStep && feedbackResult.opportunities.length > 0) {
+        feedbackResult.opportunities[0] = {
+          ...feedbackResult.opportunities[0]!,
+          suggestedAction: reconciled.nextStep,
+        };
+      }
+
+      const promptTokens = deltaResult.promptTokens ?? 0;
+      const completionTokens = deltaResult.completionTokens ?? 0;
+
       return cleanStars({
         issues: merged,
         classifications,
+        sentenceResults,
         classifiedContexts: toSend,
         clean: merged.length === 0,
         checkedText: data.essayText,
         predictedMark,
         rubric,
+        blueprint,
+        rubricHits: {
+          ao1: Array.from(new Set((deltaData.hits?.ao1 ?? []).filter((i) => i >= 0 && i < blueprint.keyTerms.length))),
+          ao2: Array.from(new Set((deltaData.hits?.ao2 ?? []).filter((i) => i >= 0 && i < blueprint.analysisMechanisms.length))),
+          ao3: blueprint.requiresEvaluation
+            ? Array.from(new Set((deltaData.hits?.ao3 ?? []).filter((i) => i >= 0 && i < blueprint.evaluationAngles.length)))
+            : [],
+        },
         ledger: ledgerResult.ledger,
         arguments: ledgerResult.arguments,
         opportunities: feedbackResult.opportunities,
@@ -1131,17 +1272,22 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         areasForImprovement: feedbackResult.areasForImprovement,
         markRange: ledgerResult.markRange,
         status: ledgerResult.status,
+        tokenUsage: {
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+        },
       });
     } catch (_error) {
       // A failed check is an enhancement failing, never a hard gate — keep
       // whatever was already found (plus the free deterministic pass).
       const surviving = dedupeAndCap([...carryForward(), ...deterministic]);
-      const sentenceObjects = currentSentences.map((s, idx) => ({
-        id: `s_${idx}`,
-        text: s,
-        paragraphIndex: 0,
-        sentenceIndex: idx,
-        isComplete: true,
+      const sentenceObjects = allSegments.map((s) => ({
+        id: s.id,
+        text: s.text,
+        paragraphIndex: s.paragraphIndex,
+        sentenceIndex: s.sentenceIndex,
+        isComplete: s.isComplete,
       }));
       const fallbackRubric = buildQuestionRubric({
         question: data.question,
@@ -1171,12 +1317,14 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       return cleanStars({
         issues: surviving,
         classifications: [] as LiveExaminerAoClassification[],
+        sentenceResults: [],
         classifiedContexts: [] as string[],
         clean: surviving.length === 0,
         checkedText: data.essayText,
         checkFailed: true,
         predictedMark: null,
         rubric: fallbackRubric,
+        blueprint,
         ledger: localLedger.ledger,
         arguments: localLedger.arguments,
         opportunities: localFeedback.opportunities,
@@ -1184,6 +1332,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         areasForImprovement: localFeedback.areasForImprovement,
         markRange: localLedger.markRange,
         status: localLedger.status,
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       });
     }
   });

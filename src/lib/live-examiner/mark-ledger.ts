@@ -46,7 +46,7 @@ export function buildMarkLedger(params: {
 }): BuildLedgerResult {
   const { sentences, classifications, rubric, isAiVerified = false } = params;
   const maxMark = (rubric.maximumMarks === 8 || rubric.maximumMarks === 12 || rubric.maximumMarks === 20 ? rubric.maximumMarks : 12) as 8 | 12 | 20;
-  const split = TARIFF_SPLITS[maxMark] || defaultSplitForMaxMark(maxMark);
+  const split = defaultSplitForMaxMark(maxMark, undefined, rubric.questionText);
 
   const totalWords = sentences.reduce(
     (acc, s) => acc + s.text.trim().split(/\s+/).filter(Boolean).length,

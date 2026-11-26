@@ -262,6 +262,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck, badge: "Analytics" },
       { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
+      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live AI" },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/data-response",
@@ -322,6 +323,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
       { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
       { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck, badge: "Analytics" },
       { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
+      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live AI" },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/data-response",
@@ -814,7 +816,6 @@ export function AppShell({
       Boolean(
         adminGroup?.items.some((item) => isItemActive(item.to)) ||
           pathname.startsWith("/admin") ||
-          pathname.startsWith("/live-examiner") ||
           pathname.startsWith("/calibration"),
       ),
     [adminGroup, pathname],

@@ -139,17 +139,21 @@ export const LiveExaminerEditor = forwardRef<LiveExaminerEditorHandle, LiveExami
       [normalizedIssues, onAccept],
     );
 
-    // Focus a span in the editor
+    // Focus a span (either an issue or an AO sentence) in the editor
     const focusSpan = useCallback((spanId: string) => {
       const issue = normalizedIssues.find((iss) => iss.id === spanId);
-      if (issue && viewRef.current) {
+      const targetSpan = issue ?? normalizedSentences.find((s) => s.id === spanId);
+      if (targetSpan && viewRef.current) {
+        const docLen = viewRef.current.state.doc.length;
+        const from = Math.min(Math.max(0, targetSpan.from), docLen);
+        const to = Math.min(Math.max(from, targetSpan.to), docLen);
         viewRef.current.dispatch({
-          selection: { anchor: issue.from, head: issue.to },
+          selection: { anchor: from, head: to },
           scrollIntoView: true,
         });
         viewRef.current.focus();
       }
-    }, [normalizedIssues]);
+    }, [normalizedIssues, normalizedSentences]);
 
     useImperativeHandle(
       ref,
@@ -274,8 +278,8 @@ export const LiveExaminerEditor = forwardRef<LiveExaminerEditorHandle, LiveExami
         {/* CodeMirror 6 Editor Host */}
         <div ref={editorHostRef} className="h-full min-h-[500px] w-full cursor-text" />
 
-        {/* Grammarly-Style Floating Card Portal for Active Issues */}
-        {hoverTarget && activeIssue ? (
+        {/* Grammarly-Style Floating Card Portal for Active Issues OR Clicked AO Sentences */}
+        {hoverTarget && (activeIssue || (activeSentence?.ao && activeSentence.ao.tag !== "no_credit")) ? (
           <IssueCard
             issue={activeIssue}
             sentence={activeSentence}

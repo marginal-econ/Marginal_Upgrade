@@ -132,12 +132,14 @@ export function LiveExaminerPanel({
   gradedHelp,
   onAccept,
   onAcceptAll,
+  onAcceptAllMechanical,
   onDismiss,
   onRescan,
   onClearAll,
   onFocusIssue,
   onOpenMaximizer,
   maximizerLoading,
+  checklistContent,
   showPredictedMark = false,
 }: {
   issues: ActiveIssue[];
@@ -153,12 +155,14 @@ export function LiveExaminerPanel({
   gradedHelp?: ReactNode;
   onAccept: (id: string) => void;
   onAcceptAll?: () => void;
+  onAcceptAllMechanical?: () => void;
   onDismiss: (id: string) => void;
   onRescan: () => void;
   onClearAll: () => void;
   onFocusIssue?: (id: string) => void;
   onOpenMaximizer?: () => void;
   maximizerLoading?: boolean;
+  checklistContent?: ReactNode;
   showPredictedMark?: boolean;
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -179,6 +183,11 @@ export function LiveExaminerPanel({
     return issues.filter((i) => CATEGORY_AO[i.category] === filter);
   }, [issues, filter]);
 
+  const mechanicalCount = useMemo(
+    () => issues.filter((i) => ["spelling", "grammar", "punctuation"].includes(i.category)).length,
+    [issues],
+  );
+
   return (
     <div className="flex h-full flex-col gap-3">
       {(showPredictedMark || finalGrading) ? (
@@ -192,36 +201,6 @@ export function LiveExaminerPanel({
       ) : null}
       {gradedHelp}
 
-      <div className="grid grid-cols-3 gap-1.5" aria-label="Assessment objective colour key">
-        {[
-          ["AO1", "Knowledge"],
-          ["AO2", "Analysis"],
-          ["AO3", "Evaluation"],
-        ].map(([code, label]) => {
-          const style = AO_STYLE[code as keyof typeof AO_STYLE];
-          const isSelected = filter === code;
-          return (
-            <button
-              key={code}
-              type="button"
-              onClick={() => setFilter((prev) => (prev === code ? "all" : (code as FilterKey)))}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-left transition-all",
-                style.badge,
-                isSelected && "ring-2 ring-foreground/40 shadow-sm",
-              )}
-              title={`Filter suggestions by ${code} ${label}`}
-            >
-              <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
-              <span className="min-w-0 text-[10px] font-semibold">
-                {code}{" "}
-                <span className="hidden font-normal text-muted-foreground xl:inline">{label}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
       <div className="flex items-center justify-between gap-2">
         <StatusLine
           checking={checking}
@@ -230,7 +209,18 @@ export function LiveExaminerPanel({
           lastUpdatedAt={lastUpdatedAt}
         />
         <div className="flex shrink-0 items-center gap-1">
-          {issues.length > 1 && onAcceptAll ? (
+          {mechanicalCount >= 1 && onAcceptAllMechanical ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-7 px-2 text-[11px] font-semibold gap-1 text-indigo-700 dark:text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30"
+              onClick={onAcceptAllMechanical}
+              title="Fix all spelling and grammar issues at once"
+            >
+              <CheckCheck className="size-3.5" /> Fix Grammar ({mechanicalCount})
+            </Button>
+          ) : issues.length > 1 && onAcceptAll ? (
             <Button
               type="button"
               size="sm"
@@ -248,8 +238,9 @@ export function LiveExaminerPanel({
             variant="ghost"
             className="h-7 px-2 text-xs"
             onClick={onRescan}
+            title="Rescan full essay"
           >
-            <RefreshCw className={cn("size-3.5", checking && "animate-spin")} /> Rescan
+            <RefreshCw className={cn("size-3.5", checking && "animate-spin")} />
           </Button>
           <Button
             type="button"
@@ -258,6 +249,7 @@ export function LiveExaminerPanel({
             className="h-7 px-2 text-xs"
             disabled={issues.length === 0}
             onClick={onClearAll}
+            title="Clear active suggestions"
           >
             <Trash2 className="size-3.5" />
           </Button>
@@ -301,13 +293,24 @@ export function LiveExaminerPanel({
 
       <Tabs defaultValue="active" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="w-full">
-          <TabsTrigger value="active" className="flex-1">
-            Suggestions {issues.length > 0 ? `(${issues.length})` : ""}
+          <TabsTrigger value="active" className="flex-1 text-xs">
+            Feedback {issues.length > 0 ? `(${issues.length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex-1">
+          {checklistContent ? (
+            <TabsTrigger value="checklist" className="flex-1 text-xs">
+              Checklist
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="history" className="flex-1 text-xs">
             History {resolvedHistory.length > 0 ? `(${resolvedHistory.length})` : ""}
           </TabsTrigger>
         </TabsList>
+
+        {checklistContent ? (
+          <TabsContent value="checklist" className="mt-2 min-h-0 flex-1">
+            <ScrollArea className="h-full pr-2">{checklistContent}</ScrollArea>
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="active" className="mt-2 min-h-0 flex-1">
           <ScrollArea className="h-full pr-2">

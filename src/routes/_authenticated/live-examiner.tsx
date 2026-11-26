@@ -30,6 +30,7 @@ import { LiveExaminerEditor } from "@/components/app/live-examiner-editor";
 import { AoLegend } from "@/components/app/live-examiner/ao-legend";
 import { ScoreWidget } from "@/components/app/live-examiner/score-widget";
 import { NextMarks } from "@/components/app/live-examiner/next-marks";
+import { RubricChecklist } from "@/components/app/live-examiner/rubric-checklist";
 import type { LiveExaminerEditorHandle } from "@/components/app/live-examiner/editor";
 import {
   LiveExaminerHistoryPanel,
@@ -96,17 +97,6 @@ import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/live-examiner")({
-  beforeLoad: async ({ context }) => {
-    const user = (context as any)?.user;
-    const isMarginal = isMarginalAdmin({
-      userId: user?.id,
-      email: user?.email,
-      claims: user?.user_metadata,
-    });
-    if (!isMarginal) {
-      throw redirect({ to: "/dashboard" });
-    }
-  },
   head: () => ({
     meta: [
       { title: "Live Examiner — Cambridge 9708 Economics" },
@@ -392,7 +382,9 @@ function LiveExaminerPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const topics = topicsFor("Microeconomics").concat(topicsFor("Macroeconomics"));
+  const topics = Array.from(
+    new Set(topicsFor("Microeconomics").concat(topicsFor("Macroeconomics"))),
+  );
 
   // --- Question source: type / AI-generated / question bank (same pattern
   // as the essay generator's question picker) --------------------------
@@ -429,8 +421,8 @@ function LiveExaminerPage() {
   // subsequent live check call so nothing re-embeds on every keystroke ---
   const prepareContext = useServerFn(prepareLiveExaminerContext);
   const contextMutation = useMutation({
-    mutationFn: (override?: { level: "as" | "a2"; topic: string; question: string }) =>
-      prepareContext({ data: override ?? { level, topic, question } }),
+    mutationFn: (override?: { level: "as" | "a2"; topic: string; question: string; maxMark?: number }) =>
+      prepareContext({ data: override ?? { level, topic, question, maxMark } }),
     onError: (error: Error) => {
       // Only surface daily limit errors; never block the editor on background context sync issues
       if (isDailyLimitError(error)) {
@@ -464,7 +456,7 @@ function LiveExaminerPage() {
     }
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate({ level, topic, question });
+    contextMutation.mutate({ level, topic, question, maxMark });
   }
 
   /** Resume a past essay from the history panel — same as picking that
@@ -481,10 +473,12 @@ function LiveExaminerPage() {
       level: entry.level,
       topic: entry.topic,
       question: entry.question,
+      maxMark: entry.maxMark,
     });
   }
 
   const contextBlock = contextMutation.data?.contextBlock ?? "";
+  const rubricBlueprint = contextMutation.data?.blueprint ?? null;
   const sourceCount = contextMutation.data?.sourceCount ?? 0;
   const anchorsUsed = contextMutation.data?.anchorsUsed ?? 0;
 
@@ -500,6 +494,22 @@ function LiveExaminerPage() {
   const [showIssues, setShowIssues] = useState(true);
   const [activeAoFilter, setActiveAoFilter] = useState<any>(null);
   const editorRef = useRef<LiveExaminerEditorHandle>(null);
+
+  // Effortless keyboard shortcuts: Alt+1 toggles AO highlights, Alt+2 toggles issue underlines
+  useEffect(() => {
+    if (!started) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "1") {
+        e.preventDefault();
+        setShowAo((prev) => !prev);
+      } else if (e.altKey && e.key === "2") {
+        e.preventDefault();
+        setShowIssues((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [started]);
 
   const {
     issues,
@@ -520,6 +530,8 @@ function LiveExaminerPage() {
     clearAll,
     cache,
     rubric,
+    rubricHits,
+    tokenStats,
     ledger,
     opportunities,
     strengths,
@@ -532,6 +544,7 @@ function LiveExaminerPage() {
     level,
     maxMark,
     contextBlock,
+    blueprint: rubricBlueprint,
     enabled: started,
     initialCache: sessionQuery.data?.session
       ? { sentences: (sessionQuery.data.session as any).sentence_cache }
@@ -653,76 +666,12 @@ function LiveExaminerPage() {
     toast.success("Cleared — write the full answer again from scratch.");
   }
 
-  if (!isAdmin && meQuery.isLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-sm font-medium">Verifying administrator authorization...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <>
-        <PageHeader
-          title="Live Examiner"
-          description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
-        />
-        <ChainedChamber
-          badgeText="In Active Development — Beta Preview"
-          title="Live Examiner is in Active Development"
-          description="Our real-time keystroke coaching engine is actively in development and undergoing calibration against official Cambridge 9708 examiner standards. All core platform features (Unlimited Cambridge Essay Grading, AI Reworks, and Past Paper MCQs) remain 100% Free and unlocked."
-          primaryCtaText="Open Free Essay Grader"
-          primaryCtaLink="/grade"
-          secondaryCtaText="Practice MCQ Past Papers"
-          secondaryCtaLink="/mcq-live"
-          features={[
-            {
-              icon: Sparkles,
-              iconColor: "text-emerald-500",
-              title: "100% Free Cambridge Essay Grader",
-              description:
-                "Full AO1 Knowledge, AO2 Analysis, and AO3 Evaluation marking with official Cambridge syllabus grounding and detailed diagnostic reports.",
-            },
-            {
-              icon: BookOpen,
-              iconColor: "text-primary",
-              title: "Past Paper Matrix & MCQ Drills",
-              description:
-                "Complete Cambridge 9708 past-paper library with high-resolution PDFs, domain performance analytics, and official explanations.",
-            },
-            {
-              icon: Users,
-              iconColor: "text-purple-500",
-              title: "Free Classroom & Cohorts",
-              description:
-                "Create unlimited Cambridge cohorts, assign past paper questions, review AI grades, and collaborate in real-time.",
-            },
-          ]}
-        />
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader
         title="Live Examiner"
-        description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
+        description="Write your Cambridge 9708 answer with instant AO highlighting, zero-latency grammar checking, and live mark-scheme feedback."
       />
-
-      <div className="mx-auto max-w-5xl px-5 pt-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300 shadow-2xs">
-          <Construction className="size-4 shrink-0 text-amber-600 dark:text-amber-400 animate-pulse" />
-          <div className="leading-relaxed">
-            <span className="font-bold tracking-tight">Feature Under Construction / Preview Beta:</span>{" "}
-            We are actively fine-tuning real-time Cambridge 9708 causal chain diagnostics and live scoring models. Feel free to test the interactive evaluator below!
-          </div>
-        </div>
-      </div>
 
       {!started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">
@@ -903,121 +852,114 @@ function LiveExaminerPage() {
       ) : (
         <div className="grid gap-0 lg:grid-cols-[1fr_290px] xl:grid-cols-[1fr_340px]">
           <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{level === "a2" ? "A Level" : "AS Level"}</Badge>
-              <Badge variant="outline">{topic}</Badge>
-              <Badge variant="outline">{maxMark} marks</Badge>
-              <Badge variant="outline">{wordCount} words</Badge>
-              {contextMutation.isPending ? (
-                <Badge variant="outline" className="gap-1 text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" /> Syncing syllabus…
-                </Badge>
-              ) : sourceCount > 0 ? (
-                <Badge variant="outline">
-                  <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
-                  {sourceCount === 1 ? "" : "s"}
-                </Badge>
-              ) : null}
-              {anchorsUsed > 0 ? (
-                <Badge variant="outline">
-                  <CheckCircle2 className="mr-1 size-3" /> {anchorsUsed} calibration anchor
-                  {anchorsUsed === 1 ? "" : "s"}
-                </Badge>
-              ) : null}
-              {diagrams.map((d) => (
-                <Badge key={d.id} variant="outline" className="gap-1">
-                  <CheckCircle2 className="size-3 text-emerald-600" /> {d.label}
-                  <button
-                    type="button"
-                    onClick={() => removeDiagram(d.id)}
-                    className="ml-0.5 text-muted-foreground hover:text-foreground"
-                    aria-label={`Remove ${d.label}`}
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => setDiagramDialogOpen(true)}
-              >
-                <ImagePlus className="size-3.5" />
-                {diagrams.length > 0 ? "Add another diagram" : "Attach diagram"}
-              </Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button type="button" size="sm" variant="ghost" className="h-7 text-xs">
-                    <ClipboardPaste className="size-3.5" />
-                    {markSchemeImages.length > 0
-                      ? `Mark scheme (${markSchemeImages.length})`
-                      : "Attach mark scheme"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 space-y-2" align="start">
-                  <p className="text-xs text-muted-foreground">
-                    Paste a screenshot of the relevant mark scheme page — the examiner reads it
-                    directly, on top of your knowledge base, when you grade this answer.
-                  </p>
-                  <MarkSchemeScreenshots
-                    images={markSchemeImages}
-                    onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
-                    onRemove={(id) =>
-                      setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
-                    }
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={() => handleGradeNow()}
-              >
-                <Sparkles className="size-3.5" /> Grade now
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 font-medium"
-                onClick={handleOpenScoreMaximizer}
-              >
-                <Sparkles className="size-3.5 text-amber-500" /> Score Maximizer
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => setRestartDialogOpen(true)}
-              >
-                <RotateCcw className="size-3.5" /> Restart exam
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="ml-auto h-7 text-xs"
-                onClick={() => setStarted(false)}
-              >
-                Change question
-              </Button>
-            </div>
-            <p className="text-sm font-medium">{question}</p>
-
-            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/70 shadow-lg backdrop-blur-md transition-all">
-              <div className="flex items-center justify-between border-b border-border/70 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3">
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  <span className="size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" /> Live Examiner Studio
-                </span>
-                <span className="font-mono text-xs font-medium text-muted-foreground">
-                  {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
-                </span>
+            {/* Clean, minimal studio header */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <p className="text-base font-semibold leading-snug text-foreground">{question}</p>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <Badge variant="secondary" className="text-[11px] font-medium">
+                    {level === "a2" ? "A Level" : "AS Level"} · {maxMark}m
+                  </Badge>
+                  <span className="text-muted-foreground/70">·</span>
+                  <span>{topic}</span>
+                  <span className="text-muted-foreground/70">·</span>
+                  <span className="font-mono">{wordCount} words</span>
+                  {contextMutation.isPending ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-primary">
+                      <Loader2 className="size-3 animate-spin" /> Loading rubric…
+                    </span>
+                  ) : sourceCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                      <GraduationCap className="size-3" /> Syllabus grounded
+                    </span>
+                  ) : null}
+                  {diagrams.map((d) => (
+                    <Badge key={d.id} variant="outline" className="gap-1 text-[10px]">
+                      <CheckCircle2 className="size-3 text-emerald-600" /> {d.label}
+                      <button
+                        type="button"
+                        onClick={() => removeDiagram(d.id)}
+                        className="ml-0.5 text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${d.label}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
               </div>
+
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setDiagramDialogOpen(true)}
+                >
+                  <ImagePlus className="size-3.5" />
+                  {diagrams.length > 0 ? `Diagrams (${diagrams.length})` : "Diagram"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                  onClick={handleOpenScoreMaximizer}
+                >
+                  <Sparkles className="size-3.5 text-amber-500" /> Maximize
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs font-semibold"
+                  onClick={() => handleGradeNow()}
+                >
+                  <Sparkles className="size-3.5" /> Grade now
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs">
+                      More
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 space-y-2.5 p-3" align="end">
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold text-foreground">Mark scheme screenshot</p>
+                      <MarkSchemeScreenshots
+                        images={markSchemeImages}
+                        onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
+                        onRemove={(id) =>
+                          setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 border-t border-border pt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 justify-start gap-2 text-xs"
+                        onClick={() => setRestartDialogOpen(true)}
+                      >
+                        <RotateCcw className="size-3.5" /> Restart essay
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 justify-start gap-2 text-xs"
+                        onClick={() => setStarted(false)}
+                      >
+                        <PenLine className="size-3.5" /> Change question
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/70 shadow-sm backdrop-blur-md transition-all">
               <AoLegend
                 sentences={sentences}
                 issuesCount={issues.length}
@@ -1049,60 +991,22 @@ function LiveExaminerPage() {
                 predictedMark={predictedMark}
                 maxMark={maxMark}
                 checking={checking}
-                placeholder="Start writing your answer here — whole sentences highlight automatically as AO1 Knowledge, AO2 Analysis, or AO3 Evaluation…"
-                className="min-h-[60vh] border-0 bg-transparent shadow-none"
+                placeholder="Start writing your answer here — sentences highlight automatically as AO1 Knowledge, AO2 Analysis, or AO3 Evaluation. Click any highlighted sentence to see why…"
+                className="min-h-[65vh] border-0 bg-transparent shadow-none"
               />
             </div>
-
-            {/* Post-Writing Score Maximizer & Perfection Blueprint Banner */}
-            {wordCount >= 40 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-linear-to-r from-amber-500/10 via-amber-500/5 to-transparent p-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                    <Sparkles className="size-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-foreground">
-                      Ready to elevate your draft to {maxMark}/{maxMark}?
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Open the Score Maximizer Blueprint for exact paragraph placement, strategic argument angles, and one-click Top-Band phrasing.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs"
-                    onClick={() => handleGradeNow()}
-                  >
-                    Official Grade
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold gap-1.5"
-                    onClick={handleOpenScoreMaximizer}
-                  >
-                    <Sparkles className="size-3.5" /> Open Score Maximizer
-                  </Button>
-                </div>
-              </div>
-            ) : null}
           </section>
 
-          <aside className="min-w-0 p-4 md:p-5 space-y-4">
+          <aside className="min-w-0 p-4 md:p-5 flex flex-col gap-3.5">
             <ScoreWidget
               scoreEstimate={scoreEstimate}
               wordCount={wordCount}
               maxMark={maxMark}
+              question={question}
               checking={checking}
               status={assessmentStatus}
               markRange={markRange}
             />
-
 
             <LiveExaminerPanel
               issues={issues}
@@ -1117,29 +1021,38 @@ function LiveExaminerPage() {
               maxMark={maxMark}
               onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
               onAcceptAll={() => setEssayText((current) => acceptAllIssues(current))}
+              onAcceptAllMechanical={() => setEssayText((current) => acceptAllMechanical(current))}
               onDismiss={dismissIssue}
               onRescan={() => rescan(essayText)}
               onClearAll={clearAll}
               onFocusIssue={(id) => {
-                setFocusedIssueId(null);
-                setTimeout(() => setFocusedIssueId(id), 10);
+                setFocusedIssueId(id);
+                editorRef.current?.focusSpan(id);
               }}
               onOpenMaximizer={handleOpenScoreMaximizer}
               maximizerLoading={maxOutMutation.isPending}
-            />
-
-            <NextMarks
-              nextMoves={scoreEstimate?.nextMoves || []}
-              opportunities={opportunities}
-              strengths={strengths}
-              areasForImprovement={areasForImprovement}
-              onSelectMove={(move) => {
-                toast.info(`Next mark tip: ${move.title}`, {
-                  description: move.detail,
-                });
-              }}
-              onOpenMaximizer={handleOpenScoreMaximizer}
-              maximizerLoading={maxOutMutation.isPending}
+              checklistContent={
+                <div className="space-y-4">
+                  <RubricChecklist
+                    blueprint={rubricBlueprint}
+                    hits={rubricHits}
+                    tokenStats={tokenStats}
+                  />
+                  <NextMarks
+                    nextMoves={scoreEstimate?.nextMoves || []}
+                    opportunities={opportunities}
+                    strengths={strengths}
+                    areasForImprovement={areasForImprovement}
+                    onSelectMove={(move) => {
+                      toast.info(`Next mark tip: ${move.title}`, {
+                        description: move.detail,
+                      });
+                    }}
+                    onOpenMaximizer={handleOpenScoreMaximizer}
+                    maximizerLoading={maxOutMutation.isPending}
+                  />
+                </div>
+              }
             />
           </aside>
         </div>

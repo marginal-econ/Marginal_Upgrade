@@ -11,6 +11,7 @@ export type ScoreWidgetProps = {
   scoreEstimate: ScoreEstimate | null;
   wordCount: number;
   maxMark: number;
+  question?: string;
   checking?: boolean;
   status?: "provisional" | "verified" | "uncertain" | "complete";
   markRange?: [number, number];
@@ -27,13 +28,14 @@ export function ScoreWidget({
   scoreEstimate,
   wordCount,
   maxMark,
+  question,
   checking = false,
   status = "provisional",
   markRange,
   className,
 }: ScoreWidgetProps) {
   const validTariff = (maxMark === 8 || maxMark === 12 || maxMark === 20 ? maxMark : 12) as 8 | 12 | 20;
-  const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
+  const split = defaultSplitForMaxMark(validTariff, undefined, question);
 
   const [deltaChip, setDeltaChip] = useState<string | null>(null);
   const [prevScore, setPrevScore] = useState<number | null>(null);
@@ -168,6 +170,19 @@ export function ScoreWidget({
           </div>
         )}
       </div>
+
+      {/* Instant 1-line Examiner Next Move (visible without switching tabs) */}
+      {scoreEstimate?.nextMoves && scoreEstimate.nextMoves.length > 0 && total < validTariff ? (
+        <div className="mt-3.5 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] leading-snug">
+          <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <span className="font-semibold text-foreground">Next move: </span>
+            <span className="text-muted-foreground">
+              {stripStars(scoreEstimate.nextMoves[0]!.title)}
+            </span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

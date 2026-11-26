@@ -32,7 +32,7 @@ type RuleDefinition = {
   severity: IssueSeverity;
   pattern: RegExp;
   getSuggestion: (match: RegExpExecArray) => string;
-  explanation: string;
+  explanation: string | ((match: RegExpExecArray) => string);
   evidence?: string;
 };
 
@@ -196,17 +196,24 @@ const RULES: RuleDefinition[] = [
     category: "grammar",
     severity: "medium",
     pattern:
-      /\ba\s+(economy|economic|equilibrium|increase|decrease|externality|elasticity|oligopoly|opportunity|interest|inflationary)\b/i,
-    getSuggestion: (m) => `an ${m[1]}`,
-    explanation: "Use indefinite article 'an' before words beginning with vowel sounds.",
+      /\b(a)\s+(increase|increasing|elastic|inelastic|external|externality|economy|economic|equilibrium|oligopoly|opportunity|aggregate|appreciation|asymmetric|import|inflation|inflationary|inferior|indirect|inefficient|inefficiency|intervention|investment|interest|effect|elasticity|unemployment|income|industry|incentive|expansion|upward|average|important|individual|evaluation|analysis|example|assumption|imbalance|improvement)\b/gi,
+    getSuggestion: (m) => {
+      const article = m[1] === "A" ? "An" : "an";
+      return `${article} ${m[2]}`;
+    },
+    explanation: "Use indefinite article 'an' before words beginning with a vowel sound.",
   },
   {
     id: "article_consonant_sound",
     category: "grammar",
     severity: "medium",
-    pattern: /\ban\s+(market|price|subsidy|tariff|government|tax|firm|monopoly|surplus|deficit)\b/i,
-    getSuggestion: (m) => `a ${m[1]}`,
-    explanation: "Use indefinite article 'a' before consonant sounds.",
+    pattern:
+      /\b(an)\s+(firm|market|price|subsidy|tariff|quota|government|tax|monopoly|surplus|deficit|decrease|decreasing|consumer|producer|good|service|shift|shortage|supply|demand|cost|benefit|negative|positive)\b/gi,
+    getSuggestion: (m) => {
+      const article = m[1] === "An" ? "A" : "a";
+      return `${article} ${m[2]}`;
+    },
+    explanation: "Use indefinite article 'a' before words beginning with a consonant sound.",
   },
   {
     id: "affect_vs_effect",
@@ -215,6 +222,82 @@ const RULES: RuleDefinition[] = [
     pattern: /\b(?:will|can|could|would|should|may|might|to)\s+effect\s+(?:demand|supply|consumption|investment|growth|output|prices?|inflation|trade)\b/i,
     getSuggestion: (m) => m[0].replace(/\beffect\b/i, "affect"),
     explanation: "'Affect' is the verb meaning to influence; 'effect' is the noun meaning the result or outcome.",
+  },
+  {
+    id: "effect_verb_third_person",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(this|it|which|tax|inflation|policy)\s+effects\s+(demand|supply|consumption|investment|growth|output|prices?|firms?|consumers?|markets?|welfare)\b/gi,
+    getSuggestion: (m) => `${m[1]} affects ${m[2]}`,
+    explanation: "'Affects' is the verb meaning influences; 'effects' is the plural noun.",
+  },
+  {
+    id: "affect_used_as_noun",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(the|a|an|negative|positive|significant|direct|indirect|net|multiplier|substitution|income)\s+affect\s+(on|of|is|will|can|may)\b/gi,
+    getSuggestion: (m) => `${m[1]} effect ${m[2]}`,
+    explanation: "Use the noun 'effect' (not the verb 'affect') for an economic impact or outcome.",
+  },
+  {
+    id: "to_vs_too_degree",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\b(is|are|was|were|be|become|becomes)\s+to\s+(high|low|expensive|cheap|costly|small|large|inelastic|elastic|slow|fast|weak|strong)\b/gi,
+    getSuggestion: (m) => `${m[1]} too ${m[2]}`,
+    explanation: "Use 'too' (meaning excessively) before an adjective, rather than 'to'.",
+  },
+  {
+    id: "sv_compound_is",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\b(demand\s+and\s+supply|costs\s+and\s+benefits|firms\s+and\s+consumers|imports\s+and\s+exports)\s+is\b/gi,
+    getSuggestion: (m) => `${m[1]} are`,
+    explanation: "A compound subject joined by 'and' takes the plural verb 'are'.",
+  },
+  {
+    id: "sv_singular_base_verb",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(this|it|which)\s+(cause|increase|decrease|reduce|raise|lower|shift|create|generate)\s+(a|an|the|prices?|costs?|demand|supply|output|inflation|unemployment|consumption|investment|welfare|deadweight|externalit)/gi,
+    getSuggestion: (m) => {
+      const verb = m[2]!.toLowerCase();
+      const conjugated = verb.endsWith("e") ? `${verb}s` : `${verb}s`;
+      return `${m[1]} ${conjugated} ${m[3]}`;
+    },
+    explanation: "Subject-verb agreement: singular subjects take the third-person '-s' verb form.",
+  },
+  {
+    id: "homophone_weather_whether",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(depends?\s+on|discuss|assess|evaluate|consider|determine|uncertain|unclear)\s+weather\b/gi,
+    getSuggestion: (m) => `${m[1]} whether`,
+    explanation: "Use 'whether' to introduce alternatives or conditions; 'weather' refers to climate.",
+  },
+  {
+    id: "homophone_where_were",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(prices|costs|wages|taxes|subsidies|firms|consumers|workers|markets|rates|exports|imports)\s+where\s+(rising|falling|increasing|decreasing|high|low|cut|raised|imposed|reduced|higher|lower)\b/gi,
+    getSuggestion: (m) => `${m[1]} were ${m[2]}`,
+    explanation: "Use past-tense verb 'were' (not 'where', which refers to location).",
+  },
+  {
+    id: "space_before_punctuation",
+    category: "punctuation",
+    severity: "low",
+    pattern: /\b([A-Za-z]{2,})\s+([.,;:])(?=\s|$)/g,
+    getSuggestion: (m) => `${m[1]}${m[2]}`,
+    explanation: "Remove the extra space before punctuation.",
+  },
+  {
+    id: "missing_space_after_period",
+    category: "punctuation",
+    severity: "low",
+    pattern: /\b([a-z]{3,})\.([A-Z][a-z]{2,})\b/g,
+    getSuggestion: (m) => `${m[1]}. ${m[2]}`,
+    explanation: "Add a space after the full stop between sentences.",
   },
   {
     id: "loose_vs_lose",
@@ -496,19 +579,11 @@ const RULES: RuleDefinition[] = [
   },
   {
     id: "alot_one_word",
-    category: "grammar",
+    category: "spelling",
     severity: "medium",
     pattern: /\balot\b/gi,
     getSuggestion: (m) => preserveCase(m[0], "a lot"),
     explanation: "'A lot' is two words.",
-  },
-  {
-    id: "a_before_vowel_econ",
-    category: "grammar",
-    severity: "medium",
-    pattern: /\ba\s+(increase|economy|economic|externality|inflation|effect|elasticity|equilibrium|unemployment|appreciation|opportunity|income|industry|incentive|inelastic|elastic|expansion|upward|average|important|individual|evaluation|analysis|example|assumption|imbalance|improvement)\b/gi,
-    getSuggestion: (m) => preserveCase(m[0], `an ${m[1].toLowerCase()}`),
-    explanation: "Use 'an' before a word that starts with a vowel sound.",
   },
   {
     id: "less_vs_fewer",
@@ -668,14 +743,6 @@ const RULES: RuleDefinition[] = [
     explanation: "Accidental repeated punctuation (period followed by comma).",
   },
   {
-    id: "could_of_would_of",
-    category: "grammar",
-    severity: "high",
-    pattern: /\b(could|would|should|must|might)\s+of\b/gi,
-    getSuggestion: (m) => `${m[1]} have`,
-    explanation: "Write '${m[1]} have', not '${m[1]} of'.",
-  },
-  {
     id: "irregardless_standard",
     category: "grammar",
     severity: "medium",
@@ -771,30 +838,6 @@ const RULES: RuleDefinition[] = [
       return `${casedModal} be`;
     },
     explanation: "Typo: 'br' should be 'be' after a modal verb.",
-  },
-  {
-    id: "article_a_before_vowel_econ",
-    category: "grammar",
-    severity: "medium",
-    pattern:
-      /\b(a)\s+(increase|increasing|elastic|inelastic|external|externality|economy|economic|equilibrium|oligopoly|opportunity|aggregate|appreciation|asymmetric|import|inflationary|inferior|indirect|inefficient|inefficiency|intervention|investment)\b/gi,
-    getSuggestion: (m) => {
-      const article = m[1] === "A" ? "An" : "an";
-      return `${article} ${m[2]}`;
-    },
-    explanation: "Use 'an' instead of 'a' before words starting with a vowel sound.",
-  },
-  {
-    id: "article_an_before_consonant_econ",
-    category: "grammar",
-    severity: "medium",
-    pattern:
-      /\b(an)\s+(firm|tax|subsidy|tariff|quota|market|price|decrease|decreasing|monopoly|consumer|producer|government|good|service|shift|surplus|shortage|deficit|supply|demand|cost|benefit|negative|positive)\b/gi,
-    getSuggestion: (m) => {
-      const article = m[1] === "An" ? "A" : "a";
-      return `${article} ${m[2]}`;
-    },
-    explanation: "Use 'a' instead of 'an' before words starting with a consonant sound.",
   },
   {
     id: "grammar_minimal_restriction_plural",
@@ -1057,7 +1100,6 @@ export const COMMON_TYPOS: Readonly<Record<string, string>> = {
   deflatoin: "deflation",
   disinflatoin: "disinflation",
   subsidie: "subsidy",
-  subsidies: "subsidies",
   subsidey: "subsidy",
   subisdy: "subsidy",
   subisdies: "subsidies",
@@ -1136,7 +1178,6 @@ export const COMMON_TYPOS: Readonly<Record<string, string>> = {
   surlus: "surplus",
   tarrif: "tariff",
   tarrifs: "tariffs",
-  privatisation: "privatisation",
   privitisation: "privatisation",
   comodity: "commodity",
   comodities: "commodities",
@@ -1456,7 +1497,7 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
             suggestion,
             category: rule.category,
             severity: rule.severity,
-            explanation: rule.explanation,
+            explanation: typeof rule.explanation === "function" ? rule.explanation(match) : rule.explanation,
             evidence: rule.evidence,
             context: sentence,
             ruleId: rule.id,

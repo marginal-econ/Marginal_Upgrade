@@ -56,45 +56,64 @@ export const essayEditorTheme = EditorView.theme(
       fontFamily: "inherit",
     },
 
-    // AO Tints & Left Border Markers
+    // AO Tints & Bottom Markers (calm, readable, hover-responsive)
     ".cm-ao-ao1": {
-      backgroundColor: "oklch(0.575 0.125 228 / 12%)",
-      borderBottom: "2px solid oklch(0.575 0.125 228 / 55%)",
-      borderRadius: "2px",
+      backgroundColor: "oklch(0.575 0.125 228 / 11%)",
+      borderBottom: "2px solid oklch(0.575 0.125 228 / 50%)",
+      borderRadius: "3px",
       padding: "1px 0",
       transition: "background-color 150ms ease",
+    },
+    ".cm-ao-ao1:hover": {
+      backgroundColor: "oklch(0.575 0.125 228 / 19%)",
     },
     ".cm-ao-ao2": {
-      backgroundColor: "oklch(0.53 0.115 168 / 12%)",
-      borderBottom: "2px solid oklch(0.53 0.115 168 / 50%)",
-      borderRadius: "2px",
+      backgroundColor: "oklch(0.53 0.115 168 / 11%)",
+      borderBottom: "2px solid oklch(0.53 0.115 168 / 48%)",
+      borderRadius: "3px",
       padding: "1px 0",
       transition: "background-color 150ms ease",
     },
+    ".cm-ao-ao2:hover": {
+      backgroundColor: "oklch(0.53 0.115 168 / 19%)",
+    },
     ".cm-ao-ao3": {
-      backgroundColor: "oklch(0.63 0.145 58 / 14%)",
-      borderBottom: "2px solid oklch(0.63 0.145 58 / 65%)",
-      borderRadius: "2px",
+      backgroundColor: "oklch(0.63 0.145 58 / 13%)",
+      borderBottom: "2px solid oklch(0.63 0.145 58 / 60%)",
+      borderRadius: "3px",
       padding: "1px 0",
       transition: "background-color 150ms ease",
+    },
+    ".cm-ao-ao3:hover": {
+      backgroundColor: "oklch(0.63 0.145 58 / 22%)",
     },
     ".cm-ao-no-credit": {
       backgroundColor: "transparent",
       borderBottom: "none",
     },
     ".cm-ao-provisional": {
-      opacity: "0.85",
+      opacity: "0.88",
     },
 
-    // Unified Issue Underline for all errors (Spelling, Grammar, Accuracy, Clarity)
+    // Distinct Issue Underlines: Economics errors (rose) vs Grammar/Spelling (indigo)
     ".cm-issue": {
       textDecoration: "underline wavy oklch(0.55 0.22 25 / 95%)",
       textUnderlineOffset: "4px",
       textDecorationThickness: "1.75px",
       cursor: "pointer",
     },
+    ".cm-issue-mech": {
+      textDecoration: "underline wavy oklch(0.54 0.19 265 / 90%)",
+      textUnderlineOffset: "4px",
+      textDecorationThickness: "1.6px",
+      cursor: "pointer",
+    },
     ".cm-issue:hover": {
       backgroundColor: "oklch(0.55 0.22 25 / 10%)",
+      borderRadius: "2px",
+    },
+    ".cm-issue-mech:hover": {
+      backgroundColor: "oklch(0.54 0.19 265 / 10%)",
       borderRadius: "2px",
     },
     ".cm-issue-stale": {
@@ -152,12 +171,13 @@ export const annotationsField = StateField.define<DecorationSet>({
           }
         }
 
-        // Add Issue underlines if enabled (Unified single error styling)
+        // Add Issue underlines if enabled (economics = rose wavy, grammar/spelling = indigo wavy)
         if (showIssues) {
+          const MECH_CATS = new Set(["spelling", "grammar", "punctuation", "clarity"]);
           for (const iss of issues) {
             if (iss.from >= iss.to || iss.to > docLength || iss.status !== "active") continue;
 
-            let issueClass = "cm-issue";
+            let issueClass = MECH_CATS.has(iss.category) ? "cm-issue-mech" : "cm-issue";
             if (iss.isStale) {
               issueClass += " cm-issue-stale";
             }
@@ -203,19 +223,39 @@ export function createInteractionPlugin(
 
       constructor(readonly view: EditorView) {}
 
-      handleHover(event: MouseEvent) {
+      handleHover(event: MouseEvent, isClick = false) {
         const target = event.target as HTMLElement | null;
         if (!target) return;
 
         const issueEl = target.closest("[data-issue-id]") as HTMLElement | null;
+        const sentenceEl = target.closest("[data-sentence-id]") as HTMLElement | null;
         if (issueEl) {
           const issueId = issueEl.getAttribute("data-issue-id") || undefined;
+          const sentenceId = sentenceEl?.getAttribute("data-sentence-id") || undefined;
           const rect = issueEl.getBoundingClientRect();
           onHoverTarget({
             issueId,
+            sentenceId,
             rect,
           });
-        } else {
+          return;
+        }
+
+        // Clicking an AO-highlighted sentence opens its verified AO explanation card
+        if (isClick && sentenceEl) {
+          const aoTag = sentenceEl.getAttribute("data-ao-tag");
+          if (aoTag && aoTag !== "no_credit") {
+            const sentenceId = sentenceEl.getAttribute("data-sentence-id") || undefined;
+            const rect = sentenceEl.getBoundingClientRect();
+            onHoverTarget({
+              sentenceId,
+              rect,
+            });
+            return;
+          }
+        }
+
+        if (isClick) {
           onHoverTarget(null);
         }
       }
@@ -226,11 +266,11 @@ export function createInteractionPlugin(
     },
     {
       eventHandlers: {
-        mouseover(event, view) {
-          this.handleHover(event);
+        mouseover(event) {
+          this.handleHover(event, false);
         },
-        click(event, view) {
-          this.handleHover(event);
+        click(event) {
+          this.handleHover(event, true);
         },
       },
     },

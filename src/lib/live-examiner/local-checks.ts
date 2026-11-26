@@ -1,8 +1,10 @@
 import nspell from "nspell";
 import aff from "./dict/index.aff?raw";
 import dic from "./dict/index.dic?raw";
-import type { IssueV2, RawSegment } from "./types";
-import { CAMBRIDGE_ECONOMICS_WHITELIST } from "./grammar-engine";
+import type { IssueV2 } from "./types";
+import { analyzeGrammarAndMechanics, CAMBRIDGE_ECONOMICS_WHITELIST } from "./grammar-engine";
+import { deterministicTerminologyIssues } from "./economics-glossary";
+import { checkEconomicMisconceptions } from "./reasoning-engine";
 
 // Lazy-initialized nspell instance
 let spellChecker: ReturnType<typeof nspell> | null = null;
@@ -164,10 +166,205 @@ const EXTRA_TERMS = [
   "external",
   "spillover",
   "spillovers",
+  // Valid UK/US academic & economics morphological variants (never penalize US vs UK spelling)
+  "specialise",
+  "specialised",
+  "specialising",
+  "specialisation",
+  "specialize",
+  "specialized",
+  "specializing",
+  "specialization",
+  "maximise",
+  "maximize",
+  "maximizing",
+  "maximized",
+  "maximization",
+  "minimise",
+  "minimize",
+  "minimizing",
+  "minimized",
+  "minimization",
+  "analyse",
+  "analysed",
+  "analysing",
+  "analyze",
+  "analyzed",
+  "analyzing",
+  "prioritise",
+  "prioritised",
+  "prioritising",
+  "prioritize",
+  "prioritized",
+  "prioritizing",
+  "prioritization",
+  "prioritisation",
+  "summarise",
+  "summarised",
+  "summarising",
+  "summarize",
+  "summarized",
+  "summarizing",
+  "incentivise",
+  "incentivised",
+  "incentivising",
+  "incentivize",
+  "incentivized",
+  "incentivizing",
+  "internalise",
+  "internalised",
+  "internalising",
+  "internalize",
+  "internalized",
+  "internalizing",
+  "externalise",
+  "externalised",
+  "externalising",
+  "externalize",
+  "externalized",
+  "externalizing",
+  "monopolise",
+  "monopolised",
+  "monopolising",
+  "monopolize",
+  "monopolized",
+  "monopolizing",
+  "stabilise",
+  "stabilised",
+  "stabilising",
+  "stabilize",
+  "stabilized",
+  "stabilizing",
+  "stabilisation",
+  "stabilization",
+  "globalisation",
+  "globalization",
+  "liberalisation",
+  "liberalization",
+  "deregulated",
+  "deregulating",
+  "underconsume",
+  "overconsume",
+  "underproduce",
+  "overproduce",
+  "underallocate",
+  "overallocate",
+  "labor",
+  "behavior",
+  "behavioral",
+  "favor",
+  "favorable",
+  "favourable",
+  "program",
+  "programs",
+  "countercyclical",
+  "procyclical",
+  "microeconomic",
+  "macroeconomic",
+  "socioeconomic",
+  "disinflationary",
+  "stagflationary",
+  "uncompetitive",
+  "competitiveness",
+  "creditworthy",
+  "reallocate",
+  "reallocated",
+  "reallocation",
+  "misallocate",
+  "misallocated",
+  "misallocation",
+  "crowding",
+  "pigouvian",
+  "keynesian",
+  "monetarist",
+  "neoclassical",
+  "oligopolistic",
+  "contestability",
+  "supernormal",
+  "subnormal",
+  "disutility",
+  "indifference",
+  "interdependence",
+  "collusive",
+  "predatory",
+  "asymmetry",
+  "asymmetries",
+  "externalities",
 ];
 
 for (const t of EXTRA_TERMS) {
   CUSTOM_WHITELIST.add(t.toLowerCase());
+}
+
+// Fast 1-edit Damerau-Levenshtein economics vocabulary ranker (only runs when nspell rejects a word)
+const ECON_SPELL_TARGETS: string[] = Array.from(CUSTOM_WHITELIST).filter(
+  (w) => /^[a-z]{5,}$/.test(w),
+);
+
+function damerauDistance1(a: string, b: string): boolean {
+  const la = a.length;
+  const lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  if (a === b) return false;
+
+  if (la === lb) {
+    let diffs = 0;
+    let firstIdx = -1;
+    for (let i = 0; i < la; i++) {
+      if (a[i] !== b[i]) {
+        diffs++;
+        if (firstIdx === -1) firstIdx = i;
+        if (diffs > 2) return false;
+      }
+    }
+    if (diffs === 1) return true;
+    // Adjacent transposition
+    return diffs === 2 && a[firstIdx] === b[firstIdx + 1] && a[firstIdx + 1] === b[firstIdx];
+  }
+
+  // Insertion or deletion of 1 char
+  const shorter = la < lb ? a : b;
+  const longer = la < lb ? b : a;
+  let i = 0;
+  let j = 0;
+  let skipped = false;
+  while (i < shorter.length && j < longer.length) {
+    if (shorter[i] === longer[j]) {
+      i++;
+      j++;
+    } else if (!skipped) {
+      skipped = true;
+      j++;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+function findClosestEconTerm(word: string): string | undefined {
+  const lower = word.toLowerCase();
+  if (lower.length < 5) return undefined;
+  // Collapse triple repeated letters first (e.g. "suppply" -> "supply", "demmand" handled below)
+  const collapsed = lower.replace(/([a-z])\1{2,}/g, "$1$1");
+  if (CUSTOM_WHITELIST.has(collapsed)) return collapsed;
+  const singleCollapsed = lower.replace(/([a-z])\1{2,}/g, "$1");
+  if (CUSTOM_WHITELIST.has(singleCollapsed)) return singleCollapsed;
+
+  for (const target of ECON_SPELL_TARGETS) {
+    if (target[0] === lower[0] && damerauDistance1(lower, target)) {
+      return target;
+    }
+  }
+  return undefined;
+}
+
+function preserveWordCase(original: string, replacement: string): string {
+  if (original === original.toUpperCase()) return replacement.toUpperCase();
+  if (original[0] === original[0]?.toUpperCase()) {
+    return replacement[0]!.toUpperCase() + replacement.slice(1);
+  }
+  return replacement;
 }
 
 export function getSpellChecker(): ReturnType<typeof nspell> {
@@ -204,11 +401,71 @@ export function runLocalChecksOnSegment(segment: {
   }
 
   const issues: IssueV2[] = [];
+  const coveredSpans: Array<{ from: number; to: number }> = [];
+  const overlapsCovered = (from: number, to: number) =>
+    coveredSpans.some((s) => Math.max(s.from, from) < Math.min(s.to, to));
+  const addIssue = (iss: IssueV2) => {
+    if (iss.from < 0 || iss.to <= iss.from) return;
+    if (overlapsCovered(iss.from, iss.to)) return;
+    coveredSpans.push({ from: iss.from, to: iss.to });
+    issues.push(iss);
+  };
+
   const text = segment.text;
 
   // Ignore diagram placeholders [DIAGRAM: ...] and illegible marks [?]
   if (/^\[DIAGRAM:[^\]]*\]$/i.test(text.trim()) || text.trim() === "[?]") {
     return [];
+  }
+
+  // 0a. Deterministic Cambridge Economics Misconceptions (highest priority, 0 AI tokens)
+  const misconceptions = checkEconomicMisconceptions(text, segment.id);
+  for (const m of misconceptions) {
+    addIssue({
+      ...m,
+      from: segment.from + m.from,
+      to: segment.from + m.to,
+    });
+  }
+
+  // 0b. Deterministic Cambridge Terminology Spelling Glossary (0 AI tokens)
+  const termIssues = deterministicTerminologyIssues([text]);
+  for (let i = 0; i < termIssues.length; i++) {
+    const t = termIssues[i]!;
+    const idx = text.toLowerCase().indexOf(t.original.toLowerCase());
+    if (idx === -1) continue;
+    addIssue({
+      id: `term_${segment.id}_${idx}`,
+      from: segment.from + idx,
+      to: segment.from + idx + t.original.length,
+      sentenceId: segment.id,
+      category: "terminology",
+      severity: t.severity,
+      original: text.slice(idx, idx + t.original.length),
+      suggestion: t.suggestion,
+      explanation: t.explanation,
+      status: "active",
+    });
+  }
+
+  // 0c. Full In-House Grammar, Mechanics, Clarity & Academic Tone Engine (0 AI tokens)
+  const grammarIssues = analyzeGrammarAndMechanics([text]);
+  for (const g of grammarIssues) {
+    const absFrom = segment.from + g.startOffset;
+    const absTo = segment.from + g.endOffset;
+    addIssue({
+      id: `gram_${g.ruleId}_${segment.id}_${g.startOffset}`,
+      from: absFrom,
+      to: absTo,
+      sentenceId: segment.id,
+      category: g.category,
+      severity: g.severity,
+      original: g.original,
+      suggestion: g.suggestion,
+      explanation: g.explanation,
+      evidence: g.evidence,
+      status: "active",
+    });
   }
 
   const speller = getSpellChecker();
@@ -239,6 +496,10 @@ export function runLocalChecksOnSegment(segment: {
       continue;
     }
 
+    const absFrom = segment.from + match.index;
+    const absTo = absFrom + word.length;
+    if (overlapsCovered(absFrom, absTo)) continue;
+
     // If hyphenated (e.g. non-price, short-run, profit-maximizing), verify parts
     let isCorrect = speller.correct(word);
     if (!isCorrect && word.includes("-")) {
@@ -258,21 +519,23 @@ export function runLocalChecksOnSegment(segment: {
     }
 
     if (!isCorrect) {
-      const suggestions = speller.suggest(word);
-      const topSuggestion = suggestions && suggestions.length > 0 ? suggestions[0] : undefined;
+      // 1. Prefer exact 1-edit Cambridge Economics term recovery (e.g. "inflatyon" -> "inflation", "monopoky" -> "monopoly")
+      const econExact = findClosestEconTerm(word);
+      const suggestions = econExact ? [preserveWordCase(word, econExact)] : speller.suggest(word);
+      // 2. Otherwise prefer economics-domain suggestions when nspell offers multiple candidates
+      const econPreferred = suggestions?.find((s) => CUSTOM_WHITELIST.has(s.toLowerCase()));
+      const rawTop = econPreferred ?? (suggestions && suggestions.length > 0 ? suggestions[0] : undefined);
+      const topSuggestion = rawTop ? preserveWordCase(word, rawTop) : undefined;
 
       // Discard invalid or blank suggestions where suggestion matches original
       if (!topSuggestion || topSuggestion.toLowerCase().trim() === word.toLowerCase().trim()) {
         continue;
       }
 
-      const from = segment.from + match.index;
-      const to = from + word.length;
-
-      issues.push({
+      addIssue({
         id: `spell_${segment.id}_${match.index}`,
-        from,
-        to,
+        from: absFrom,
+        to: absTo,
         sentenceId: segment.id,
         category: "spelling",
         severity: "medium",
@@ -293,7 +556,7 @@ export function runLocalChecksOnSegment(segment: {
     const from = segment.from + match.index;
     const to = from + match[0].length;
 
-    issues.push({
+    addIssue({
       id: `repeat_${segment.id}_${match.index}`,
       from,
       to,
@@ -307,56 +570,12 @@ export function runLocalChecksOnSegment(segment: {
     });
   }
 
-  // 3. High-precision rule: "alot" -> "a lot"
-  const alotRegex = /\balot\b/gi;
-  while ((match = alotRegex.exec(text)) !== null) {
-    const from = segment.from + match.index;
-    const to = from + match[0].length;
-    issues.push({
-      id: `alot_${segment.id}_${match.index}`,
-      from,
-      to,
-      sentenceId: segment.id,
-      category: "spelling",
-      severity: "low",
-      original: match[0],
-      suggestion: match[0][0] === "A" ? "A lot" : "a lot",
-      explanation: '"a lot" is always two words.',
-      status: "active",
-    });
-  }
-
-  // 4. Missing capital at sentence start (only if starts with letter)
-  const trimmed = text.trimStart();
-  const leadingSpaces = text.length - trimmed.length;
-  if (trimmed.length > 0 && /^[a-z]/.test(trimmed)) {
-    const firstChar = trimmed[0]!;
-    const from = segment.from + leadingSpaces;
-    const to = from + 1;
-    // Don't flag e.g. or i.e., and don't flag during the very first word while typing
-    const hasMultipleWordsOrComplete = segment.isComplete !== false || trimmed.includes(" ");
-    if (hasMultipleWordsOrComplete && !trimmed.startsWith("e.g.") && !trimmed.startsWith("i.e.")) {
-      issues.push({
-        id: `cap_${segment.id}_0`,
-        from,
-        to,
-        sentenceId: segment.id,
-        category: "punctuation",
-        severity: "low",
-        original: firstChar,
-        suggestion: firstChar.toUpperCase(),
-        explanation: "Sentences must start with a capital letter.",
-        status: "active",
-      });
-    }
-  }
-
-  // 5. Unmatched brackets or parentheses inside sentence (only flag when sentence is complete)
+  // 3. Unmatched brackets or parentheses inside sentence (only flag when sentence is complete)
   if (segment.isComplete !== false) {
     const openParens = (text.match(/\(/g) || []).length;
     const closeParens = (text.match(/\)/g) || []).length;
     if (openParens !== closeParens) {
-      issues.push({
+      addIssue({
         id: `unmatched_paren_${segment.id}`,
         from: segment.from,
         to: segment.to,

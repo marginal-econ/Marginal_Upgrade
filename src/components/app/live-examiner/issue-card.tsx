@@ -118,7 +118,7 @@ export function IssueCard({
         zIndex: 9999,
       }}
       className={cn(
-        "w-[340px] max-w-[calc(100vw-32px)] rounded-xl border border-border bg-popover/95 p-4 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 text-foreground",
+        "w-[340px] max-w-[calc(100vw-32px)] rounded-xl border border-border bg-popover p-4 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-foreground",
       )}
       role="dialog"
       aria-label="Examiner suggestion details"
