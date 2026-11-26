@@ -176,14 +176,13 @@ async function imageToDataUrl(rawFile: File): Promise<string> {
 }
 
 async function pdfToImages(file: File): Promise<string[]> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  const { loadPdfjs, openPdfDocument } = await import("@/lib/mcq-pdf-text");
+  const pdfjs = await loadPdfjs();
 
-  const pdf = await pdfjs.getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
-    isOffscreenCanvasSupported: false,
-  }).promise;
+  const { doc: pdf } = await openPdfDocument(
+    pdfjs,
+    new Uint8Array(await file.arrayBuffer()),
+  );
   const images: string[] = [];
 
   for (let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 12); pageNumber++) {

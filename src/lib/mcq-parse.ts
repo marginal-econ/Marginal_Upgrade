@@ -16,22 +16,13 @@ export function parseAnswerKeyFromText(text: string): Record<number, Letter> {
   return out;
 }
 
-async function loadPdfjs() {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-  return pdfjs;
-}
+import { loadPdfjs, openPdfDocument } from "@/lib/mcq-pdf-text";
 
 /** Extracts every text run from a PDF File/Blob, concatenated — used to feed parseAnswerKeyFromText. */
 export async function extractPdfText(file: File | Blob): Promise<string> {
   const pdfjs = await loadPdfjs();
   const buf = await file.arrayBuffer();
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(buf),
-    isOffscreenCanvasSupported: false,
-  });
-  const doc = await loadingTask.promise;
+  const { doc, loadingTask } = await openPdfDocument(pdfjs, new Uint8Array(buf));
   try {
     let text = "";
     for (let p = 1; p <= doc.numPages; p++) {

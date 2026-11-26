@@ -3,6 +3,7 @@ import {
   extractQuestionSpans,
   fetchArrayBufferWithTimeout,
   loadPdfjs,
+  openPdfDocument,
   resolveMonotonicQuestionPages,
   yieldToMain,
   type PdfTextItem,
@@ -139,11 +140,7 @@ export async function renderQuizPdfPaper(options: {
   options.onProgress?.("Downloading official Cambridge paper…");
   const pdfjs = await loadPdfjs();
   const buf = await downloadPdfBuffer(options.qpUrl);
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(buf),
-    isOffscreenCanvasSupported: false,
-  });
-  const doc = await loadingTask.promise;
+  const { doc, loadingTask } = await openPdfDocument(pdfjs, new Uint8Array(buf));
 
   const pages: { pageNumber: number; canvas: HTMLCanvasElement }[] = [];
   const stems: StemBlob[] = [];

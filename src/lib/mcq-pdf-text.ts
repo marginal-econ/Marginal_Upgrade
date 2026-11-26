@@ -9,16 +9,94 @@
  * no badges, no pills, nothing manually draggable.
  */
 
+/** Detects Apple WebKit / Safari browsers (macOS, iOS, iPadOS) where module workers & ImageDecoder can stall. */
+export function isSafariBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/Chrome\/|Chromium\/|Edg\/|OPR\/|CriOS\/|FxiOS\//i.test(ua)) {
+    return false;
+  }
+  return /Safari\//i.test(ua) || (/AppleWebKit\//i.test(ua) && !/Android/i.test(ua));
+}
+
+let mainThreadWorkerLoaded = false;
+
+/**
+ * Registers PDF.js WorkerMessageHandler directly on globalThis.pdfjsWorker so PDF.js
+ * uses its built-in LoopbackPort fake worker without spawning a module Web Worker.
+ */
+export async function enableMainThreadPdfWorker(): Promise<void> {
+  if (mainThreadWorkerLoaded && (globalThis as any).pdfjsWorker?.WorkerMessageHandler) {
+    return;
+  }
+  const workerMod: any = await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs");
+  if (workerMod?.WorkerMessageHandler && !(globalThis as any).pdfjsWorker) {
+    (globalThis as any).pdfjsWorker = workerMod;
+  }
+  mainThreadWorkerLoaded = true;
+}
+
 /**
  * Loads the legacy build of PDF.js (with core-js polyfills for
  * Map.prototype.getOrInsertComputed, URL.parse, Promise.withResolvers, etc.)
  * so PDFs render reliably on Mac Safari, iPadOS, and older laptop browsers.
  */
 export async function loadPdfjs() {
+  if (isSafariBrowser()) {
+    await enableMainThreadPdfWorker().catch(() => {});
+  }
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  if (!isSafariBrowser()) {
+    const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  }
   return pdfjs;
+}
+
+/**
+ * Opens a PDF document safely across Safari, Chrome, Edge, and Firefox:
+ * disables OffscreenCanvas & ImageDecoder (common Safari freeze triggers)
+ * and falls back automatically to main-thread worker execution if a module
+ * Web Worker errors out or stalls during handshake.
+ */
+export async function openPdfDocument(
+  pdfjs: Awaited<ReturnType<typeof loadPdfjs>>,
+  data: Uint8Array,
+  extraOptions?: Record<string, unknown>,
+) {
+  const bytesCopy = new Uint8Array(data);
+  const baseOpts = {
+    useSystemFonts: true,
+    isOffscreenCanvasSupported: false,
+    isImageDecoderSupported: false,
+    useWorkerFetch: false,
+    ...extraOptions,
+  };
+
+  const hasMainThreadHandler = Boolean((globalThis as any).pdfjsWorker?.WorkerMessageHandler);
+  if (hasMainThreadHandler || isSafariBrowser()) {
+    await enableMainThreadPdfWorker().catch(() => {});
+    const loadingTask = pdfjs.getDocument({ ...baseOpts, data: bytesCopy });
+    const doc = await loadingTask.promise;
+    return { doc, loadingTask };
+  }
+
+  const loadingTask = pdfjs.getDocument({ ...baseOpts, data: bytesCopy });
+  try {
+    const doc = await Promise.race([
+      loadingTask.promise,
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("PDF worker handshake timed out")), 9_000);
+      }),
+    ]);
+    return { doc, loadingTask };
+  } catch {
+    await loadingTask.destroy().catch(() => {});
+    await enableMainThreadPdfWorker();
+    const retryTask = pdfjs.getDocument({ ...baseOpts, data: new Uint8Array(data) });
+    const doc = await retryTask.promise;
+    return { doc, loadingTask: retryTask };
+  }
 }
 
 /** Yields control to the browser event loop so heavy PDF loops never freeze the UI. */
@@ -40,7 +118,11 @@ export async function fetchArrayBufferWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      signal: controller.signal,
+      mode: "cors",
+      credentials: "omit",
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.arrayBuffer();
   } finally {

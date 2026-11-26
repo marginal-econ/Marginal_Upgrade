@@ -135,19 +135,13 @@ async function extractLegacyDoc(file: File): Promise<string> {
 }
 
 async function extractPdf(file: File, onProgress?: ExtractProgress): Promise<string> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // Bundled worker URL — avoids relying on a CDN at runtime and supports Safari/macOS.
-  const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  const { loadPdfjs, openPdfDocument } = await import("@/lib/mcq-pdf-text");
+  const pdfjs = await loadPdfjs();
 
   const buffer = await file.arrayBuffer();
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(buffer),
+  const { doc: pdf, loadingTask } = await openPdfDocument(pdfjs, new Uint8Array(buffer), {
     disableFontFace: true, // drastically reduces memory and CPU overhead for pure text extraction
-    useSystemFonts: true,
-    isOffscreenCanvasSupported: false,
   });
-  const pdf = await loadingTask.promise;
 
   try {
     const pages: string[] = [];

@@ -1,4 +1,4 @@
-import { loadPdfjs, yieldToMain, type StemBlob } from "@/lib/mcq-pdf-text";
+import { loadPdfjs, openPdfDocument, yieldToMain, type StemBlob } from "@/lib/mcq-pdf-text";
 
 export type TopicalVisualType =
   | "Supply & Demand Graph"
@@ -3965,11 +3965,7 @@ export async function renderTopicalPaperPages(options: {
     buffersByUrl.delete(url);
     if (!buf) continue;
 
-    const loadingTask = pdfjs.getDocument({
-      data: new Uint8Array(buf),
-      isOffscreenCanvasSupported: false,
-    });
-    const doc = await loadingTask.promise;
+    const { doc, loadingTask } = await openPdfDocument(pdfjs, new Uint8Array(buf));
 
     try {
       for (const pageNum of pageNums) {

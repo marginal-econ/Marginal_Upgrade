@@ -201,18 +201,10 @@ export function CambridgePdfViewer({
         setBlobUrl(createdBlobUrl);
         setPdfFilename(filename);
 
-        // Load into PDF.js (legacy build for full Safari/macOS/older-browser support)
-        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-        const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
-        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-
-        const loadingTask = pdfjs.getDocument({
-          data: bytes,
-          useSystemFonts: true,
-          isOffscreenCanvasSupported: false,
-        });
-
-        const doc = await loadingTask.promise;
+        // Load into PDF.js (legacy build + Safari fake-worker support)
+        const { loadPdfjs, openPdfDocument } = await import("@/lib/mcq-pdf-text");
+        const pdfjs = await loadPdfjs();
+        const { doc } = await openPdfDocument(pdfjs, bytes);
         setPdfDoc(doc);
         setNumPages(doc.numPages);
         setCurrentPage(1);

@@ -103,6 +103,7 @@ import {
 import { listMcqPapers, getMcqPaperAnswerKey } from "@/lib/mcq-papers.functions";
 import {
   loadPdfjs,
+  openPdfDocument,
   extractQuestionSpans,
   cropQuestionSliceCanvas,
   fetchArrayBufferWithTimeout,
@@ -1382,11 +1383,7 @@ function fillMissingQuestionPages(
         const pdfjs = await loadPdfjs();
         const buf = await downloadPdfBuffer(paper.qpUrl);
 
-        const loadingTask = pdfjs.getDocument({
-          data: new Uint8Array(buf),
-          isOffscreenCanvasSupported: false,
-        });
-        const doc = await loadingTask.promise;
+        const { doc, loadingTask } = await openPdfDocument(pdfjs, new Uint8Array(buf));
 
         const built: PageImage[] = [];
         const stems: StemBlob[] = [];
