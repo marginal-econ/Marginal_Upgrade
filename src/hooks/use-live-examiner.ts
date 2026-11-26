@@ -44,6 +44,8 @@ const SINGLE_SENTENCE_DEBOUNCE_MS = 900;
 const BATCH_SENTENCE_DEBOUNCE_MS = 500;
 const MIN_TEXT_LENGTH = 3;
 const SESSION_TOKEN_BUDGET = 18_000;
+const MAX_DIRTY_BATCH = 18;
+const AI_CHECK_TIMEOUT_MS = 25_000;
 const MECHANICAL_CATEGORIES = new Set(["spelling", "grammar", "punctuation", "terminology", "misconception"]);
 
 /**
@@ -656,7 +658,8 @@ export function useLiveExaminer(params: {
           return { ao: tag, gist };
         });
 
-      const dirtyPayloads = dirtySegments.slice(0, 12).map((s, idx) => ({
+      const hasMoreBatches = dirtySegments.length > MAX_DIRTY_BATCH;
+      const dirtyPayloads = dirtySegments.slice(0, MAX_DIRTY_BATCH).map((s, idx) => ({
         i: idx + 1,
         id: s.id,
         hash: s.hash,
@@ -669,25 +672,38 @@ export function useLiveExaminer(params: {
       setPending(false);
       setError(null);
 
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
       try {
-        const result = await checkFn({
-          data: {
-            essayText: currentText,
-            previousText: lastCheckedTextRef.current || undefined,
-            question,
-            level,
-            maxMark,
-            contextBlock: contextBlock || "",
-            dirtySentences: dirtyPayloads,
-            priorSummaries,
-            blueprint: blueprint ?? undefined,
-          },
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error("AI check timed out — local checks remain active.")),
+            AI_CHECK_TIMEOUT_MS,
+          );
         });
 
-        // Ignore stale out-of-order response if a newer check has started
+        const result = await Promise.race([
+          checkFn({
+            data: {
+              essayText: currentText,
+              previousText: lastCheckedTextRef.current || undefined,
+              question,
+              level,
+              maxMark,
+              contextBlock: contextBlock || "",
+              dirtySentences: dirtyPayloads,
+              priorSummaries,
+              blueprint: blueprint ?? undefined,
+            },
+          }),
+          timeoutPromise,
+        ]);
+
+        // Ignore stale out-of-order response if a newer check or restart has occurred
         if (mySeq !== requestSeqRef.current) return;
 
-        lastCheckedTextRef.current = trimmed;
+        if (!hasMoreBatches) {
+          lastCheckedTextRef.current = trimmed;
+        }
         lastVerifiedResultRef.current = result;
 
         // Track session token usage
@@ -701,9 +717,14 @@ export function useLiveExaminer(params: {
           }));
         }
 
-        // Update rubric checklist hits
+        // Monotonically merge rubric checklist hits so prior verified items don't flicker off on delta checks
         if ((result as any)?.rubricHits) {
-          setRubricHits((result as any).rubricHits);
+          const nextHits = (result as any).rubricHits as { ao1?: number[]; ao2?: number[]; ao3?: number[] };
+          setRubricHits((prev) => ({
+            ao1: Array.from(new Set([...(forceFull ? [] : prev.ao1), ...(nextHits.ao1 ?? [])])).sort((a, b) => a - b),
+            ao2: Array.from(new Set([...(forceFull ? [] : prev.ao2), ...(nextHits.ao2 ?? [])])).sort((a, b) => a - b),
+            ao3: Array.from(new Set([...(forceFull ? [] : prev.ao3), ...(nextHits.ao3 ?? [])])).sort((a, b) => a - b),
+          }));
         }
 
         const isAiOffTopic = result?.predictedMark && result.predictedMark.total_mark === 0;
@@ -832,6 +853,16 @@ export function useLiveExaminer(params: {
         // Re-run Layer A with freshly cached AI sentence verdicts
         runLayerA(currentText, result);
         setLastUpdatedAt(Date.now());
+
+        // Seamlessly continue remaining uncached sentences for long pasted essays (>18 sentences)
+        if (hasMoreBatches && mySeq === requestSeqRef.current && totalTokensRef.current < SESSION_TOKEN_BUDGET) {
+          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = setTimeout(() => {
+            if (mySeq === requestSeqRef.current) {
+              runLayerB(currentText, false);
+            }
+          }, 150);
+        }
       } catch (err: any) {
         if (mySeq !== requestSeqRef.current) return;
         if (isDailyLimitError(err)) {
@@ -845,6 +876,7 @@ export function useLiveExaminer(params: {
           }
         }
       } finally {
+        if (timeoutId) clearTimeout(timeoutId);
         if (mySeq === requestSeqRef.current) {
           setChecking(false);
         }
@@ -986,13 +1018,77 @@ export function useLiveExaminer(params: {
 
   const rescan = useCallback(
     (currentText: string) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      requestSeqRef.current += 1;
       cacheRef.current.clear();
       lastCheckedTextRef.current = "";
+      lastVerifiedResultRef.current = null;
+      setRubricHits({ ao1: [], ao2: [], ao3: [] });
+      setError(null);
       runLayerA(currentText);
       runLayerB(currentText, true);
     },
     [runLayerA, runLayerB],
   );
+
+  const resetSession = useCallback(() => {
+    // Cancel any pending debounce and invalidate any in-flight AI request
+    requestSeqRef.current += 1;
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    cacheRef.current.clear();
+    lastCheckedTextRef.current = "";
+    lastVerifiedResultRef.current = null;
+    totalTokensRef.current = 0;
+    dismissedKeysRef.current.clear();
+    sessionSeenSuggestionsRef.current.clear();
+    docChangesRef.current = [];
+
+    setChecking(false);
+    setPending(false);
+    setError(null);
+    setIssues([]);
+    setClassifications([]);
+    setSentences([]);
+    setHistory([]);
+    setPredictedMark(null);
+    setScoreEstimate(null);
+    setLastUpdatedAt(null);
+    setLastDelta(null);
+    setLedger([]);
+    setArgumentsList([]);
+    setOpportunities([]);
+    setStrengths([]);
+    setAreasForImprovement([]);
+    setAssessmentStatus("uncertain");
+    setMarkRange(undefined);
+    setRubricHits({ ao1: [], ao2: [], ao3: [] });
+    setTokenStats({
+      totalTokens: 0,
+      aiCalls: 0,
+      tokenBudget: SESSION_TOKEN_BUDGET,
+    });
+  }, []);
+
+  // Automatically reset hook state when switching questions or exiting an active session
+  const prevQuestionRef = useRef(question);
+  const prevEnabledRef = useRef(enabled);
+  useEffect(() => {
+    const questionChanged = prevQuestionRef.current !== question;
+    const exitedSession = prevEnabledRef.current && !enabled;
+    prevQuestionRef.current = question;
+    prevEnabledRef.current = enabled;
+
+    if (questionChanged || exitedSession) {
+      resetSession();
+    }
+  }, [question, enabled, resetSession]);
 
   const clearAll = useCallback(() => {
     setIssues([]);
@@ -1016,6 +1112,7 @@ export function useLiveExaminer(params: {
     dismissIssue,
     rescan,
     clearAll,
+    resetSession,
     cache: cacheRef.current,
     rubric,
     rubricHits,

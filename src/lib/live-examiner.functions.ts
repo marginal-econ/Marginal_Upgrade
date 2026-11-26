@@ -1011,7 +1011,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         precedingContext,
       });
 
-      const dynamicMaxTokens = Math.min(950, 350 + dirtyPayloads.length * 45);
+      const dynamicMaxTokens = Math.min(1400, 380 + dirtyPayloads.length * 50);
       const deltaResult = await chat({
         model: MODEL_LIVE_CANDIDATE,
         feature: "live_examiner_check",

@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   BookOpen,
@@ -434,26 +434,41 @@ function LiveExaminerPage() {
   });
 
   // --- Resume an existing draft for this question, if one exists --------
+  const queryClient = useQueryClient();
+  const hydratedQuestionRef = useRef<string | null>(null);
   const fetchSession = useServerFn(getLiveExaminerSession);
   const sessionQuery = useQuery({
     queryKey: ["live-examiner-session", question],
     queryFn: () => fetchSession({ data: { question } }),
     enabled: started && question.length > 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 60_000,
   });
 
   useEffect(() => {
+    if (!started) {
+      hydratedQuestionRef.current = null;
+      return;
+    }
     const session = sessionQuery.data?.session;
-    if (session && session.essay_text) setEssayText(session.essay_text);
-    if (session && session.diagram_tag) {
+    if (!session || hydratedQuestionRef.current === question) return;
+    hydratedQuestionRef.current = question;
+    if (session.essay_text) {
+      setEssayText(session.essay_text);
+      lastSavedTextRef.current = session.essay_text;
+    }
+    if (session.diagram_tag) {
       setDiagrams(parseDiagramTags(session.diagram_tag));
     }
-  }, [sessionQuery.data]);
+  }, [sessionQuery.data, started, question]);
 
   function handleStart() {
     if (question.trim().length < 5) {
       toast.error("Enter or pick a question first.");
       return;
     }
+    hydratedQuestionRef.current = null;
     setLimitNotice(null);
     setStarted(true);
     contextMutation.mutate({ level, topic, question, maxMark });
@@ -463,6 +478,7 @@ function LiveExaminerPage() {
    *  question and starting, and the existing session-resume effect below
    *  fills in the saved draft text/diagram once the question matches. */
   function resumeSession(entry: LiveExaminerSessionSummary) {
+    hydratedQuestionRef.current = null;
     setLevel(entry.level);
     setTopic(entry.topic);
     setQuestion(entry.question);
@@ -528,6 +544,7 @@ function LiveExaminerPage() {
     dismissIssue,
     rescan,
     clearAll,
+    resetSession,
     cache,
     rubric,
     rubricHits,
@@ -640,13 +657,24 @@ function LiveExaminerPage() {
   function handleRestart() {
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     if (retryTimer.current) clearTimeout(retryTimer.current);
+    savingRef.current = false;
+    hydratedQuestionRef.current = question; // Prevent stale sessionQuery from resurrecting old text
+    resetSession();
     setEssayText("");
+    setFocusedIssueId(null);
+    setActiveAoFilter(null);
     clearDiagrams();
     setMarkSchemeImages([]);
-    clearAll();
+    gradeMutation.reset();
+    maxOutMutation.reset();
+    fullAnswerMutation.reset();
     setAutosave("idle");
     lastSavedTextRef.current = "";
     retryCountRef.current = 0;
+
+    // Immediately clear TanStack Query cache so tab-switching or refetch never resurrects the old draft
+    queryClient.setQueryData(["live-examiner-session", question], { session: null });
+
     // Wipe the saved draft server-side too, so a refresh doesn't resurrect
     // the old attempt via session resume.
     saveSession({
@@ -657,13 +685,15 @@ function LiveExaminerPage() {
         maxMark,
         essayText: "",
         issuesHistory: [],
+        sentenceCache: {},
+        scoreHistory: [],
         diagramTag: undefined,
       },
     }).catch(() => {
       /* best-effort — the next real edit will autosave and retry as usual */
     });
     setRestartDialogOpen(false);
-    toast.success("Cleared — write the full answer again from scratch.");
+    toast.success("Session restarted — ready for a fresh attempt.");
   }
 
   return (
@@ -949,7 +979,22 @@ function LiveExaminerPage() {
                         size="sm"
                         variant="ghost"
                         className="h-8 justify-start gap-2 text-xs"
-                        onClick={() => setStarted(false)}
+                        onClick={() => {
+                          if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+                          if (retryTimer.current) clearTimeout(retryTimer.current);
+                          savingRef.current = false;
+                          hydratedQuestionRef.current = null;
+                          resetSession();
+                          setEssayText("");
+                          lastSavedTextRef.current = "";
+                          setFocusedIssueId(null);
+                          setActiveAoFilter(null);
+                          clearDiagrams();
+                          gradeMutation.reset();
+                          maxOutMutation.reset();
+                          fullAnswerMutation.reset();
+                          setStarted(false);
+                        }}
                       >
                         <PenLine className="size-3.5" /> Change question
                       </Button>

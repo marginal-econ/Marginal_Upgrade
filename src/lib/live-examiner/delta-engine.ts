@@ -768,16 +768,26 @@ export function reconcileVerifiedMark(params: {
       ao2 = Math.min(ao2, Math.min(split.ao2_marks, maxAo2WithMisconception));
     }
 
-    // 3. Official Cambridge AO3 concluding-judgement requirement for top-band AO3
+    // 3. Official Cambridge AO3 depth & concluding-judgement requirement for top-band AO3
     const hasJudgement =
       verifiedCounts.hasConcludingJudgement || CONCLUSION_JUDGEMENT_RE.test(cleanText);
-    if (blueprint.requiresEvaluation && !hasJudgement) {
-      if (maxMark === 8 && split.ao3_marks === 2) {
-        ao3 = Math.min(ao3, 1); // 2/2 on 8m requires evaluative point + concluding judgement
-      } else if (maxMark === 12 && split.ao3_marks === 4) {
-        ao3 = Math.min(ao3, 3); // 4/4 on 12m requires prioritised concluding judgement
-      } else if (maxMark >= 20 && split.ao3_marks >= 6) {
-        ao3 = Math.min(ao3, 3); // Paper 4 Table B Level 2 (4-6/6) requires justified conclusion
+    if (blueprint.requiresEvaluation) {
+      if (!hasJudgement) {
+        if (maxMark === 8 && split.ao3_marks === 2) {
+          ao3 = Math.min(ao3, 1); // 2/2 on 8m requires evaluative point + concluding judgement
+        } else if (maxMark === 12 && split.ao3_marks === 4) {
+          ao3 = Math.min(ao3, 3); // 4/4 on 12m requires prioritised concluding judgement
+        } else if (maxMark >= 20 && split.ao3_marks >= 6) {
+          ao3 = Math.min(ao3, 3); // Paper 4 Table B Level 2 (4-6/6) requires justified conclusion
+        }
+      }
+      // Single passing evaluative sentence cannot jump straight to Top-Band AO3 on 12m/20m essays
+      if (verifiedCounts.ao3Sentences < 2) {
+        if (maxMark === 12 && split.ao3_marks === 4) {
+          ao3 = Math.min(ao3, 2);
+        } else if (maxMark >= 20 && split.ao3_marks >= 6) {
+          ao3 = Math.min(ao3, 3);
+        }
       }
     }
   }
