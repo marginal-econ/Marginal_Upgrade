@@ -21,13 +21,13 @@ export const setAnnotationsEffect = StateEffect.define<{
 export const setHoveredSpanEffect = StateEffect.define<string | null>();
 
 // ============================================================================
-// Theme Definition for Calm, Comfortable Essay Writing (~17px, 1.7 line height)
+// Theme Definition for Calm, Comfortable Essay Writing (~17px, 1.88 line height)
 // ============================================================================
 export const essayEditorTheme = EditorView.theme(
   {
     "&": {
       fontSize: "17px",
-      lineHeight: "1.7",
+      lineHeight: "1.88",
       fontFamily: "var(--font-serif, Georgia, serif)",
       color: "var(--foreground)",
       backgroundColor: "transparent",
@@ -35,8 +35,8 @@ export const essayEditorTheme = EditorView.theme(
       height: "100%",
     },
     ".cm-content": {
-      maxWidth: "74ch",
-      padding: "16px 20px 80px 20px",
+      maxWidth: "100%",
+      padding: "24px 32px 80px 32px",
       caretColor: "var(--primary)",
       whiteSpace: "pre-wrap",
       wordBreak: "break-word",
@@ -56,36 +56,48 @@ export const essayEditorTheme = EditorView.theme(
       fontFamily: "inherit",
     },
 
-    // AO Tints & Bottom Markers (calm, readable, hover-responsive)
+    // AO Tints & Bottom Markers (editorial, calm, multi-line safe)
     ".cm-ao-ao1": {
-      backgroundColor: "oklch(0.575 0.125 228 / 11%)",
-      borderBottom: "2px solid oklch(0.575 0.125 228 / 50%)",
+      backgroundColor: "oklch(0.575 0.125 228 / 10%)",
+      borderBottom: "1.5px solid oklch(0.575 0.125 228 / 52%)",
       borderRadius: "3px",
-      padding: "1px 0",
-      transition: "background-color 150ms ease",
+      padding: "2px 1px",
+      boxDecorationBreak: "clone",
+      WebkitBoxDecorationBreak: "clone",
+      transition: "background-color 150ms ease, border-color 150ms ease",
+      cursor: "pointer",
     },
     ".cm-ao-ao1:hover": {
-      backgroundColor: "oklch(0.575 0.125 228 / 19%)",
+      backgroundColor: "oklch(0.575 0.125 228 / 18%)",
+      borderBottomColor: "oklch(0.575 0.125 228 / 78%)",
     },
     ".cm-ao-ao2": {
-      backgroundColor: "oklch(0.53 0.115 168 / 11%)",
-      borderBottom: "2px solid oklch(0.53 0.115 168 / 48%)",
+      backgroundColor: "oklch(0.53 0.115 168 / 10%)",
+      borderBottom: "1.5px solid oklch(0.53 0.115 168 / 50%)",
       borderRadius: "3px",
-      padding: "1px 0",
-      transition: "background-color 150ms ease",
+      padding: "2px 1px",
+      boxDecorationBreak: "clone",
+      WebkitBoxDecorationBreak: "clone",
+      transition: "background-color 150ms ease, border-color 150ms ease",
+      cursor: "pointer",
     },
     ".cm-ao-ao2:hover": {
-      backgroundColor: "oklch(0.53 0.115 168 / 19%)",
+      backgroundColor: "oklch(0.53 0.115 168 / 18%)",
+      borderBottomColor: "oklch(0.53 0.115 168 / 76%)",
     },
     ".cm-ao-ao3": {
-      backgroundColor: "oklch(0.63 0.145 58 / 13%)",
-      borderBottom: "2px solid oklch(0.63 0.145 58 / 60%)",
+      backgroundColor: "oklch(0.63 0.145 58 / 11%)",
+      borderBottom: "1.5px solid oklch(0.63 0.145 58 / 58%)",
       borderRadius: "3px",
-      padding: "1px 0",
-      transition: "background-color 150ms ease",
+      padding: "2px 1px",
+      boxDecorationBreak: "clone",
+      WebkitBoxDecorationBreak: "clone",
+      transition: "background-color 150ms ease, border-color 150ms ease",
+      cursor: "pointer",
     },
     ".cm-ao-ao3:hover": {
-      backgroundColor: "oklch(0.63 0.145 58 / 22%)",
+      backgroundColor: "oklch(0.63 0.145 58 / 20%)",
+      borderBottomColor: "oklch(0.63 0.145 58 / 82%)",
     },
     ".cm-ao-no-credit": {
       backgroundColor: "transparent",

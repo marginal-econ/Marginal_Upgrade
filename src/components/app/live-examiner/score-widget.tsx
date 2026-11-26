@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Sparkles, CheckCircle2, Clock, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { TARIFF_SPLITS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import type { ScoreEstimate } from "@/lib/live-examiner/types";
 import { stripStars } from "@/lib/live-examiner/clean-suggestion";
@@ -63,110 +62,126 @@ export function ScoreWidget({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/80 bg-card/90 p-5 shadow-lg backdrop-blur-md transition-all duration-200",
+        "rounded-2xl border border-border/80 bg-card/95 p-4 shadow-md backdrop-blur-md transition-all duration-200",
         className,
       )}
     >
-      {/* Header & Big Score Display */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Running Mark
-            </span>
-            {status === "verified" ? (
-              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold gap-1">
-                <CheckCircle2 className="size-2.5" /> Verified
-              </Badge>
-            ) : status === "uncertain" ? (
-              <Badge variant="outline" className="text-[10px] text-muted-foreground font-semibold gap-1">
-                <HelpCircle className="size-2.5" /> Early Draft
-              </Badge>
-            ) : (
-              <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold gap-1">
-                <Clock className="size-2.5" /> Provisional
-              </Badge>
-            )}
-            {checking && (
-              <span className="size-2 animate-ping rounded-full bg-primary" title="AI verifying in background" />
-            )}
-          </div>
-
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-mono text-4xl font-black text-foreground">
-              {total}
-              <span className="text-xl font-normal text-muted-foreground"> / {validTariff}</span>
-            </span>
-
-            {deltaChip && (
-              <Badge className="animate-in fade-in zoom-in-95 bg-emerald-500 text-white font-mono text-xs">
-                {deltaChip}
-              </Badge>
-            )}
-
-            {markRange && markRange[0] !== markRange[1] && (
-              <span className="text-xs font-mono text-muted-foreground">
-                (Range: {markRange[0]}–{markRange[1]})
-              </span>
-            )}
-          </div>
-
-          <p className="mt-0.5 text-xs font-medium text-muted-foreground">{band}</p>
+      {/* Header row: Title + Status Badge + Word Count */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+            Running Mark
+          </span>
+          {status === "verified" ? (
+            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold gap-1 px-1.5 py-0 h-5 shrink-0">
+              <CheckCircle2 className="size-2.5" /> Verified
+            </Badge>
+          ) : status === "uncertain" ? (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground font-semibold gap-1 px-1.5 py-0 h-5 shrink-0">
+              <HelpCircle className="size-2.5" /> Draft
+            </Badge>
+          ) : (
+            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold gap-1 px-1.5 py-0 h-5 shrink-0">
+              <Clock className="size-2.5" /> Live
+            </Badge>
+          )}
+          {checking && (
+            <span className="size-2 animate-ping rounded-full bg-primary shrink-0" title="AI verifying in background" />
+          )}
         </div>
 
-        {/* Word Count Indicator */}
-        <div className="text-right">
+        <div className="text-right shrink-0 whitespace-nowrap">
           <span className="text-xs font-semibold text-foreground font-mono">
-            {wordCount}{" "}
-            <span className="text-[10px] font-normal text-muted-foreground">words</span>
+            {wordCount} <span className="text-[10px] font-normal text-muted-foreground">words</span>
           </span>
-          <p className="text-[10px] text-muted-foreground">{targetInfo.label}</p>
         </div>
       </div>
 
-      {/* AO Breakdown Meters */}
-      <div className="mt-5 space-y-3">
+      {/* Big Score Row — strictly single-line, zero wrapping */}
+      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-2 whitespace-nowrap">
+          <span className="font-mono text-4xl font-black tracking-tight text-foreground tabular-nums">
+            {total}
+            <span className="text-xl font-medium text-muted-foreground">/{validTariff}</span>
+          </span>
+
+          {deltaChip && (
+            <Badge className="animate-in fade-in zoom-in-95 bg-emerald-500 text-white font-mono text-[11px] px-1.5 py-0">
+              {deltaChip}
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end text-right shrink-0 whitespace-nowrap">
+          {markRange && markRange[0] !== markRange[1] ? (
+            <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+              Range {markRange[0]}–{markRange[1]}
+            </span>
+          ) : null}
+          <span className="mt-0.5 text-[10px] text-muted-foreground/80">{targetInfo.label}</span>
+        </div>
+      </div>
+
+      <p className="mt-1.5 text-xs font-medium leading-snug text-muted-foreground">{band}</p>
+
+      {/* AO Breakdown Meters — exact color match to editor AO1/AO2/AO3 highlights */}
+      <div className="mt-4 space-y-2.5">
         {/* AO1 Knowledge */}
         <div className="space-y-1">
-          <div className="flex justify-between text-xs font-semibold">
-            <span className="text-ao1">AO1 Knowledge &amp; Definitions</span>
-            <span className="font-mono text-muted-foreground">
-              {ao1} / {split.ao1_marks}
+          <div className="flex items-center justify-between text-[11px] font-semibold">
+            <span className="flex items-center gap-1.5 text-[var(--ao1)]">
+              <span className="size-2 rounded-full bg-[var(--ao1)]" />
+              AO1 Knowledge &amp; Definitions
+            </span>
+            <span className="font-mono text-foreground tabular-nums">
+              {ao1}/{split.ao1_marks}
             </span>
           </div>
-          <Progress
-            value={split.ao1_marks > 0 ? (ao1 / split.ao1_marks) * 100 : 100}
-            className="h-2 bg-ao1/15"
-          />
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ao1)]/15">
+            <div
+              className="h-full rounded-full bg-[var(--ao1)] transition-all duration-500 ease-out"
+              style={{ width: `${split.ao1_marks > 0 ? Math.min(100, (ao1 / split.ao1_marks) * 100) : 100}%` }}
+            />
+          </div>
         </div>
 
         {/* AO2 Analysis */}
         <div className="space-y-1">
-          <div className="flex justify-between text-xs font-semibold">
-            <span className="text-ao2">AO2 Causal Analysis &amp; Application</span>
-            <span className="font-mono text-muted-foreground">
-              {ao2} / {split.ao2_marks}
+          <div className="flex items-center justify-between text-[11px] font-semibold">
+            <span className="flex items-center gap-1.5 text-[var(--ao2)]">
+              <span className="size-2 rounded-full bg-[var(--ao2)]" />
+              AO2 Causal Analysis &amp; Application
+            </span>
+            <span className="font-mono text-foreground tabular-nums">
+              {ao2}/{split.ao2_marks}
             </span>
           </div>
-          <Progress
-            value={split.ao2_marks > 0 ? (ao2 / split.ao2_marks) * 100 : 100}
-            className="h-2 bg-ao2/15"
-          />
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ao2)]/15">
+            <div
+              className="h-full rounded-full bg-[var(--ao2)] transition-all duration-500 ease-out"
+              style={{ width: `${split.ao2_marks > 0 ? Math.min(100, (ao2 / split.ao2_marks) * 100) : 100}%` }}
+            />
+          </div>
         </div>
 
         {/* AO3 Evaluation */}
         {split.ao3_marks > 0 && (
           <div className="space-y-1">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-ao3">AO3 Evaluation &amp; Judgement</span>
-              <span className="font-mono text-muted-foreground">
-                {ao3} / {split.ao3_marks}
+            <div className="flex items-center justify-between text-[11px] font-semibold">
+              <span className="flex items-center gap-1.5 text-[var(--ao3)]">
+                <span className="size-2 rounded-full bg-[var(--ao3)]" />
+                AO3 Evaluation &amp; Judgement
+              </span>
+              <span className="font-mono text-foreground tabular-nums">
+                {ao3}/{split.ao3_marks}
               </span>
             </div>
-            <Progress
-              value={(ao3 / split.ao3_marks) * 100}
-              className="h-2 bg-ao3/15"
-            />
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ao3)]/15">
+              <div
+                className="h-full rounded-full bg-[var(--ao3)] transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(100, (ao3 / split.ao3_marks) * 100)}%` }}
+              />
+            </div>
           </div>
         )}
       </div>

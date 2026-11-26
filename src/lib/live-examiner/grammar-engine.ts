@@ -135,6 +135,14 @@ const RULES: RuleDefinition[] = [
     explanation: "Accidental repeated word.",
   },
   {
+    id: "double_preposition_to_for",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\bto\s+for\s+(the|a|an|this|that|these|those|our|their|its|domestic|foreign|governments?|firms?|consumers?)\b/i,
+    getSuggestion: (m) => `for ${m[1]}`,
+    explanation: "Accidental double preposition ('to for'). Use 'for'.",
+  },
+  {
     id: "sv_government_plural",
     category: "grammar",
     severity: "low",

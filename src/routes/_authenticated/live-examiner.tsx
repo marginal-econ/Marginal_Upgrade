@@ -850,7 +850,7 @@ function LiveExaminerPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-0 lg:grid-cols-[1fr_290px] xl:grid-cols-[1fr_340px]">
+        <div className="grid gap-0 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
           <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
             {/* Clean, minimal studio header */}
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -997,7 +997,7 @@ function LiveExaminerPage() {
             </div>
           </section>
 
-          <aside className="min-w-0 p-4 md:p-5 flex flex-col gap-3.5">
+          <aside className="min-w-0 p-4 md:p-5 flex flex-col gap-3.5 lg:sticky lg:top-16 lg:self-start">
             <ScoreWidget
               scoreEstimate={scoreEstimate}
               wordCount={wordCount}
