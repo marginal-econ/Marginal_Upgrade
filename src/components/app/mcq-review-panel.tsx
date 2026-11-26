@@ -850,8 +850,8 @@ export function McqQuestionReviewList({
                         const formatted = formatThreeLineMcqFeedback({
                           explanation,
                           correctAnswer: q.correct_answer,
-                          userAnswer: q.selected,
-                          isCorrect: q.correct,
+                          userAnswer: q.user_answer ?? null,
+                          isCorrect: Boolean(q.correct),
                         });
                         return (
                           <div className="space-y-2">

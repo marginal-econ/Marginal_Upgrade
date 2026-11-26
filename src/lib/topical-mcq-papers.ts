@@ -1,4 +1,4 @@
-import { loadPdfjs, type StemBlob } from "@/lib/mcq-pdf-text";
+import { loadPdfjs, yieldToMain, type StemBlob } from "@/lib/mcq-pdf-text";
 
 export type TopicalVisualType =
   | "Supply & Demand Graph"
@@ -3928,23 +3928,31 @@ export async function renderTopicalPaperPages(options: {
   const { topicalPaper, scale, fetchPdfBuffer, onProgress } = options;
   const pdfjs = await loadPdfjs();
 
-  // 1. Download each unique source PDF in parallel
+  // 1. Download each unique source PDF with bounded concurrency (max 3) so
+  //    low-memory laptops/Safari never choke on simultaneous multi-PDF fetches.
   const uniqueUrls = Array.from(new Set(topicalPaper.questions.map((q) => q.qpUrl)));
   onProgress?.(`Fetching ${uniqueUrls.length} official Cambridge papers…`);
 
-  const docEntries = await Promise.all(
-    uniqueUrls.map(async (url) => {
-      const buf = await fetchPdfBuffer(url);
-      const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
-      return [url, doc] as const;
-    }),
-  );
-  const docsByUrl = new Map(docEntries);
+  const buffersByUrl = new Map<string, ArrayBuffer>();
+  for (let i = 0; i < uniqueUrls.length; i += 3) {
+    const batch = uniqueUrls.slice(i, i + 3);
+    const fetched = await Promise.all(
+      batch.map(async (url) => [url, await fetchPdfBuffer(url)] as const),
+    );
+    for (const [url, buf] of fetched) {
+      buffersByUrl.set(url, buf);
+    }
+  }
 
-  // 2. Render each unique (qpUrl, pageNumber) once at `scale`
-  const uniquePageKeys = Array.from(
-    new Set(topicalPaper.questions.map((q) => `${q.qpUrl}::${q.pageNumber}`)),
-  );
+  // 2. Render needed pages one PDF document at a time, cleaning up each doc
+  //    immediately to stay well below Safari/WebKit canvas & worker memory limits.
+  const pagesNeededByUrl = new Map<string, Set<number>>();
+  for (const q of topicalPaper.questions) {
+    const set = pagesNeededByUrl.get(q.qpUrl) ?? new Set<number>();
+    set.add(q.pageNumber);
+    pagesNeededByUrl.set(q.qpUrl, set);
+  }
+
   onProgress?.(`Extracting ${topicalPaper.questions.length} real exam questions & diagrams…`);
 
   const renderedSourcePages = new Map<
@@ -3952,30 +3960,48 @@ export async function renderTopicalPaperPages(options: {
     { canvas: HTMLCanvasElement; widthPt: number; heightPt: number }
   >();
 
-  for (const key of uniquePageKeys) {
-    const [url, pageStr] = key.split("::");
-    const pageNum = Number(pageStr);
-    const doc = docsByUrl.get(url);
-    if (!doc) continue;
-    const page = await doc.getPage(pageNum);
-    const unscaledViewport = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale });
+  for (const [url, pageNums] of pagesNeededByUrl.entries()) {
+    const buf = buffersByUrl.get(url);
+    buffersByUrl.delete(url);
+    if (!buf) continue;
 
-    const srcCanvas = document.createElement("canvas");
-    srcCanvas.width = Math.ceil(viewport.width);
-    srcCanvas.height = Math.ceil(viewport.height);
-    const srcCtx = srcCanvas.getContext("2d");
-    if (!srcCtx) continue;
-
-    srcCtx.fillStyle = "#ffffff";
-    srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
-    await (page.render({ canvasContext: srcCtx, viewport } as any) as any).promise;
-
-    renderedSourcePages.set(key, {
-      canvas: srcCanvas,
-      widthPt: unscaledViewport.width,
-      heightPt: unscaledViewport.height,
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(buf),
+      isOffscreenCanvasSupported: false,
     });
+    const doc = await loadingTask.promise;
+
+    try {
+      for (const pageNum of pageNums) {
+        if (pageNum < 1 || pageNum > doc.numPages) continue;
+        const page = await doc.getPage(pageNum);
+        try {
+          const unscaledViewport = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale });
+
+          const srcCanvas = document.createElement("canvas");
+          srcCanvas.width = Math.ceil(viewport.width);
+          srcCanvas.height = Math.ceil(viewport.height);
+          const srcCtx = srcCanvas.getContext("2d");
+          if (!srcCtx) continue;
+
+          srcCtx.fillStyle = "#ffffff";
+          srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
+          await (page.render({ canvasContext: srcCtx, viewport } as any) as any).promise;
+
+          renderedSourcePages.set(`${url}::${pageNum}`, {
+            canvas: srcCanvas,
+            widthPt: unscaledViewport.width,
+            heightPt: unscaledViewport.height,
+          });
+        } finally {
+          page.cleanup();
+        }
+        await yieldToMain();
+      }
+    } finally {
+      await loadingTask.destroy().catch(() => {});
+    }
   }
 
   // 3. Group questions into virtual pages (2 questions per page, like a real 9708 booklet)
@@ -4191,7 +4217,15 @@ export async function renderTopicalPaperPages(options: {
     }
 
     builtPages.push({ pageNumber: vPage, canvas: outCanvas });
+    await yieldToMain();
   }
+
+  // Release temporary full-page source canvases to free Safari/WebKit GPU/RAM
+  for (const entry of renderedSourcePages.values()) {
+    entry.canvas.width = 0;
+    entry.canvas.height = 0;
+  }
+  renderedSourcePages.clear();
 
   return {
     pages: builtPages,

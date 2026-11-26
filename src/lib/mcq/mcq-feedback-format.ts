@@ -54,15 +54,16 @@ export function cleanAndShortenSentence(raw: unknown, maxChars = 110): string {
   }
 
   // Extract single first sentence (stopping at period, exclamation, or question mark)
-  const sentenceEndRegex = /(?<=[.!?])\s+(?=[A-Z0-9"']|$)/g;
+  // Avoid regex lookbehinds for full Safari / WebKit compatibility.
+  const sentenceEndRegex = /([.!?])\s+(?=[A-Z0-9"']|$)/g;
   const match = sentenceEndRegex.exec(cleaned);
-  let firstSentence = match ? cleaned.slice(0, match.index).trim() : cleaned;
+  let firstSentence = match ? cleaned.slice(0, match.index + match[1].length).trim() : cleaned;
 
   // Protect standard economic abbreviations (e.g., i.e., vs., fig., no.)
   if (/^(e\.g\.|i\.e\.|fig\.|no\.|vs\.)/i.test(firstSentence) && match) {
     const nextMatch = sentenceEndRegex.exec(cleaned);
     if (nextMatch) {
-      firstSentence = cleaned.slice(0, nextMatch.index).trim();
+      firstSentence = cleaned.slice(0, nextMatch.index + nextMatch[1].length).trim();
     }
   }
 
@@ -104,15 +105,16 @@ export function extractSinglePunchySentence(raw: unknown, maxChars = 140): strin
     .trim();
 
   // 2. Identify the first sentence end, avoiding common abbreviations and decimal points
-  const sentenceEndRegex = /(?<=[.!?])\s+(?=[A-Z0-9"']|$)/g;
+  // Avoid regex lookbehinds for full Safari / WebKit compatibility.
+  const sentenceEndRegex = /([.!?])\s+(?=[A-Z0-9"']|$)/g;
   const match = sentenceEndRegex.exec(cleaned);
-  let firstSentence = match ? cleaned.slice(0, match.index).trim() : cleaned;
+  let firstSentence = match ? cleaned.slice(0, match.index + match[1].length).trim() : cleaned;
 
   // If first sentence has abbreviations that were falsely split (e.g. "e.g.", "i.e."), take up to next sentence
   if (/^(e\.g\.|i\.e\.|fig\.|no\.|vs\.)/i.test(firstSentence) && match) {
     const nextMatch = sentenceEndRegex.exec(cleaned);
     if (nextMatch) {
-      firstSentence = cleaned.slice(0, nextMatch.index).trim();
+      firstSentence = cleaned.slice(0, nextMatch.index + nextMatch[1].length).trim();
     }
   }
 
@@ -416,9 +418,11 @@ export function formatThreeLineMcqFeedback(options: {
       const rulePart = parts.find((p) => /rule|defined|always|check|remember/i.test(p))?.trim() || parts[1]?.trim() || "";
 
       d = {
+        concept: "",
         correctReasoning: reasoningPart,
         distractorTrap: trapPart,
         keyRule: rulePart,
+        speedTip: "",
       };
     }
   }

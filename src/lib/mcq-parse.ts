@@ -17,8 +17,8 @@ export function parseAnswerKeyFromText(text: string): Record<number, Letter> {
 }
 
 async function loadPdfjs() {
-  const pdfjs = await import("pdfjs-dist");
-  const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   return pdfjs;
 }
@@ -27,16 +27,28 @@ async function loadPdfjs() {
 export async function extractPdfText(file: File | Blob): Promise<string> {
   const pdfjs = await loadPdfjs();
   const buf = await file.arrayBuffer();
-  const doc = await pdfjs.getDocument({ data: buf }).promise;
-  let text = "";
-  for (let p = 1; p <= doc.numPages; p++) {
-    const page = await doc.getPage(p);
-    const content = await page.getTextContent();
-    text +=
-      " " +
-      content.items
-        .map((item) => ("str" in item && typeof item.str === "string" ? item.str : ""))
-        .join(" ");
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buf),
+    isOffscreenCanvasSupported: false,
+  });
+  const doc = await loadingTask.promise;
+  try {
+    let text = "";
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      try {
+        const content = await page.getTextContent();
+        text +=
+          " " +
+          content.items
+            .map((item) => ("str" in item && typeof item.str === "string" ? item.str : ""))
+            .join(" ");
+      } finally {
+        page.cleanup();
+      }
+    }
+    return text;
+  } finally {
+    await loadingTask.destroy().catch(() => {});
   }
-  return text;
 }

@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { CanvasPreview } from "@/components/app/canvas-preview";
 import { McqCalculator } from "@/components/app/mcq-calculator";
 import {
   QuizLiveLeaderboard,
@@ -273,6 +274,7 @@ function LiveQuizRoomPage() {
 
   // Student join form state
   const [nickname, setNickname] = useState("");
+  const nicknameTouchedRef = useRef(false);
   const [avatar, setAvatar] = useState<string>(QUIZ_AVATARS[0].emoji);
   const [joining, setJoining] = useState(false);
 
@@ -289,6 +291,7 @@ function LiveQuizRoomPage() {
       return res.state;
     },
     enabled: cleanPin.length === 6,
+    refetchOnWindowFocus: false,
     refetchInterval: (query) => {
       const status = query.state.data?.meta?.status;
       if (status === "lobby") return 2500;
@@ -304,45 +307,66 @@ function LiveQuizRoomPage() {
 
   // Track signed-in Supabase user session (required to join)
   useEffect(() => {
+    let active = true;
+    const applySuggestedName = (user: any | null) => {
+      if (!active || !user || nicknameTouchedRef.current) return;
+      const suggested =
+        (user.user_metadata as any)?.full_name ||
+        (user.user_metadata as any)?.name ||
+        (user.email ? user.email.split("@")[0] : "");
+      if (suggested) {
+        setNickname((cur) => (cur ? cur : String(suggested).slice(0, 28)));
+      }
+    };
+
     supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
       const user = data.session?.user ?? null;
       setCurrentUser(user);
       setAuthLoaded(true);
-      if (user && !nickname) {
-        const suggested =
-          (user.user_metadata as any)?.full_name ||
-          (user.user_metadata as any)?.name ||
-          (user.email ? user.email.split("@")[0] : "");
-        if (suggested) {
-          setNickname(String(suggested).slice(0, 28));
-        }
-      }
+      applySuggestedName(user);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
       const user = session?.user ?? null;
       setCurrentUser(user);
       setAuthLoaded(true);
-      if (user && !nickname) {
-        const suggested =
-          (user.user_metadata as any)?.full_name ||
-          (user.user_metadata as any)?.name ||
-          (user.email ? user.email.split("@")[0] : "");
-        if (suggested) {
-          setNickname(String(suggested).slice(0, 28));
-        }
-      }
+      applySuggestedName(user);
     });
 
     return () => {
+      active = false;
       authListener.subscription.unsubscribe();
     };
-  }, [nickname]);
+  }, []);
 
-  // Supabase Realtime Broadcast Channel for instant <50ms cross-device sync
+  // Supabase Realtime Broadcast Channel with coalesced refetching so burst
+  // answers across a whole class never storm the browser or server.
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const refetchRef = useRef(quizQuery.refetch);
   refetchRef.current = quizQuery.refetch;
+  const lastSyncRefetchAtRef = useRef(0);
+  const trailingSyncTimerRef = useRef<number | null>(null);
+
+  const scheduleSyncRefetch = useCallback(() => {
+    const now = Date.now();
+    const elapsed = now - lastSyncRefetchAtRef.current;
+    if (elapsed >= 700) {
+      lastSyncRefetchAtRef.current = now;
+      if (trailingSyncTimerRef.current !== null) {
+        window.clearTimeout(trailingSyncTimerRef.current);
+        trailingSyncTimerRef.current = null;
+      }
+      void refetchRef.current();
+    } else if (trailingSyncTimerRef.current === null) {
+      trailingSyncTimerRef.current = window.setTimeout(() => {
+        trailingSyncTimerRef.current = null;
+        lastSyncRefetchAtRef.current = Date.now();
+        void refetchRef.current();
+      }, 700 - elapsed);
+    }
+  }, []);
 
   useEffect(() => {
     if (cleanPin.length !== 6) return;
@@ -351,7 +375,7 @@ function LiveQuizRoomPage() {
     });
     channel
       .on("broadcast", { event: "sync" }, () => {
-        void refetchRef.current();
+        scheduleSyncRefetch();
       })
       .on("broadcast", { event: "powerup" }, ({ payload }) => {
         if (payload?.description) {
@@ -359,16 +383,20 @@ function LiveQuizRoomPage() {
             icon: payload.blocked ? "🛡️" : "⚡",
           });
         }
-        void refetchRef.current();
+        scheduleSyncRefetch();
       })
       .subscribe();
     channelRef.current = channel;
 
     return () => {
       channelRef.current = null;
+      if (trailingSyncTimerRef.current !== null) {
+        window.clearTimeout(trailingSyncTimerRef.current);
+        trailingSyncTimerRef.current = null;
+      }
       void supabase.removeChannel(channel);
     };
-  }, [cleanPin]);
+  }, [cleanPin, scheduleSyncRefetch]);
 
   const broadcastSync = useCallback(() => {
     try {
@@ -394,6 +422,11 @@ function LiveQuizRoomPage() {
     }
   }, []);
 
+  const handleStateMutated = useCallback(async () => {
+    broadcastSync();
+    await refetchRef.current();
+  }, [broadcastSync]);
+
   // Countdown animation when status flips from lobby -> in_progress for a student
   const [countdown, setCountdown] = useState<number | null>(null);
   const prevStatusRef = useRef<string | null>(null);
@@ -414,29 +447,6 @@ function LiveQuizRoomPage() {
     const t = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 750);
     return () => clearTimeout(t);
   }, [countdown]);
-
-  // Remaining time clock (when host configured a whole-paper timer)
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (meta?.status !== "in_progress") return;
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [meta?.status]);
-
-  const remainingSeconds = useMemo(() => {
-    if (!meta?.timeLimitSeconds || !meta.startedAt) return null;
-    const startedMs = Date.parse(meta.startedAt);
-    if (isNaN(startedMs)) return null;
-    const elapsed = Math.floor((nowMs - startedMs) / 1000);
-    return Math.max(0, meta.timeLimitSeconds - elapsed);
-  }, [meta?.timeLimitSeconds, meta?.startedAt, nowMs]);
-
-  const elapsedGameSeconds = useMemo(() => {
-    if (!meta?.startedAt) return 0;
-    const startedMs = Date.parse(meta.startedAt);
-    if (isNaN(startedMs)) return 0;
-    return Math.max(0, Math.floor((nowMs - startedMs) / 1000));
-  }, [meta?.startedAt, nowMs]);
 
   // Identify current player object on server leaderboard (by saved seat or signed-in user id)
   const mePlayer: QuizPlayer | null = useMemo(() => {
@@ -972,16 +982,10 @@ function LiveQuizRoomPage() {
                 </Card>
                 <Card>
                   <CardContent className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-semibold text-muted-foreground">
-                        {remainingSeconds !== null ? "Time Remaining" : "Elapsed Time"}
-                      </p>
-                      <p className="font-mono text-2xl font-black text-foreground">
-                        {remainingSeconds !== null
-                          ? formatClock(remainingSeconds)
-                          : formatClock(elapsedGameSeconds)}
-                      </p>
-                    </div>
+                    <HostHeaderClock
+                      startedAt={meta.startedAt ?? null}
+                      timeLimitSeconds={meta.timeLimitSeconds ?? null}
+                    />
                     <Clock className="h-5 w-5 text-amber-500/70" />
                   </CardContent>
                 </Card>
@@ -1168,7 +1172,10 @@ function LiveQuizRoomPage() {
                     id="quiz-nickname"
                     autoFocus
                     value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
+                    onChange={(e) => {
+                      nicknameTouchedRef.current = true;
+                      setNickname(e.target.value);
+                    }}
                     placeholder="e.g. Keynes_99 or Sarah"
                     maxLength={32}
                     className="h-11 text-base font-bold"
@@ -1479,7 +1486,6 @@ function LiveQuizRoomPage() {
       players={players}
       mePlayer={mePlayer}
       myRank={myRank}
-      remainingSeconds={remainingSeconds}
       isHost={isHost}
       onBackToHostBoard={switchToHostView}
       submitAnswerFn={submitAnswerFn}
@@ -1487,11 +1493,75 @@ function LiveQuizRoomPage() {
       fetchPdfFn={fetchPdfFn}
       usePowerUpFn={usePowerUpFn}
       broadcastPowerUp={broadcastPowerUp}
-      onStateMutated={async () => {
-        broadcastSync();
-        await quizQuery.refetch();
-      }}
+      onStateMutated={handleStateMutated}
     />
+  );
+}
+
+/** Isolated 1-second timer readout for the Host Dashboard (prevents full-page re-renders). */
+function HostHeaderClock({
+  startedAt,
+  timeLimitSeconds,
+}: {
+  startedAt: string | null;
+  timeLimitSeconds: number | null;
+}) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const startedMs = startedAt ? Date.parse(startedAt) : NaN;
+  const elapsed = !isNaN(startedMs) ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : 0;
+  const remaining =
+    timeLimitSeconds && !isNaN(startedMs) ? Math.max(0, timeLimitSeconds - elapsed) : null;
+
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-muted-foreground">
+        {remaining !== null ? "Time Remaining" : "Elapsed Time"}
+      </p>
+      <p className="font-mono text-2xl font-black text-foreground">
+        {remaining !== null ? formatClock(remaining) : formatClock(elapsed)}
+      </p>
+    </div>
+  );
+}
+
+/** Isolated 1-second countdown badge for the Student HUD. */
+function StudentRemainingClockBadge({
+  startedAt,
+  timeLimitSeconds,
+}: {
+  startedAt: string | null | undefined;
+  timeLimitSeconds: number | null | undefined;
+}) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!timeLimitSeconds || !startedAt) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [timeLimitSeconds, startedAt]);
+
+  if (!timeLimitSeconds || !startedAt) return null;
+  const startedMs = Date.parse(startedAt);
+  if (isNaN(startedMs)) return null;
+  const elapsed = Math.floor((nowMs - startedMs) / 1000);
+  const remainingSeconds = Math.max(0, timeLimitSeconds - elapsed);
+
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1 rounded-lg border px-2 py-1 font-mono text-xs font-bold",
+        remainingSeconds <= 60
+          ? "border-destructive bg-destructive/10 text-destructive animate-pulse"
+          : "border-border bg-muted/40 text-foreground",
+      )}
+    >
+      <Clock className="h-3 w-3" />
+      {formatClock(remainingSeconds)}
+    </div>
   );
 }
 
@@ -1505,7 +1575,6 @@ function StudentLiveGameplayView({
   players,
   mePlayer,
   myRank,
-  remainingSeconds,
   isHost,
   onBackToHostBoard,
   submitAnswerFn,
@@ -1520,7 +1589,6 @@ function StudentLiveGameplayView({
   players: QuizPlayer[];
   mePlayer: QuizPlayer;
   myRank: number | null;
-  remainingSeconds: number | null;
   isHost: boolean;
   onBackToHostBoard: () => void;
   submitAnswerFn: ReturnType<typeof useServerFn<typeof submitQuizAnswer>>;
@@ -1537,7 +1605,8 @@ function StudentLiveGameplayView({
     return firstUnansweredIdx >= 0 ? firstUnansweredIdx : 0;
   });
 
-  const currentNumber = questionNumbers[currentIdx] ?? questionNumbers[0] ?? 1;
+  const safeIdx = Math.max(0, Math.min(questionNumbers.length - 1, currentIdx));
+  const currentNumber = questionNumbers[safeIdx] ?? questionNumbers[0] ?? 1;
   const [showFullPage, setShowFullPage] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [calcOpen, setCalcOpen] = useState(false);
@@ -1552,18 +1621,29 @@ function StudentLiveGameplayView({
   const [targetPickerPowerUp, setTargetPickerPowerUp] = useState<QuizPowerUp | null>(null);
   const [eliminatedOptions, setEliminatedOptions] = useState<Record<number, Set<QuizLetter>>>({});
 
-  // Clock for freeze check & answer timing
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // Only tick the 500ms freeze timer while an active freeze is actually running
+  const [freezeNowMs, setFreezeNowMs] = useState(() => Date.now());
+  const frozenUntil = mePlayer.frozenUntil ?? null;
   useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 500);
+    if (!frozenUntil || frozenUntil <= Date.now()) return;
+    setFreezeNowMs(Date.now());
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setFreezeNowMs(now);
+      if (now >= frozenUntil) {
+        window.clearInterval(id);
+      }
+    }, 500);
     return () => window.clearInterval(id);
-  }, []);
+  }, [frozenUntil]);
 
-  const isFrozen = Boolean(mePlayer.frozenUntil && mePlayer.frozenUntil > nowMs);
-  const freezeRemaining = isFrozen ? Math.ceil((mePlayer.frozenUntil! - nowMs) / 1000) : 0;
+  const isFrozen = Boolean(frozenUntil && frozenUntil > freezeNowMs);
+  const freezeRemaining = isFrozen ? Math.ceil((frozenUntil! - freezeNowMs) / 1000) : 0;
 
   // Per-question stopwatch for speed bonus calculation
   const [questionElapsed, setQuestionElapsed] = useState(0);
+  const questionElapsedRef = useRef(0);
+  questionElapsedRef.current = questionElapsed;
   const [feedbackByQuestion, setFeedbackByQuestion] = useState<
     Record<number, LastAnswerFeedback>
   >({});
@@ -1581,7 +1661,7 @@ function StudentLiveGameplayView({
 
   const questionNumbersKey = meta.questionNumbers.join(",");
   const maxPdfQuestion = useMemo(
-    () => Math.max(...meta.questionNumbers, 30),
+    () => Math.max(...meta.questionNumbers, 1),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [questionNumbersKey],
   );
@@ -1597,6 +1677,7 @@ function StudentLiveGameplayView({
       paperId: meta.paperId,
       qpUrl: meta.qpUrl,
       maxQuestionNumber: maxPdfQuestion,
+      questionNumbers: meta.questionNumbers,
       proxyFetchBase64: async (url) => {
         const res = await fetchPdfFnRef.current({ data: { pin: cleanPin, qpUrl: url } });
         return res.base64;
@@ -1621,7 +1702,8 @@ function StudentLiveGameplayView({
     return () => {
       cancelled = true;
     };
-  }, [meta.sourceType, meta.paperId, meta.qpUrl, maxPdfQuestion, cleanPin, pdfReloadSeq]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta.sourceType, meta.paperId, meta.qpUrl, maxPdfQuestion, questionNumbersKey, cleanPin, pdfReloadSeq]);
 
   // Reset per-question timer whenever active question changes
   const existingAnswer = mePlayer.answers?.[currentNumber];
@@ -1632,12 +1714,17 @@ function StudentLiveGameplayView({
     setShowFullPage(false);
     setZoomLevel(100);
     setQuestionElapsed(0);
+    questionElapsedRef.current = 0;
   }, [currentNumber]);
 
   useEffect(() => {
     if (isAnswered || isFrozen) return;
     const id = window.setInterval(() => {
-      setQuestionElapsed((s) => s + 1);
+      setQuestionElapsed((s) => {
+        const next = s + 1;
+        questionElapsedRef.current = next;
+        return next;
+      });
     }, 1000);
     return () => window.clearInterval(id);
   }, [isAnswered, isFrozen]);
@@ -1655,22 +1742,14 @@ function StudentLiveGameplayView({
   }, [renderedPdf, pageNum]);
 
   const displayedCanvas = !showFullPage && sliceCanvas ? sliceCanvas : fullPageCanvas;
-  const displayedDataUrl = useMemo(() => {
-    if (!displayedCanvas) return null;
-    try {
-      return displayedCanvas.toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  }, [displayedCanvas]);
 
   const customQuestion =
     meta.sourceType === "custom_questions"
       ? meta.customQuestions?.find((q) => q.number === currentNumber) ?? null
       : null;
 
-  const hasPrev = currentIdx > 0;
-  const hasNext = currentIdx < questionNumbers.length - 1;
+  const hasPrev = safeIdx > 0;
+  const hasNext = safeIdx < questionNumbers.length - 1;
 
   const goNext = useCallback(() => {
     if (hasNext) {
@@ -1685,15 +1764,21 @@ function StudentLiveGameplayView({
     }
   }, [hasNext, questionNumbers, mePlayer.answers, feedbackByQuestion]);
 
+  const navScrollRef = useRef<HTMLDivElement | null>(null);
   const activeQuestionBtnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    activeQuestionBtnRef.current?.scrollIntoView({
-      behavior: "smooth",
-      inline: "center",
-      block: "nearest",
-    });
-  }, [currentIdx]);
+    const container = navScrollRef.current;
+    const btn = activeQuestionBtnRef.current;
+    if (!container || !btn) return;
+    const targetLeft =
+      btn.offsetLeft - container.clientWidth / 2 + btn.clientWidth / 2;
+    try {
+      container.scrollTo({ left: Math.max(0, targetLeft), behavior: "smooth" });
+    } catch {
+      container.scrollLeft = Math.max(0, targetLeft);
+    }
+  }, [safeIdx]);
 
   const handleAnswer = useCallback(
     async (letter: QuizLetter) => {
@@ -1706,7 +1791,7 @@ function StudentLiveGameplayView({
             playerId: mePlayer.id,
             questionNumber: currentNumber,
             selectedLetter: letter,
-            elapsedSeconds: questionElapsed,
+            elapsedSeconds: questionElapsedRef.current,
           },
         });
         setFeedbackByQuestion((prev) => ({
@@ -1757,7 +1842,6 @@ function StudentLiveGameplayView({
       cleanPin,
       mePlayer.id,
       currentNumber,
-      questionElapsed,
       meta.showInstantFeedback,
       onStateMutated,
     ],
@@ -1887,8 +1971,12 @@ function StudentLiveGameplayView({
         e.preventDefault();
         goNext();
       }
-      if (e.key === "ArrowRight" && hasNext) setCurrentIdx((i) => i + 1);
-      if (e.key === "ArrowLeft" && hasPrev) setCurrentIdx((i) => i - 1);
+      if (e.key === "ArrowRight" && hasNext) {
+        setCurrentIdx((i) => Math.min(questionNumbers.length - 1, i + 1));
+      }
+      if (e.key === "ArrowLeft" && hasPrev) {
+        setCurrentIdx((i) => Math.max(0, i - 1));
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -1904,6 +1992,7 @@ function StudentLiveGameplayView({
     hasNext,
     hasPrev,
     goNext,
+    questionNumbers.length,
   ]);
 
   const answeredCount = Math.max(
@@ -1921,7 +2010,7 @@ function StudentLiveGameplayView({
   );
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-gradient-to-b from-background via-muted/15 to-background overflow-x-hidden w-full select-none touch-manipulation">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-gradient-to-b from-background via-muted/15 to-background overflow-x-clip w-full select-none touch-manipulation">
       {/* Top HUD (Responsive across iPhone, iPad, Desktop) */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md px-3 sm:px-5 py-2.5 shadow-2xs">
         <div className="mx-auto max-w-6xl flex flex-wrap items-center justify-between gap-2">
@@ -1988,19 +2077,10 @@ function StudentLiveGameplayView({
               </div>
             ) : null}
 
-            {remainingSeconds !== null ? (
-              <div
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-lg border px-2 py-1 font-mono text-xs font-bold",
-                  remainingSeconds <= 60
-                    ? "border-destructive bg-destructive/10 text-destructive animate-pulse"
-                    : "border-border bg-muted/40 text-foreground",
-                )}
-              >
-                <Clock className="h-3 w-3" />
-                {formatClock(remainingSeconds)}
-              </div>
-            ) : null}
+            <StudentRemainingClockBadge
+              startedAt={meta.startedAt}
+              timeLimitSeconds={meta.timeLimitSeconds}
+            />
           </div>
 
           {/* Right Action Buttons */}
@@ -2104,11 +2184,14 @@ function StudentLiveGameplayView({
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
-          <div className="flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5">
+          <div
+            ref={navScrollRef}
+            className="flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5"
+          >
             <div className="flex items-center gap-1 min-w-max">
               {questionNumbers.map((qNum, idx) => {
                 const rec = mePlayer.answers?.[qNum] ?? feedbackByQuestion[qNum];
-                const isCurrent = idx === currentIdx;
+                const isCurrent = idx === safeIdx;
                 const recCorrect = rec
                   ? "isCorrect" in rec
                     ? rec.isCorrect
@@ -2247,7 +2330,7 @@ function StudentLiveGameplayView({
                     Question {currentNumber}
                   </Badge>
                   <span className="text-[11px] text-muted-foreground font-medium">
-                    ({currentIdx + 1} of {questionNumbers.length})
+                    ({safeIdx + 1} of {questionNumbers.length})
                   </span>
                 </div>
 
@@ -2316,7 +2399,7 @@ function StudentLiveGameplayView({
                   ) : null}
 
                   {/* Diagram Zoom Controls */}
-                  {displayedDataUrl ? (
+                  {displayedCanvas && displayedCanvas.width > 0 ? (
                     <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
                       <button
                         type="button"
@@ -2393,16 +2476,16 @@ function StudentLiveGameplayView({
                       Retry Loading Paper
                     </Button>
                   </div>
-                ) : displayedDataUrl ? (
-                  <div className="rounded-lg border border-border/60 bg-white p-2 overflow-auto max-h-[55vh] sm:max-h-[62vh]">
-                    <img
-                      src={displayedDataUrl}
-                      alt={`Question ${currentNumber}`}
+                ) : displayedCanvas && displayedCanvas.width > 0 ? (
+                  <div className="rounded-lg border border-border/60 bg-white p-2 overflow-auto max-h-[60vh] sm:max-h-[68vh]">
+                    <CanvasPreview
+                      source={displayedCanvas}
+                      ariaLabel={`Question ${currentNumber}`}
                       style={{
-                        transform: `scale(${zoomLevel / 100})`,
-                        transformOrigin: "top left",
+                        width: `${zoomLevel}%`,
+                        maxWidth: "none",
                       }}
-                      className="w-full h-auto block select-none transition-transform duration-150"
+                      className="h-auto block select-none transition-[width] duration-150"
                     />
                   </div>
                 ) : (
@@ -2736,7 +2819,7 @@ function StudentLiveGameplayView({
           </Button>
 
           <span className="font-mono text-xs font-black text-foreground whitespace-nowrap">
-            Q{currentNumber} ({currentIdx + 1}/{questionNumbers.length})
+            Q{currentNumber} ({safeIdx + 1}/{questionNumbers.length})
           </span>
 
           {hasNext ? (

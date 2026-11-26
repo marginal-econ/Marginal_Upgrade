@@ -97,9 +97,16 @@ const SAMPLE_CUSTOM_QUESTIONS: Omit<CustomQuizQuestion, "number">[] = [
   },
 ];
 
+function safeRandomId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `q_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function createEmptyQuestion(): CustomDraftQuestion {
   return {
-    id: crypto.randomUUID(),
+    id: safeRandomId(),
     stem: "",
     options: { A: "", B: "", C: "", D: "" },
     correctAnswer: "A",
@@ -226,7 +233,7 @@ export function McqQuizHostModal({
     setCustomQuestions(
       SAMPLE_CUSTOM_QUESTIONS.map((q) => ({
         ...q,
-        id: crypto.randomUUID(),
+        id: safeRandomId(),
       })),
     );
     if (!title.trim()) {

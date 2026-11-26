@@ -26,6 +26,7 @@ import {
   Zap,
 } from "lucide-react";
 
+import { CanvasPreview } from "@/components/app/canvas-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -379,15 +380,6 @@ export function McqTutorMode({
 
   const displayedCanvas = !showFullPage && sliceCanvas ? sliceCanvas : fullPageCanvas;
   const isShowingCrop = !showFullPage && Boolean(sliceCanvas);
-
-  const displayedDataUrl = useMemo(() => {
-    if (!displayedCanvas) return null;
-    try {
-      return displayedCanvas.toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  }, [displayedCanvas]);
 
   const currentIdx = questionNumbers.indexOf(currentNumber);
   const hasPrev = isRedrill ? redrillIndex > 0 : currentIdx > 0;
@@ -990,16 +982,16 @@ export function McqTutorMode({
                 ) : null}
               </div>
 
-              {displayedCanvas && displayedDataUrl ? (
+              {displayedCanvas && displayedCanvas.width > 0 ? (
                 <div
                   className="relative w-full select-none bg-white"
                   style={{
                     aspectRatio: `${displayedCanvas.width} / ${displayedCanvas.height}`,
                   }}
                 >
-                  <img
-                    src={displayedDataUrl}
-                    alt={`Question ${currentNumber} official PDF`}
+                  <CanvasPreview
+                    source={displayedCanvas}
+                    ariaLabel={`Question ${currentNumber} official PDF`}
                     className="w-full h-full object-contain pointer-events-none block"
                   />
                   <TutorAnnotationCanvas

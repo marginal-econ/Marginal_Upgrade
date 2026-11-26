@@ -1,7 +1,10 @@
 import {
   cropQuestionSliceCanvas,
   extractQuestionSpans,
+  fetchArrayBufferWithTimeout,
   loadPdfjs,
+  resolveMonotonicQuestionPages,
+  yieldToMain,
   type PdfTextItem,
   type QuestionPageSpan,
   type StemBlob,
@@ -92,6 +95,7 @@ export async function renderQuizPdfPaper(options: {
   paperId: string | null;
   qpUrl?: string | null;
   maxQuestionNumber: number;
+  questionNumbers?: number[];
   proxyFetchBase64: (url: string) => Promise<string>;
   onProgress?: (label: string) => void;
 }): Promise<RenderedQuizPaper> {
@@ -99,11 +103,14 @@ export async function renderQuizPdfPaper(options: {
 
   const downloadPdfBuffer = async (targetUrl: string): Promise<ArrayBuffer> => {
     try {
-      const res = await fetch(targetUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.arrayBuffer();
+      return await fetchArrayBufferWithTimeout(targetUrl, 15_000);
     } catch {
-      const b64 = await options.proxyFetchBase64(targetUrl);
+      const b64 = await Promise.race([
+        options.proxyFetchBase64(targetUrl),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Timed out downloading paper PDF.")), 30_000),
+        ),
+      ]);
       return base64ToArrayBuffer(b64);
     }
   };
@@ -132,7 +139,11 @@ export async function renderQuizPdfPaper(options: {
   options.onProgress?.("Downloading official Cambridge paper…");
   const pdfjs = await loadPdfjs();
   const buf = await downloadPdfBuffer(options.qpUrl);
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buf),
+    isOffscreenCanvasSupported: false,
+  });
+  const doc = await loadingTask.promise;
 
   const pages: { pageNumber: number; canvas: HTMLCanvasElement }[] = [];
   const stems: StemBlob[] = [];
@@ -142,66 +153,71 @@ export async function renderQuizPdfPaper(options: {
     { canvas: HTMLCanvasElement; heightPt: number; spans: QuestionPageSpan[] }
   >();
 
-  for (let p = 1; p <= doc.numPages; p++) {
-    options.onProgress?.(`Rendering exam page ${p} of ${doc.numPages}…`);
-    const page = await doc.getPage(p);
-    const unscaledViewport = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: RENDER_SCALE });
+  try {
+    for (let p = 1; p <= doc.numPages; p++) {
+      options.onProgress?.(`Rendering exam page ${p} of ${doc.numPages}…`);
+      const page = await doc.getPage(p);
+      try {
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
-    pages.push({ pageNumber: p, canvas });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
+        pages.push({ pageNumber: p, canvas });
 
-    let pageSpans: QuestionPageSpan[] = [];
-    try {
-      const content = await page.getTextContent();
-      pageSpans = extractQuestionSpans(content.items as PdfTextItem[], unscaledViewport.height);
-      stems.push(...pageSpans.map(({ number, text }) => ({ number, text })));
-      for (const s of pageSpans) {
-        if (s.number >= 1 && s.number <= options.maxQuestionNumber) {
-          if (!candidatePageMap[s.number]) candidatePageMap[s.number] = [];
-          candidatePageMap[s.number].push(p);
+        let pageSpans: QuestionPageSpan[] = [];
+        try {
+          const content = await page.getTextContent();
+          pageSpans = extractQuestionSpans(content.items as PdfTextItem[], unscaledViewport.height);
+          stems.push(...pageSpans.map(({ number, text }) => ({ number, text })));
+          for (const s of pageSpans) {
+            if (s.number >= 1 && s.number <= options.maxQuestionNumber) {
+              if (!candidatePageMap[s.number]) candidatePageMap[s.number] = [];
+              candidatePageMap[s.number].push(p);
+            }
+          }
+        } catch {
+          // text layer optional
         }
-      }
-    } catch {
-      // text layer optional
-    }
 
-    pageMetaByNum.set(p, {
-      canvas,
-      heightPt: unscaledViewport.height,
-      spans: pageSpans,
-    });
+        pageMetaByNum.set(p, {
+          canvas,
+          heightPt: unscaledViewport.height,
+          spans: pageSpans,
+        });
+      } finally {
+        page.cleanup();
+      }
+      await yieldToMain();
+    }
+  } finally {
+    await loadingTask.destroy().catch(() => {});
   }
 
-  const rawPageMap: Record<number, number> = {};
-  let lastPage = 1;
-  for (let q = 1; q <= options.maxQuestionNumber; q++) {
-    const sightings = candidatePageMap[q];
-    if (!sightings || sightings.length === 0) continue;
-    const validSightings = sightings.filter((p) => doc.numPages <= 1 || q === 1 || p > 1);
-    if (validSightings.length === 0) continue;
-    const monotonicMatch = validSightings.find((p) => p >= lastPage);
-    if (monotonicMatch !== undefined) {
-      rawPageMap[q] = monotonicMatch;
-      lastPage = monotonicMatch;
-    } else {
-      const highest = validSightings[validSightings.length - 1];
-      if (highest >= lastPage) {
-        rawPageMap[q] = highest;
-        lastPage = highest;
-      }
-    }
-  }
+  const rawPageMap = resolveMonotonicQuestionPages(
+    candidatePageMap,
+    options.maxQuestionNumber,
+    doc.numPages,
+  );
+  const questionPages = fillMissingQuestionPages(rawPageMap, options.maxQuestionNumber, doc.numPages);
 
+  const wantedSet =
+    options.questionNumbers && options.questionNumbers.length > 0
+      ? new Set(options.questionNumbers)
+      : null;
+
+  options.onProgress?.("Preparing single-question views…");
   const questionSlices: Record<number, HTMLCanvasElement> = {};
+  let cropCount = 0;
+
   for (let q = 1; q <= options.maxQuestionNumber; q++) {
+    if (wantedSet && !wantedSet.has(q)) continue;
     const resolvedPage = rawPageMap[q];
     if (!resolvedPage) continue;
     const pageMeta = pageMetaByNum.get(resolvedPage);
@@ -214,10 +230,50 @@ export async function renderQuizPdfPaper(options: {
         yBottom: span.yBottom,
         scale: RENDER_SCALE,
       });
+      cropCount++;
+      if (cropCount % 3 === 0) {
+        await yieldToMain();
+      }
     }
   }
 
-  const questionPages = fillMissingQuestionPages(rawPageMap, options.maxQuestionNumber, doc.numPages);
+  // Fallback span recovery: if any requested question landed on a page where
+  // neighboring spans exist (e.g. a slightly malformed number token), isolate its
+  // vertical band rather than showing the whole page.
+  for (let q = 1; q <= options.maxQuestionNumber; q++) {
+    if (wantedSet && !wantedSet.has(q)) continue;
+    if (questionSlices[q]) continue;
+    const targetPage = questionPages[q];
+    const pageMeta = targetPage ? pageMetaByNum.get(targetPage) : undefined;
+    if (!pageMeta || pageMeta.spans.length === 0) continue;
+
+    const prevOnPage = [...pageMeta.spans]
+      .filter((s) => s.number < q)
+      .sort((a, b) => b.number - a.number)[0];
+    const nextOnPage = [...pageMeta.spans]
+      .filter((s) => s.number > q)
+      .sort((a, b) => a.number - b.number)[0];
+
+    const yTop = prevOnPage
+      ? Math.max(80, prevOnPage.yBottom - 2)
+      : Math.max(100, pageMeta.heightPt - 46);
+    const yBottom = nextOnPage ? Math.max(56, nextOnPage.yTop + 2) : 56;
+
+    if (yTop - yBottom >= 50) {
+      questionSlices[q] = cropQuestionSliceCanvas({
+        pageCanvas: pageMeta.canvas,
+        pageHeightPt: pageMeta.heightPt,
+        yTop,
+        yBottom,
+        scale: RENDER_SCALE,
+      });
+      cropCount++;
+      if (cropCount % 3 === 0) {
+        await yieldToMain();
+      }
+    }
+  }
+
   const bestStemByNum = new Map<number, string>();
   for (const s of stems) {
     if (s.number >= 1 && s.number <= options.maxQuestionNumber) {

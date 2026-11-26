@@ -274,7 +274,26 @@ export async function getMcqQuizStateServer(
   if (!meta) return null;
 
   const rawPlayers = await QUIZ_STORE.list<QuizPlayer>(playerPrefix(pin));
-  const players = sortQuizLeaderboard(rawPlayers);
+  const sortedPlayers = sortQuizLeaderboard(rawPlayers);
+  const revealAnswers = meta.showInstantFeedback || meta.status === "ended";
+  const players: QuizPlayer[] = sortedPlayers.map((p) => {
+    const compactAnswers: QuizPlayer["answers"] = {};
+    for (const [qNumStr, rec] of Object.entries(p.answers ?? {})) {
+      if (!rec) continue;
+      compactAnswers[Number(qNumStr)] = {
+        selected: rec.selected,
+        correct: rec.correct,
+        correctAnswer: revealAnswers ? rec.correctAnswer : undefined,
+        points: rec.points,
+        elapsedSeconds: rec.elapsedSeconds,
+        answeredAt: rec.answeredAt,
+      };
+    }
+    return {
+      ...p,
+      answers: compactAnswers,
+    };
+  });
   const questionStats = computeQuizQuestionStats(players, meta.questionNumbers);
 
   const isHost = Boolean(
@@ -497,6 +516,8 @@ export async function submitQuizAnswerServer(input: {
   basePoints: number;
   speedBonus: number;
   streakBonus: number;
+  multiplier: number;
+  earnedPowerUp: QuizPowerUp | null;
   player: QuizPlayer;
   rank: number;
   totalPlayers: number;
@@ -836,11 +857,21 @@ export async function fetchQuizPaperPdfServer(rawPin: string, targetUrl: string)
     throw new Error("That PDF URL does not belong to this quiz paper.");
   }
 
-  const response = await fetch(targetUrl);
-  if (!response.ok) {
-    throw new Error(`Could not fetch quiz paper PDF (HTTP ${response.status}).`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+  let buffer: ArrayBuffer;
+  try {
+    const response = await fetch(targetUrl, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Could not fetch quiz paper PDF (HTTP ${response.status}).`);
+    }
+    buffer = await response.arrayBuffer();
+  } finally {
+    clearTimeout(timeout);
   }
-  const buffer = await response.arrayBuffer();
+  if (typeof Buffer !== "undefined") {
+    return { base64: Buffer.from(buffer).toString("base64") };
+  }
   const bytes = new Uint8Array(buffer);
   let binary = "";
   const chunkSize = 0x8000;
@@ -1218,15 +1249,15 @@ export async function listAdminQuizSessionsServer(actor: {
   const attemptsList = rawAttempts || [];
   const userIds = Array.from(new Set(attemptsList.map((a: any) => a.user_id).filter(Boolean)));
 
-  const profileMap = new Map<string, { full_name?: string; email?: string }>();
+  const profileMap = new Map<string, { full_name?: string | null }>();
   if (userIds.length > 0) {
     const { data: profs } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name")
       .in("id", userIds);
     if (profs) {
       for (const p of profs) {
-        profileMap.set(p.id, { full_name: p.full_name, email: p.email });
+        profileMap.set(p.id, { full_name: p.full_name });
       }
     }
   }
@@ -1241,7 +1272,6 @@ export async function listAdminQuizSessionsServer(actor: {
       id: a.id,
       userId: a.user_id,
       studentName: prof?.full_name || "Student",
-      studentEmail: prof?.email || undefined,
       title: a.title,
       paperId: a.paperId ?? a.paper_id ?? null,
       level: a.level ?? null,

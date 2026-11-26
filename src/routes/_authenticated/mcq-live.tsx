@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { CanvasPreview } from "@/components/app/canvas-preview";
 import { ChainedChamber } from "@/components/app/chained-chamber";
 import { CompactProgressBar, type ProgressStage } from "@/components/app/grading-progress";
 import { McqCalculator } from "@/components/app/mcq-calculator";
@@ -104,6 +105,9 @@ import {
   loadPdfjs,
   extractQuestionSpans,
   cropQuestionSliceCanvas,
+  fetchArrayBufferWithTimeout,
+  resolveMonotonicQuestionPages,
+  yieldToMain,
   type PdfTextItem,
   type QuestionPageSpan,
   type StemBlob,
@@ -1343,12 +1347,15 @@ function fillMissingQuestionPages(
 
     const downloadPdfBuffer = async (targetUrl: string): Promise<ArrayBuffer> => {
       try {
-        const res = await fetch(targetUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.arrayBuffer();
+        return await fetchArrayBufferWithTimeout(targetUrl, 15_000);
       } catch {
         try {
-          const { base64 } = await fetchPaperPdfFn({ data: { qpUrl: targetUrl } });
+          const { base64 } = await Promise.race([
+            fetchPaperPdfFn({ data: { qpUrl: targetUrl } }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Timed out downloading paper.")), 30_000),
+            ),
+          ]);
           return base64ToArrayBuffer(base64);
         } catch {
           throw new Error("Could not download the question paper file.");
@@ -1375,9 +1382,11 @@ function fillMissingQuestionPages(
         const pdfjs = await loadPdfjs();
         const buf = await downloadPdfBuffer(paper.qpUrl);
 
-        const doc = await pdfjs.getDocument({
+        const loadingTask = pdfjs.getDocument({
           data: new Uint8Array(buf),
-        }).promise;
+          isOffscreenCanvasSupported: false,
+        });
+        const doc = await loadingTask.promise;
 
         const built: PageImage[] = [];
         const stems: StemBlob[] = [];
@@ -1386,76 +1395,73 @@ function fillMissingQuestionPages(
           number,
           { canvas: HTMLCanvasElement; heightPt: number; spans: QuestionPageSpan[] }
         >();
-        for (let p = 1; p <= doc.numPages; p++) {
-          const page = await doc.getPage(p);
-          const unscaledViewport = page.getViewport({ scale: 1 });
-          const viewport = page.getViewport({ scale: RENDER_SCALE });
+        const numPages = doc.numPages;
 
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) continue;
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
-          built.push({ pageNumber: p, canvas });
+        try {
+          for (let p = 1; p <= numPages; p++) {
+            const page = await doc.getPage(p);
+            try {
+              const unscaledViewport = page.getViewport({ scale: 1 });
+              const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-          let pageSpans: QuestionPageSpan[] = [];
-          try {
-            const content = await page.getTextContent();
-            pageSpans = extractQuestionSpans(
-              content.items as PdfTextItem[],
-              unscaledViewport.height,
-            );
-            stems.push(...pageSpans.map(({ number, text }) => ({ number, text })));
-            for (const s of pageSpans) {
-              if (s.number >= 1 && s.number <= paper.questionCount) {
-                if (!candidatePageMap[s.number]) {
-                  candidatePageMap[s.number] = [];
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.ceil(viewport.width);
+              canvas.height = Math.ceil(viewport.height);
+              const ctx = canvas.getContext("2d");
+              if (!ctx) continue;
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
+              built.push({ pageNumber: p, canvas });
+
+              let pageSpans: QuestionPageSpan[] = [];
+              try {
+                const content = await page.getTextContent();
+                pageSpans = extractQuestionSpans(
+                  content.items as PdfTextItem[],
+                  unscaledViewport.height,
+                );
+                stems.push(...pageSpans.map(({ number, text }) => ({ number, text })));
+                for (const s of pageSpans) {
+                  if (s.number >= 1 && s.number <= paper.questionCount) {
+                    if (!candidatePageMap[s.number]) {
+                      candidatePageMap[s.number] = [];
+                    }
+                    candidatePageMap[s.number].push(p);
+                  }
                 }
-                candidatePageMap[s.number].push(p);
+              } catch (textErr) {
+                console.warn(`Text extraction skipped for page ${p}:`, textErr);
               }
-            }
-          } catch (textErr) {
-            console.warn(`Text extraction skipped for page ${p}:`, textErr);
-          }
 
-          pageMetaByNum.set(p, {
-            canvas,
-            heightPt: unscaledViewport.height,
-            spans: pageSpans,
-          });
+              pageMetaByNum.set(p, {
+                canvas,
+                heightPt: unscaledViewport.height,
+                spans: pageSpans,
+              });
+            } finally {
+              page.cleanup();
+            }
+            await yieldToMain();
+          }
+        } finally {
+          await loadingTask.destroy().catch(() => {});
         }
 
-        // Resolve candidate sightings into a strictly monotonic question -> page map.
-        // An exam paper is always sequentially ordered: page(q) >= page(q - 1).
-        const rawPageMap: Record<number, number> = {};
-        let lastPage = 1;
-        for (let q = 1; q <= paper.questionCount; q++) {
-          const sightings = candidatePageMap[q];
-          if (!sightings || sightings.length === 0) continue;
-
-          // Discard page 1 if total pages > 1 and q > 1 (multi-page exam cover page false positive)
-          const validSightings = sightings.filter((p) => doc.numPages <= 1 || q === 1 || p > 1);
-          if (validSightings.length === 0) continue;
-
-          // Pick candidate page that respects monotonicity (p >= lastPage)
-          const monotonicMatch = validSightings.find((p) => p >= lastPage);
-          if (monotonicMatch !== undefined) {
-            rawPageMap[q] = monotonicMatch;
-            lastPage = monotonicMatch;
-          } else {
-            const highest = validSightings[validSightings.length - 1];
-            if (highest >= lastPage) {
-              rawPageMap[q] = highest;
-              lastPage = highest;
-            }
-          }
-        }
+        const rawPageMap = resolveMonotonicQuestionPages(
+          candidatePageMap,
+          paper.questionCount,
+          numPages,
+        );
+        const completedPageMap = fillMissingQuestionPages(
+          rawPageMap,
+          paper.questionCount,
+          numPages,
+        );
 
         // Crop isolated single-question PDF slices for Question-by-Question Mode
         const builtSlices: Record<number, HTMLCanvasElement> = {};
+        let cropCount = 0;
         for (let q = 1; q <= paper.questionCount; q++) {
           const resolvedPage = rawPageMap[q];
           if (!resolvedPage) continue;
@@ -1469,14 +1475,47 @@ function fillMissingQuestionPages(
               yBottom: span.yBottom,
               scale: RENDER_SCALE,
             });
+            cropCount++;
+            if (cropCount % 3 === 0) {
+              await yieldToMain();
+            }
           }
         }
 
-        const completedPageMap = fillMissingQuestionPages(
-          rawPageMap,
-          paper.questionCount,
-          doc.numPages,
-        );
+        // Fallback span recovery for any question whose number token was missed
+        for (let q = 1; q <= paper.questionCount; q++) {
+          if (builtSlices[q]) continue;
+          const targetPage = completedPageMap[q];
+          const pageMeta = targetPage ? pageMetaByNum.get(targetPage) : undefined;
+          if (!pageMeta || pageMeta.spans.length === 0) continue;
+
+          const prevOnPage = [...pageMeta.spans]
+            .filter((s) => s.number < q)
+            .sort((a, b) => b.number - a.number)[0];
+          const nextOnPage = [...pageMeta.spans]
+            .filter((s) => s.number > q)
+            .sort((a, b) => a.number - b.number)[0];
+
+          const yTop = prevOnPage
+            ? Math.max(80, prevOnPage.yBottom - 2)
+            : Math.max(100, pageMeta.heightPt - 46);
+          const yBottom = nextOnPage ? Math.max(56, nextOnPage.yTop + 2) : 56;
+
+          if (yTop - yBottom >= 50) {
+            builtSlices[q] = cropQuestionSliceCanvas({
+              pageCanvas: pageMeta.canvas,
+              pageHeightPt: pageMeta.heightPt,
+              yTop,
+              yBottom,
+              scale: RENDER_SCALE,
+            });
+            cropCount++;
+            if (cropCount % 3 === 0) {
+              await yieldToMain();
+            }
+          }
+        }
+
         // Deduplicate stems by question number (1..questionCount), preferring the longest extracted stem
         const bestStemByNum = new Map<number, string>();
         for (const s of stems) {
@@ -2504,7 +2543,7 @@ function fillMissingQuestionPages(
       ) : (
         <div
           className={cn(
-            "flex flex-col h-[calc(100dvh-3.5rem)] lg:h-[100dvh] overflow-hidden bg-background",
+            "flex flex-col h-[calc(100vh-3.5rem)] h-[calc(100dvh-3.5rem)] lg:h-screen lg:h-[100dvh] overflow-hidden bg-background",
             examModeActive && "fixed inset-0 z-[100] h-screen w-screen",
           )}
         >
@@ -2913,7 +2952,7 @@ function fillMissingQuestionPages(
                 {/* Paper Column: Independently scrollable, only the paper scrolls */}
                 <div
                   ref={scrollRef}
-                  className="flex-1 min-w-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
+                  className="flex-1 min-w-0 min-h-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
                 >
                   <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
                     {graded && showAttemptDiagnostics && attemptTopics.length > 0 ? (
@@ -3528,9 +3567,6 @@ function PageCanvas({
   annotateColor: string;
   onRegisterAnnotationCanvas: (pageNumber: number, el: HTMLCanvasElement | null) => void;
 }) {
-  const imgRef = useRef<HTMLImageElement>(null);
-  const dataUrl = useMemo(() => page.canvas.toDataURL("image/png"), [page.canvas]);
-
   return (
     <div
       id={`mcq-page-${page.pageNumber}`}
@@ -3547,10 +3583,9 @@ function PageCanvas({
         className="relative w-full overflow-hidden rounded-md shadow-xl border border-border/80 bg-white dark:bg-card select-none"
         style={{ aspectRatio: `${page.canvas.width} / ${page.canvas.height}` }}
       >
-        <img
-          ref={imgRef}
-          src={dataUrl}
-          alt={`Page ${page.pageNumber}`}
+        <CanvasPreview
+          source={page.canvas}
+          ariaLabel={`Page ${page.pageNumber}`}
           className="w-full h-full object-contain pointer-events-none block"
         />
 
