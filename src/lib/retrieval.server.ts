@@ -434,7 +434,45 @@ export async function retrieve(
     similarity: Number(row.similarity.toFixed(4)),
   }));
 
-  const deduped = deduplicateSources(mapped);
+  // Exact official mark-scheme phrase lookup: guarantees past-paper mark schemes stored in
+  // document_chunks (e.g. "monopolistically competitive firms will always charge") are always
+  // injected first as [S1] even when dense vector search ranks a textbook chapter higher.
+  const exactMsHits: GroundingSource[] = [];
+  if (!options.docTypes || options.docTypes.includes("mark_scheme")) {
+    try {
+      const cleanedQ = options.query
+        .replace(/\[\s*\d+\s*(?:marks?)?\s*\]/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const words = cleanedQ.split(" ").filter((w) => w.length >= 2);
+      const startIdx = Math.min(Math.max(0, words.length > 7 ? 2 : 0), Math.max(0, words.length - 5));
+      const phrase = words.slice(startIdx, startIdx + 5).join(" ");
+      if (phrase.length >= 18) {
+        const { data: msRows } = await primaryClient
+          .from("document_chunks")
+          .select("document_id, heading, content, knowledge_documents!inner(title, doc_type)")
+          .eq("knowledge_documents.doc_type", "mark_scheme")
+          .ilike("content", `%${phrase}%`)
+          .limit(2);
+        for (const r of (msRows ?? []) as any[]) {
+          if (r?.content && r?.knowledge_documents?.title) {
+            exactMsHits.push({
+              documentId: r.document_id,
+              documentTitle: r.knowledge_documents.title,
+              docType: "mark_scheme",
+              heading: r.heading ?? null,
+              snippet: r.content,
+              similarity: 0.99,
+            });
+          }
+        }
+      }
+    } catch {
+      // Non-fatal: proceed with standard hybrid vector/lexical matches
+    }
+  }
+
+  const deduped = deduplicateSources([...exactMsHits, ...mapped]);
 
   if (RETRIEVAL_CACHE.size >= MAX_CACHE_ENTRIES) {
     const oldestKey = RETRIEVAL_CACHE.keys().next().value;

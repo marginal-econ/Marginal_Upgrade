@@ -13,15 +13,14 @@
  */
 
 import { cleanStars } from "@/lib/utils";
-import { chat } from "../ai.server";
 import {
   buildAoEvaluationDirective,
   buildPaperScopeDirective,
-  MODEL_EXAMINER,
   TEMPERATURE_EXAMINER,
   type AoSplit,
 } from "./config";
 import { extractFirstJsonObject } from "./json";
+import { callOrthogonalFamily } from "./multi-family-pool.server";
 import {
   bandFor,
   deduplicateAcrossSections,
@@ -32,6 +31,7 @@ import {
   sanitizeALevelFeedbackText,
   stripScoreFractionsFromText,
   verifyVerbatimQuotes,
+  type ComparativeJudgementResult,
   type Grading,
 } from "./types";
 import {
@@ -212,11 +212,23 @@ export type ArbitrateOptions = {
   userId?: string;
   qualityAnalysis?: EssayQualityAnalysis;
   markSchemeContext?: string;
+  neuroSymbolicSummary?: string;
+  comparativeJudgement?: ComparativeJudgementResult | null;
 };
 
 export async function arbitrateGrading(options: ArbitrateOptions): Promise<Grading> {
-  const { question, essayText, maxMark, split, examinerGrading, moderatorGrading, disputeReason, markSchemeContext } =
-    options;
+  const {
+    question,
+    essayText,
+    maxMark,
+    split,
+    examinerGrading,
+    moderatorGrading,
+    disputeReason,
+    markSchemeContext,
+    neuroSymbolicSummary,
+    comparativeJudgement,
+  } = options;
 
   const quality =
     options.qualityAnalysis ?? analyzeEssayQuality(essayText, maxMark, split);
@@ -234,17 +246,28 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
     `Exam Question (${maxMark} marks):\n${question}\n`,
     `Student Essay:\n${essayText}\n`,
     `Dispute Reason: ${disputeReason}\n`,
-    `Pass 1 (Error Audit): ${JSON.stringify(compactPassForArbitration(examinerGrading))}\n`,
-    `Pass 2 (Holistic): ${JSON.stringify(compactPassForArbitration(moderatorGrading))}`,
+    `Pass 1 (Analytical Audit — Orthogonal Family A): ${JSON.stringify(compactPassForArbitration(examinerGrading))}\n`,
+    `Pass 2 (Holistic Moderator — Orthogonal Family B): ${JSON.stringify(compactPassForArbitration(moderatorGrading))}`,
   ];
+  if (comparativeJudgement) {
+    userParts.push(
+      `\nPsychometric Blind Comparative Judgement (Family C vs ${comparativeJudgement.anchorsCompared} real Cambridge ECR scripts): ` +
+        `Anchored Estimate = ${comparativeJudgement.estimatedMark}/${maxMark} (Plausible Band: ${comparativeJudgement.plausibleLow}–${comparativeJudgement.plausibleHigh}/${maxMark}). ` +
+        `Comparisons: ${comparativeJudgement.comparisons.map((c) => `vs ${c.anchorMark}/${c.anchorMaxMark} (${c.anchorBand}): ${c.verdict} — ${c.reason}`).join(" | ")}`,
+    );
+  }
+  if (neuroSymbolicSummary) {
+    userParts.push(`\n${neuroSymbolicSummary}`);
+  }
   if (markSchemeContext) {
     userParts.push(`\nCambridge Mark Scheme Excerpt:\n${markSchemeContext.slice(0, 1200)}`);
   }
 
-  const result = await chat({
-    model: MODEL_EXAMINER,
+  const result = await callOrthogonalFamily({
+    family: "openai_120b",
     temperature: TEMPERATURE_EXAMINER,
     json: true,
+    maxCompletionTokens: 4096,
     userId: options.userId,
     feature: "grade_essay_arbitration",
     messages: [

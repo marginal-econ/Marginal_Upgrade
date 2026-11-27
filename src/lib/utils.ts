@@ -164,8 +164,28 @@ export function stripStars(text: unknown): string {
   return cleaned;
 }
 
+const PROTECTED_OBJECT_KEYS = new Set([
+  "id",
+  "documentId",
+  "docType",
+  "ruleId",
+  "verdict",
+  "severity",
+  "code",
+  "ao3DepthTier",
+  "anchorBand",
+  "grounding_status",
+  "model",
+  "pass1Model",
+  "pass2Model",
+  "judgeModel",
+  "families",
+  "activeKeyType",
+]);
+
 /**
- * Recursively removes all asterisks (* and **) from any feedback string, array, or object.
+ * Recursively removes all asterisks (* and **) from any feedback string, array, or object,
+ * while preserving machine identifier / enum keys (e.g. docType, verdict, ruleId).
  */
 export function cleanStars<T>(value: T): T {
   if (typeof value === "string") {
@@ -177,7 +197,7 @@ export function cleanStars<T>(value: T): T {
   if (value && typeof value === "object") {
     const res: Record<string, any> = {};
     for (const [k, v] of Object.entries(value)) {
-      res[k] = cleanStars(v);
+      res[k] = PROTECTED_OBJECT_KEYS.has(k) ? v : cleanStars(v);
     }
     return res as T;
   }

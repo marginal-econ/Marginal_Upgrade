@@ -28,11 +28,12 @@ export const transcribeHandwriting = createServerFn({ method: "POST" })
     }
 
     const { transcribeWithGemini } = await import("./ocr/gemini.server");
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 
     try {
       const outcome = await transcribeWithGemini(data.images, data.hint);
 
-      await supabase.from("ai_usage_log").insert({
+      await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
         feature: "transcribe_handwriting",
         model: outcome.model,
@@ -48,7 +49,7 @@ export const transcribeHandwriting = createServerFn({ method: "POST" })
         pageErrors: outcome.pageErrors,
       };
     } catch (error) {
-      await supabase.from("ai_usage_log").insert({
+      await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
         feature: "transcribe_handwriting",
         model: "handwriting-ocr",

@@ -13,18 +13,18 @@
  */
 
 import { cleanStars } from "@/lib/utils";
-import { chat } from "../ai.server";
 import {
   buildAoEvaluationDirective,
   buildPaperScopeDirective,
-  MODEL_EXAMINER,
   type AoSplit,
 } from "./config";
 import { extractFirstJsonObject } from "./json";
+import { callOrthogonalFamily } from "./multi-family-pool.server";
 import {
   deduplicateAcrossSections,
   normaliseGrading,
   purgeContradictions,
+  type ComparativeJudgementResult,
   type Grading,
 } from "./types";
 import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-quality.server";
@@ -43,6 +43,8 @@ YOUR FIVE MANDATORY AUDIT TASKS:
    - Verify every economic claim in BOTH the student's essay AND the draft "strengths" / "weaknesses".
    - CATCH & CORRECT FALSE PRAISE AND MODEL HALLUCINATIONS:
      * Interest rates & Exchange rates: HIGHER domestic interest rates attract hot-money inflows -> currency APPRECIATES (stronger exchange rate) -> exports dearer, imports cheaper. LOWER interest rates cause DEPRECIATION. NEVER claim higher interest rates depreciate a currency! If the draft got this backwards, FIX IT immediately!
+     * Subsidy & Tax Incidence vs Elasticity: With a producer subsidy (S shifts right/down), INELASTIC demand causes a LARGE fall in price so CONSUMERS capture the larger share; ELASTIC demand causes a SMALL fall in price so PRODUCERS retain the larger share. If the essay claims inelastic demand gives a smaller price fall / benefits producers more (or contradicts its own rule), FLAG IT and REMOVE any praise of subsidy incidence!
+     * Own-Price Shifts & Market Structure: Higher own-price causes a contraction along demand (NEVER a rightward demand shift). Monopolistically competitive firms are price-makers with P > MC and excess capacity (NEVER allocatively/productively efficient). Education/healthcare are merit goods, NOT public goods.
      * Producer surplus = difference between market price and minimum price producers are WILLING TO ACCEPT/SUPPLY AT (NOT "willing to pay" — if the student wrote "willing to pay", flag it as an AO1 error and cap AO1 at 1/2!).
      * Current account vs Capital account: Net exports (X-M) affect the CURRENT account, NOT "capital inflows".
      * Profit-maximising firms with market power RESTRICT output where MR = MC (P > MC); they do NOT "overproduce to gain more profits" (overproduction comes from negative externalities MSC > MPC). Subsidies do NOT guarantee productive efficiency. Point inside PPC = productive inefficiency, NOT allocative inefficiency.
@@ -71,6 +73,7 @@ YOUR FIVE MANDATORY AUDIT TASKS:
    - Never contradict the awarded marks (e.g. never write "restricted to Level 1" when awarding Level 2 / Top Band).
    - Never tell a Top Band essay ("Top Band") "to reach Top Band" — say "to push toward full marks" or "to refine further".
    - Never praise an example, definition, or diagram in "strengths" while claiming it is missing/inadequate in "weaknesses" or "missing_elements".
+   - Never claim the essay "ends without a decisive judgement" if the final paragraph explicitly weighs trade-offs and states a prioritised conclusion.
 
 4. STRICT DIAGRAM RULE & ANTI-PEDANTRY:
    - If the exam question did NOT explicitly request a diagram/graph/pay-off matrix: PURGE any weakness, actionable bullet, or missing_elements.diagrams entry that criticises the absence of a diagram or tells the student to add/draw one.
@@ -116,6 +119,10 @@ export type RefineReportOptions = {
   draftGrading: Grading;
   userId?: string;
   markSchemeContext?: string;
+  neuroSymbolicSummary?: string;
+  comparativeJudgement?: ComparativeJudgementResult | null;
+  /** When set, locks the calibrated V4.1 Psychometric Ensemble total mark so Pass 3 only polishes prose & consistency. */
+  lockTotalMark?: number;
 };
 
 function compactDraftForRefiner(draft: Grading): Record<string, unknown> {
@@ -135,7 +142,17 @@ function compactDraftForRefiner(draft: Grading): Record<string, unknown> {
 }
 
 export async function refineExaminerReport(options: RefineReportOptions): Promise<Grading> {
-  const { question, essayText, maxMark, split, draftGrading, userId, markSchemeContext } = options;
+  const {
+    question,
+    essayText,
+    maxMark,
+    split,
+    draftGrading,
+    userId,
+    markSchemeContext,
+    neuroSymbolicSummary,
+    comparativeJudgement,
+  } = options;
 
   const promptTemplate = REPORT_REFINER_PROMPT
     .replace(/{max_mark}/g, String(maxMark))
@@ -154,16 +171,35 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     userParts.push(`OFFICIAL CAMBRIDGE MARK SCHEME / SYLLABUS EXCERPT:\n${markSchemeContext.slice(0, 1400)}\n`);
   }
 
+  if (neuroSymbolicSummary) {
+    userParts.push(`${neuroSymbolicSummary}\n`);
+  }
+
+  if (comparativeJudgement) {
+    userParts.push(
+      `PSYCHOMETRIC COMPARATIVE ANCHOR CONTEXT (vs ${comparativeJudgement.anchorsCompared} real Cambridge ECR scripts):\n` +
+        `- Comparative placement: ${comparativeJudgement.estimatedMark}/${maxMark} (Band range: ${comparativeJudgement.plausibleLow}–${comparativeJudgement.plausibleHigh}/${maxMark}).\n` +
+        `- Treat this as secondary diagnostic context only — if the Draft Examiner Report already reflects accurate Cambridge positive marking and zero major errors, preserve its earned marks rather than downgrading.\n`,
+    );
+  }
+
+  if (typeof options.lockTotalMark === "number") {
+    userParts.push(
+      `CALIBRATED ENSEMBLE MARK LOCK: The orthogonal examiner panel has locked this script at ${options.lockTotalMark}/${maxMark} (AO1: ${draftGrading.ao_breakdown.knowledge.awarded}/${split.ao1_marks}, AO2: ${draftGrading.ao_breakdown.analysis.awarded}/${split.ao2_marks}, AO3: ${draftGrading.ao_breakdown.evaluation.awarded}/${split.ao3_marks}). KEEP these exact awarded marks and focus 100% on refining prose clarity, economic accuracy of comments, verbatim quotes, and zero repetition.\n`,
+    );
+  }
+
   userParts.push(
     `DRAFT EXAMINER REPORT TO AUDIT & REFINE:\n${JSON.stringify(compactDraftForRefiner(draftGrading))}\n`,
     `Audit economic accuracy (including catching any false praise or hallucinated errors), verify marks against the Cambridge level descriptors, eliminate ALL repetition within and across sections, and return clean JSON.`,
   );
 
   try {
-    const result = await chat({
-      model: MODEL_EXAMINER,
-      temperature: 0.1,
+    const result = await callOrthogonalFamily({
+      family: "openai_120b",
+      temperature: 0.05,
       json: true,
+      maxCompletionTokens: 4096,
       userId,
       feature: "grade_essay_pass3_refiner",
       messages: [
@@ -183,6 +219,17 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     // Apply writing quality, required-diagram L2 cap & economic mechanics guardrail directly to the refined report
     const quality = analyzeEssayQuality(essayText, maxMark, split);
     refined = applyWritingQualityGuardrail(refined, quality, maxMark, split, essayText, question);
+
+    // Enforce V4.1 Psychometric Ensemble Mark Lock so prose polishing never mutates calibrated scores
+    if (typeof options.lockTotalMark === "number" && refined.total_mark !== draftGrading.total_mark) {
+      refined.total_mark = draftGrading.total_mark;
+      refined.band = draftGrading.band;
+      refined.ao_breakdown = {
+        knowledge: { ...refined.ao_breakdown.knowledge, awarded: draftGrading.ao_breakdown.knowledge.awarded },
+        analysis: { ...refined.ao_breakdown.analysis, awarded: draftGrading.ao_breakdown.analysis.awarded },
+        evaluation: { ...refined.ao_breakdown.evaluation, awarded: draftGrading.ao_breakdown.evaluation.awarded },
+      };
+    }
 
     // Preserve metadata from earlier passes
     refined.sources = draftGrading.sources;

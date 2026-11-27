@@ -43,7 +43,7 @@ type AuthContextLike = {
   user?: { id?: string; email?: string | null } | null;
 };
 
-function assertAdminOnlyAccess(auth?: AuthContextLike | null) {
+function assertAuthenticatedUserId(auth?: AuthContextLike | null): string {
   if (!auth) {
     throw new Error("Please sign in to use Live Examiner.");
   }
@@ -51,26 +51,29 @@ function assertAdminOnlyAccess(auth?: AuthContextLike | null) {
   if (!userId) {
     throw new Error("Please sign in to use Live Examiner.");
   }
+  return userId;
 }
 
 /**
- * HARD limit: restricted to the Marginal Administrator (`marginal.econ.ai@gmail.com`).
+ * Enforces the 3-layer Live Examiner guard:
+ * 1. Global single-user concurrency lock (no more than 1 active user at a time)
+ * 2. 1 session per 24 hours per account (bound to one question)
+ * 3. 20-minute max active session timer
  */
 async function assertLiveExaminerSessionAllowed(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
   question: string,
   auth?: AuthContextLike | null,
+  tabId = "default",
+  allowCreate = true,
 ) {
-  assertAdminOnlyAccess(auth);
-  return;
-  const { data, error } = await supabase.rpc("claim_live_examiner_session", {
-    p_question: question,
+  const userId = assertAuthenticatedUserId(auth);
+  const { claimOrRefreshLiveExaminerSession } = await import("./live-examiner/session-guard.server");
+  return claimOrRefreshLiveExaminerSession({
+    userId,
+    tabId,
+    question,
+    allowCreate,
   });
-  if (error) throw new Error(error.message);
-  if (!(data as { allowed?: boolean } | null)?.allowed) {
-    throw new Error(LIVE_EXAMINER_LIMIT_MESSAGE);
-  }
 }
 
 /**
@@ -180,6 +183,7 @@ const PrepareContextInput = z.object({
   topic: z.string().trim().max(200),
   question: z.string().trim().min(5).max(2000),
   maxMark: z.coerce.number().int().positive().max(30).optional().default(12),
+  tabId: z.string().trim().min(1).max(120).optional().default("default"),
 });
 
 export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
@@ -191,7 +195,12 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
     return PrepareContextInput.parse(raw);
   })
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
+    const sessionGuard = await assertLiveExaminerSessionAllowed(
+      data.question,
+      context,
+      data.tabId,
+      true,
+    );
 
     const { retrieve, renderContext } = await import("./retrieval.server");
     const { fetchCalibrationAnchors, buildAnchorBlock } =
@@ -294,7 +303,61 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
       blueprint,
       sourceCount: sources.length,
       anchorsUsed: anchors.length,
+      sessionGuard,
     };
+  });
+
+// ---------------------------------------------------------------------------
+// 1b. Live Examiner concurrency, 24h reset & 20-minute session guard endpoints
+// ---------------------------------------------------------------------------
+
+const GuardTabInput = z.object({
+  tabId: z.string().trim().min(1).max(120).optional(),
+});
+
+export const getLiveExaminerGuardStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const raw = (input && typeof input === "object" && "data" in input)
+      ? (input as any).data
+      : (input ?? {});
+    return GuardTabInput.parse(raw);
+  })
+  .handler(async ({ data, context }) => {
+    const userId = assertAuthenticatedUserId(context);
+    const { getLiveExaminerGuardStatus } = await import("./live-examiner/session-guard.server");
+    return getLiveExaminerGuardStatus({ userId, tabId: data.tabId });
+  });
+
+const HeartbeatInput = z.object({
+  question: z.string().trim().min(5).max(2000),
+  tabId: z.string().trim().min(1).max(120).default("default"),
+});
+
+export const heartbeatLiveExaminerSeat = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const raw = (input && typeof input === "object" && "data" in input)
+      ? (input as any).data
+      : input;
+    return HeartbeatInput.parse(raw);
+  })
+  .handler(async ({ data, context }) => {
+    return assertLiveExaminerSessionAllowed(data.question, context, data.tabId, false);
+  });
+
+export const releaseLiveExaminerSeat = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const raw = (input && typeof input === "object" && "data" in input)
+      ? (input as any).data
+      : (input ?? {});
+    return GuardTabInput.parse(raw);
+  })
+  .handler(async ({ data, context }) => {
+    const userId = assertAuthenticatedUserId(context);
+    const { releaseLiveExaminerLock } = await import("./live-examiner/session-guard.server");
+    return releaseLiveExaminerLock({ userId, tabId: data.tabId });
   });
 
 // ---------------------------------------------------------------------------
@@ -347,6 +410,7 @@ const CheckInput = z.object({
   dirtySentences: z.array(DirtySentenceInputSchema).max(MAX_SENTENCES_PER_CALL).optional(),
   priorSummaries: z.array(PriorSummaryInputSchema).max(40).optional(),
   blueprint: QuestionRubricBlueprintSchema.nullish(),
+  tabId: z.string().trim().min(1).max(120).optional().default("default"),
 });
 
 const CandidateSchema = IssueSchema.extend({ confidence: z.number().min(0).max(1) });
@@ -809,7 +873,12 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     return CheckInput.parse(raw);
   })
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
+    const sessionGuard = await assertLiveExaminerSessionAllowed(
+      data.question,
+      context,
+      data.tabId,
+      true,
+    );
 
     // Segment the real essay preserving authentic paragraphIndex (fixes monolithic-block bug!)
     const allSegments = segmentEssay(data.essayText);
@@ -881,6 +950,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         checkedText: data.essayText,
         predictedMark: undefined as PredictedMark | null | undefined,
         tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        sessionGuard,
       };
     }
 
@@ -974,6 +1044,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         checkedText: data.essayText,
         predictedMark: null,
         tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        sessionGuard,
       };
     }
 
@@ -1277,6 +1348,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           completionTokens,
           totalTokens: promptTokens + completionTokens,
         },
+        sessionGuard,
       });
     } catch (_error) {
       // A failed check is an enhancement failing, never a hard gate — keep
@@ -1333,6 +1405,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         markRange: localLedger.markRange,
         status: localLedger.status,
         tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        sessionGuard,
       });
     }
   });
@@ -1363,7 +1436,7 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SaveSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
+    assertAuthenticatedUserId(context);
 
     let { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
@@ -1421,7 +1494,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => GetSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    assertAdminOnlyAccess(context);
+    assertAuthenticatedUserId(context);
     try {
       let result = await Promise.race([
         context.supabase
@@ -1471,7 +1544,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
 export const listLiveExaminerSessions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    assertAdminOnlyAccess(context);
+    assertAuthenticatedUserId(context);
     try {
       const result = await Promise.race([
         context.supabase
@@ -1509,7 +1582,7 @@ export const deleteLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    assertAdminOnlyAccess(context);
+    assertAuthenticatedUserId(context);
     // Scoped to user_id as well as id — belt and braces alongside the RLS
     // policy, so this can never touch a row that isn't the caller's own.
     const { error, count } = await context.supabase
@@ -1557,6 +1630,7 @@ const MaxOutInput = z.object({
   weaknesses: z.array(z.string()).max(20).default([]),
   missingElements: MaxOutMissingElements,
   actionableFeedback: z.array(z.string()).max(20).default([]),
+  tabId: z.string().trim().min(1).max(120).optional().default("default"),
 });
 
 const AoTargetSchema = z.enum(["ao1", "ao2", "ao3", "structure"]);
@@ -1686,7 +1760,7 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
   .handler(async ({ data, context }) => {
-    assertAdminOnlyAccess(context);
+    await assertLiveExaminerSessionAllowed(data.question, context, data.tabId, true);
     const { chat } = await import("./ai.server");
     const { MODEL_GRADING, TEMPERATURE_TUTOR } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");

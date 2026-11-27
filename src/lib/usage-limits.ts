@@ -19,6 +19,14 @@ export const FREE_TEACHER_ESSAY_LIMIT = 999999;
 export const MCQ_FREE_TRIAL_DAYS = 999999;
 
 export const LIVE_EXAMINER_DAILY_LIMIT = 0;
+export const LIVE_EXAMINER_MAX_SESSION_MINUTES = 20;
+export const LIVE_EXAMINER_MAX_SESSION_MS = LIVE_EXAMINER_MAX_SESSION_MINUTES * 60 * 1000;
+export const LIVE_EXAMINER_RESET_HOURS = 24;
+export const LIVE_EXAMINER_RESET_WINDOW_MS = LIVE_EXAMINER_RESET_HOURS * 60 * 60 * 1000;
+export const LIVE_EXAMINER_LEASE_TTL_MS = 60 * 1000;
+export const LIVE_EXAMINER_MAX_CONCURRENT_USERS = 1;
+export const LIVE_EXAMINER_BUSY_PREFIX = "Live Examiner busy";
+export const LIVE_EXAMINER_TIMER_EXPIRED_PREFIX = "Session time limit reached";
 export const LIMIT_RESET_NOTE = "Marginal is currently in 100% Free Community Edition.";
 
 export const TIER_LIMITS = {
@@ -134,13 +142,30 @@ export const LIVE_EXAMINER_NO_CREDITS_MESSAGE =
   `You have exhausted your Live Examiner credits for this cycle. ` +
   `Upgrade your plan or purchase an add-on pack to continue real-time AI coaching. In-browser economics terminology checks remain free.`;
 
-export const LIVE_EXAMINER_LIMIT_MESSAGE = `${DAILY_LIMIT_PREFIX}: you can start 1 Live Examiner question session per day on your current plan, and today's session is already active for another question. You can continue typing on your active question with unlimited checks today, or upgrade for multi-session access. ${LIMIT_RESET_NOTE}`;
+export const LIVE_EXAMINER_LIMIT_MESSAGE = `${DAILY_LIMIT_PREFIX}: you can use 1 Live Examiner session (20 minutes max) every 24 hours.`;
+
+export function formatRemainingDuration(ms: number): string {
+  const safeMs = Math.max(0, ms);
+  const totalSeconds = Math.ceil(safeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds < 10 ? "0" : ""}${seconds}s`;
+  }
+  return `${seconds}s`;
+}
 
 export function isDailyLimitError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return (
     message.startsWith(DAILY_LIMIT_PREFIX) ||
     message.startsWith(TIER_LIMIT_PREFIX) ||
+    message.startsWith(LIVE_EXAMINER_BUSY_PREFIX) ||
+    message.startsWith(LIVE_EXAMINER_TIMER_EXPIRED_PREFIX) ||
     message.includes("Live Examiner is a premium feature") ||
     message.includes("exhausted your Live Examiner credits") ||
     message.includes("School Department License") ||

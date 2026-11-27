@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardPaste,
+  Clock,
   Construction,
   Copy,
   GraduationCap,
@@ -82,9 +83,12 @@ import type { GeneratedEssay } from "@/lib/essay/generator.server";
 import { describeDiagramImage, listDiagramLibrary } from "@/lib/diagrams.functions";
 import { gradeEssaySubmission } from "@/lib/grading.functions";
 import {
+  getLiveExaminerGuardStatusFn,
   getLiveExaminerSession,
   getMaxOutSuggestions,
+  heartbeatLiveExaminerSeat,
   prepareLiveExaminerContext,
+  releaseLiveExaminerSeat,
   saveLiveExaminerSession,
   type MaxOutSuggestion,
   type MaxOutResponse,
@@ -92,7 +96,11 @@ import {
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { getMe } from "@/lib/account.functions";
 import { topicsFor } from "@/lib/diagrams/catalog";
-import { isDailyLimitError } from "@/lib/usage-limits";
+import {
+  formatRemainingDuration,
+  isDailyLimitError,
+  LIVE_EXAMINER_MAX_SESSION_MINUTES,
+} from "@/lib/usage-limits";
 import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
 
@@ -142,6 +150,13 @@ function combineDiagramTags(diagrams: AttachedDiagram[]): string | undefined {
   return diagrams.length > 0 ? diagrams.map((d) => d.tag).join("\n\n") : undefined;
 }
 
+function formatCountdownMmSs(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+}
+
 function LiveExaminerPage() {
   const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
   const routeUser = routeContext?.user;
@@ -170,8 +185,31 @@ function LiveExaminerPage() {
   const [essayText, setEssayText] = useState("");
   const [autosave, setAutosave] = useState<AutosaveState>("idle");
   const [started, setStarted] = useState(false);
-  // Set when the one-session-per-day limit blocks a start; shown on the setup screen.
+  // Set when the 1/24h, 20m timer, or 1-concurrent-user lock blocks a start or ends a session.
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
+
+  // Per-tab ID stored in sessionStorage so reloading the same tab can resume
+  // within the 20m window, while opening a second tab is blocked.
+  const [tabId] = useState<string>(() => {
+    if (typeof window === "undefined") return "ssr";
+    try {
+      const existing = window.sessionStorage.getItem("le_tab_id");
+      if (existing) return existing;
+      const fresh =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      window.sessionStorage.setItem("le_tab_id", fresh);
+      return fresh;
+    } catch {
+      return `tab-${Date.now()}`;
+    }
+  });
+
+  const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
+  const [resetAt, setResetAt] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const [seatLostMessage, setSeatLostMessage] = useState<string | null>(null);
 
   // --- Diagram attach: a photo or a library pick becomes a [DIAGRAM: ...]
   // tag, same format the full grader and handwriting OCR already use. A
@@ -320,7 +358,7 @@ function LiveExaminerPage() {
         missingElements: grading?.missing_elements ?? {},
         actionableFeedback: grading?.actionable_feedback ?? [],
       };
-      return maxOutFn({ data: payload });
+      return maxOutFn({ data: { ...payload, tabId } });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -417,19 +455,43 @@ function LiveExaminerPage() {
     enabled: questionSource === "bank",
   });
 
+  // --- Guard status polling on setup screen (1 user at a time, 1/24h, 20m max) ---
+  const fetchGuardStatus = useServerFn(getLiveExaminerGuardStatusFn);
+  const guardStatusQuery = useQuery({
+    queryKey: ["live-examiner-guard-status", tabId],
+    queryFn: () => fetchGuardStatus({ data: { tabId } }),
+    enabled: !started,
+    refetchInterval: !started ? 15_000 : false,
+    staleTime: 5_000,
+  });
+  const guardStatus = guardStatusQuery.data;
+
   // --- Syllabus grounding — fetched ONCE per question, reused by every
   // subsequent live check call so nothing re-embeds on every keystroke ---
   const prepareContext = useServerFn(prepareLiveExaminerContext);
   const contextMutation = useMutation({
     mutationFn: (override?: { level: "as" | "a2"; topic: string; question: string; maxMark?: number }) =>
-      prepareContext({ data: override ?? { level, topic, question, maxMark } }),
-    onError: (error: Error) => {
-      // Only surface daily limit errors; never block the editor on background context sync issues
-      if (isDailyLimitError(error)) {
-        toast.error(error.message);
-        setStarted(false);
-        setLimitNotice(error.message);
+      prepareContext({ data: { ...(override ?? { level, topic, question, maxMark }), tabId } }),
+    onSuccess: (result) => {
+      if ((result as any)?.sessionGuard) {
+        const sg = (result as any).sessionGuard as {
+          sessionEndsAt: number;
+          resetAt: number;
+        };
+        setSessionEndsAt(sg.sessionEndsAt);
+        setResetAt(sg.resetAt);
+        setNowMs(Date.now());
+        setSeatLostMessage(null);
       }
+      void queryClient.invalidateQueries({ queryKey: ["live-examiner-guard-status"] });
+    },
+    onError: (error: Error) => {
+      // Surface concurrency / 24h / 20m limit errors cleanly and return to setup
+      toast.error(error.message);
+      setStarted(false);
+      setSessionEndsAt(null);
+      setLimitNotice(error.message);
+      void queryClient.invalidateQueries({ queryKey: ["live-examiner-guard-status"] });
     },
   });
 
@@ -470,6 +532,8 @@ function LiveExaminerPage() {
     }
     hydratedQuestionRef.current = null;
     setLimitNotice(null);
+    setSeatLostMessage(null);
+    setSessionEndsAt(null);
     setStarted(true);
     contextMutation.mutate({ level, topic, question, maxMark });
   }
@@ -484,6 +548,8 @@ function LiveExaminerPage() {
     setQuestion(entry.question);
     setMaxMark(entry.maxMark);
     setLimitNotice(null);
+    setSeatLostMessage(null);
+    setSessionEndsAt(null);
     setStarted(true);
     contextMutation.mutate({
       level: entry.level,
@@ -492,6 +558,78 @@ function LiveExaminerPage() {
       maxMark: entry.maxMark,
     });
   }
+
+  const remainingSessionMs = sessionEndsAt ? Math.max(0, sessionEndsAt - nowMs) : null;
+  const isSessionExpired = remainingSessionMs !== null && remainingSessionMs <= 0;
+  const isLiveAiEnabled =
+    started &&
+    contextMutation.isSuccess &&
+    !isSessionExpired &&
+    !seatLostMessage;
+
+  const heartbeatFn = useServerFn(heartbeatLiveExaminerSeat);
+  const releaseSeatFn = useServerFn(releaseLiveExaminerSeat);
+
+  const releaseSeatBestEffort = useCallback(() => {
+    releaseSeatFn({ data: { tabId } })
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: ["live-examiner-guard-status"] });
+      })
+      .catch(() => {});
+  }, [queryClient, releaseSeatFn, tabId]);
+
+  // 1-second timer tick while a session is active
+  useEffect(() => {
+    if (!started || sessionEndsAt === null) return;
+    setNowMs(Date.now());
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [started, sessionEndsAt]);
+
+  // Immediately release global seat when 20-minute timer expires
+  const expiredReleaseSentRef = useRef(false);
+  useEffect(() => {
+    if (!started || !isSessionExpired) {
+      expiredReleaseSentRef.current = false;
+      return;
+    }
+    if (!expiredReleaseSentRef.current) {
+      expiredReleaseSentRef.current = true;
+      releaseSeatBestEffort();
+      toast.warning(
+        `Your ${LIVE_EXAMINER_MAX_SESSION_MINUTES}-minute Live Examiner session has ended. Your draft is saved.`,
+      );
+    }
+  }, [started, isSessionExpired, releaseSeatBestEffort]);
+
+  // 20-second heartbeat to keep the 60s single-user global lease alive while active
+  useEffect(() => {
+    if (!isLiveAiEnabled || question.trim().length < 5) return;
+    const id = window.setInterval(() => {
+      heartbeatFn({ data: { question, tabId } })
+        .then((res) => {
+          setSessionEndsAt(res.sessionEndsAt);
+          setResetAt(res.resetAt);
+        })
+        .catch((err: Error) => {
+          setSeatLostMessage(err?.message || "Live Examiner session ended.");
+        });
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [heartbeatFn, isLiveAiEnabled, question, tabId]);
+
+  // Release global seat on unmount or tab close (pagehide)
+  useEffect(() => {
+    if (!started) return;
+    const onPageHide = () => {
+      releaseSeatBestEffort();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      releaseSeatBestEffort();
+    };
+  }, [started, releaseSeatBestEffort]);
 
   const contextBlock = contextMutation.data?.contextBlock ?? "";
   const rubricBlueprint = contextMutation.data?.blueprint ?? null;
@@ -562,7 +700,15 @@ function LiveExaminerPage() {
     maxMark,
     contextBlock,
     blueprint: rubricBlueprint,
-    enabled: started,
+    enabled: isLiveAiEnabled,
+    tabId,
+    onGuardError: (err) => {
+      setSeatLostMessage(err.message);
+      if (err.message.startsWith("Session time limit reached")) {
+        setSessionEndsAt(Date.now());
+      }
+      releaseSeatBestEffort();
+    },
     initialCache: sessionQuery.data?.session
       ? { sentences: (sessionQuery.data.session as any).sentence_cache }
       : undefined,
@@ -705,12 +851,89 @@ function LiveExaminerPage() {
 
       {!started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/80 bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
+            <span className="flex items-center gap-2 font-medium text-foreground">
+              <Clock className="size-3.5 text-primary" />
+              1 user at a time · 1 session per 24 hours · {LIVE_EXAMINER_MAX_SESSION_MINUTES} min max
+            </span>
+            {guardStatus ? (
+              guardStatus.occupiedByOther ? (
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  Seat occupied — retry in ~{formatRemainingDuration(guardStatus.lockReleaseInMs ?? 60_000)}
+                </Badge>
+              ) : guardStatus.occupiedByOtherTab ? (
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  Active in another tab on your account
+                </Badge>
+              ) : guardStatus.dailyUsed && guardStatus.isSessionExpired ? (
+                <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive">
+                  Daily limit used · Resets in {formatRemainingDuration(guardStatus.remainingResetMs)}
+                </Badge>
+              ) : guardStatus.dailyUsed && guardStatus.canResumeActiveSession ? (
+                <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  Active session ({formatCountdownMmSs(guardStatus.remainingSessionMs)} left)
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  Seat available
+                </Badge>
+              )
+            ) : null}
+          </div>
+
           {limitNotice ? (
             <div
               role="alert"
               className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
             >
               {limitNotice}
+            </div>
+          ) : guardStatus?.occupiedByOther ? (
+            <div
+              role="status"
+              className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+            >
+              Another user is currently in Live Examiner (only 1 active user at a time to keep the system fast). Availability refreshes automatically every 15s.
+            </div>
+          ) : guardStatus?.dailyUsed && guardStatus.isSessionExpired ? (
+            <div
+              role="status"
+              className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+            >
+              You have completed your 1 Live Examiner session ({LIVE_EXAMINER_MAX_SESSION_MINUTES} min max) for this 24-hour cycle. Next session unlocks in{" "}
+              <span className="font-mono font-semibold">{formatRemainingDuration(guardStatus.remainingResetMs)}</span>.
+            </div>
+          ) : guardStatus?.dailyUsed && guardStatus.canResumeActiveSession && guardStatus.activeQuestion ? (
+            <div
+              role="status"
+              className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200"
+            >
+              <div>
+                <p className="font-medium">
+                  Active daily session in progress ({formatCountdownMmSs(guardStatus.remainingSessionMs)} remaining)
+                </p>
+                <p className="text-xs opacity-85 line-clamp-1">{guardStatus.activeQuestion}</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setQuestion(guardStatus.activeQuestion!);
+                  setLimitNotice(null);
+                  setSeatLostMessage(null);
+                  setSessionEndsAt(null);
+                  setStarted(true);
+                  contextMutation.mutate({
+                    level,
+                    topic,
+                    question: guardStatus.activeQuestion!,
+                    maxMark,
+                  });
+                }}
+              >
+                Resume active session
+              </Button>
             </div>
           ) : null}
           <div className="grid gap-8 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
@@ -867,8 +1090,23 @@ function LiveExaminerPage() {
                 </div>
               </div>
 
-              <Button className="w-full" size="lg" onClick={handleStart}>
-                <PenLine className="size-4" /> Start writing
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleStart}
+                disabled={
+                  contextMutation.isPending ||
+                  Boolean(guardStatus?.occupiedByOther) ||
+                  Boolean(guardStatus?.occupiedByOtherTab) ||
+                  Boolean(guardStatus?.dailyUsed && guardStatus.isSessionExpired)
+                }
+              >
+                <PenLine className="size-4" />{" "}
+                {guardStatus?.occupiedByOther
+                  ? "Seat Occupied (1 User Max)"
+                  : guardStatus?.dailyUsed && guardStatus.isSessionExpired
+                    ? `Resets in ${formatRemainingDuration(guardStatus.remainingResetMs)}`
+                    : "Start writing"}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
                 Suggestions are grounded only in your syllabus, coursebook, mark scheme and examiner
@@ -894,6 +1132,25 @@ function LiveExaminerPage() {
                   <span>{topic}</span>
                   <span className="text-muted-foreground/70">·</span>
                   <span className="font-mono">{wordCount} words</span>
+                  {remainingSessionMs !== null ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "gap-1 font-mono text-[11px]",
+                        isSessionExpired
+                          ? "border-destructive/50 bg-destructive/10 text-destructive"
+                          : remainingSessionMs <= 60_000
+                            ? "border-destructive/40 bg-destructive/10 text-destructive animate-pulse"
+                            : remainingSessionMs <= 5 * 60_000
+                              ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                              : "border-primary/30 bg-primary/5 text-primary",
+                      )}
+                      title="20-minute maximum Live Examiner session timer"
+                    >
+                      <Clock className="size-3" />
+                      {isSessionExpired ? "0:00 · Time Up" : `${formatCountdownMmSs(remainingSessionMs)} left`}
+                    </Badge>
+                  ) : null}
                   {contextMutation.isPending ? (
                     <span className="inline-flex items-center gap-1 text-[11px] text-primary">
                       <Loader2 className="size-3 animate-spin" /> Loading rubric…
@@ -935,6 +1192,7 @@ function LiveExaminerPage() {
                   size="sm"
                   variant="outline"
                   className="h-8 gap-1.5 text-xs border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                  disabled={isSessionExpired || Boolean(seatLostMessage)}
                   onClick={handleOpenScoreMaximizer}
                 >
                   <Sparkles className="size-3.5 text-amber-500" /> Maximize
@@ -993,6 +1251,9 @@ function LiveExaminerPage() {
                           gradeMutation.reset();
                           maxOutMutation.reset();
                           fullAnswerMutation.reset();
+                          releaseSeatBestEffort();
+                          setSessionEndsAt(null);
+                          setSeatLostMessage(null);
                           setStarted(false);
                         }}
                       >
@@ -1003,6 +1264,20 @@ function LiveExaminerPage() {
                 </Popover>
               </div>
             </div>
+
+            {isSessionExpired || seatLostMessage ? (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-2.5 text-xs text-destructive"
+              >
+                <span>
+                  {seatLostMessage ||
+                    `Your ${LIVE_EXAMINER_MAX_SESSION_MINUTES}-minute Live Examiner session has ended and your seat has been released. Your draft is saved and local checks remain active.${
+                      resetAt ? ` Next session resets in ${formatRemainingDuration(resetAt - nowMs)}.` : ""
+                    }`}
+                </span>
+              </div>
+            ) : null}
 
             <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/70 shadow-sm backdrop-blur-md transition-all">
               <AoLegend

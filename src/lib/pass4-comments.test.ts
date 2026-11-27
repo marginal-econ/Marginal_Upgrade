@@ -614,4 +614,130 @@ describe("parseParagraphBlocks & buildParagraphHighlightSegments", () => {
     expect(cleaned).not.toContain("$");
     expect(cleaned).toContain("[P - AC] × Q");
   });
+
+  it("anchors AI-driven supply elasticity + subsidies critique strictly to ¶8 (PES/AI) instead of ¶4 and avoids generic boilerplate", () => {
+    const meritEssay = [
+      "Government can give support to merit goods like healthcare through subsidies and direct provisions. Merit goods are goods with significant positive externality that is usually underproduced in an economy.",
+      "The government may need to support provision because of information failure. As consumers may not know the benefits of the merit goods, the demand in the market becomes significantly lower.",
+      "But, this may not be true in the long run. Provision may be expensive and cause a budget deficit for the government.",
+      "The government may use support provision to ensure that producers are not impacted. When merit goods are not demanded in the market because MSB>MPB, producers may not be able to make enough revenue. This may lead to unemployment and low wages, causing the government to intervene using subsidies to ensure that suppliers can make a profit.",
+      "However, the subsidies and grants may not be enough. Though subsidies can be beneficial, incidence of subsidies matters when demand is inelastic.",
+      "(Diagram: Subsidy)",
+      "When demand is relatively inelastic, consumers are less responsive to the fall in price, so producers retain a larger proportion of the subsidy.",
+      "Finally, the government may need to use intervention to ensure that merit goods like education and healthcare remain affordable.",
+      "But, this may not be true if PES is very elastic. If PES is very elastic this means that supply can quickly be increased. With new capital in both healthcare and education systems, through AI and robotics, PES of these products becomes more and more elastic. That means more firms can easily enter the market and use economies of scale to increase profit and provision for all. In this case subsidies are not always required.",
+      "In conclusion, government intervention through subsidies is not always required.",
+    ].join("\n\n");
+
+    const meritGrading: Grading = {
+      total_mark: 9,
+      max_mark: 12,
+      band: "Upper Middle Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Sound merit goods definition." },
+        analysis: { awarded: 5, out_of: 6, comment: "Good subsidy incidence analysis." },
+        evaluation: { awarded: 2, out_of: 4, comment: "Needs ranked conclusion." },
+      },
+      examiner_summary: "Strong analysis of subsidy incidence.",
+      strengths: ["Clear PED incidence distinction."],
+      weaknesses: [
+        "Link between AI-driven supply elasticity and reduced need for subsidies is under-explained.",
+        "Evaluation does not rank the relative importance of the arguments or reach a firm conclusion.",
+      ],
+      missing_elements: {
+        definitions: [],
+        analysis: [],
+        evaluation: [],
+        examples: [],
+        diagrams: [],
+      },
+      actionable_feedback: [],
+      suggested_resources: [],
+      suggested_practice: [],
+      confidence: 0.9,
+      audited: true,
+      sources: [],
+      anchorsUsed: 1,
+    };
+
+    const comments = generatePass4Comments(
+      meritEssay,
+      "Assess whether governments should always support the provision of merit goods. [12]",
+      meritGrading,
+      [{ title: "Subsidy", matchText: "(Diagram: Subsidy)" }],
+    );
+
+    const analysisComment = comments.find((c) => c.category === "analysis");
+    expect(analysisComment).toBeDefined();
+    expect(analysisComment?.paragraphLabel).toBe("¶ Paragraph 8");
+    expect(analysisComment?.highlightText).toMatch(/AI and robotics|PES/i);
+    expect(analysisComment?.suggestion).not.toContain("State every intermediate link in your economic chain");
+    expect(analysisComment?.suggestion).toMatch(/ai|pes|elastic/i);
+
+    const evalComment = comments.find((c) => c.category === "evaluation");
+    expect(evalComment).toBeDefined();
+    expect(evalComment?.paragraphLabel).toBe("¶ Paragraph 9");
+  });
+
+  it("pins Neuro-Symbolic causal law violations directly onto the exact offending sentence", () => {
+    const flawedEssay = [
+      "An indirect tax is a tax on expenditure.",
+      "When the government imposes an indirect tax on sugary drinks, it shifts the supply curve to the right and lowers equilibrium price.",
+      "However, elasticity of demand determines tax incidence.",
+    ].join("\n\n");
+
+    const flawedGrading: Grading = {
+      total_mark: 4,
+      max_mark: 12,
+      band: "Lower Middle Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definition." },
+        analysis: { awarded: 1, out_of: 6, comment: "Inverted supply shift." },
+        evaluation: { awarded: 1, out_of: 4, comment: "Brief PED mention." },
+      },
+      examiner_summary: "Contains a directional tax error.",
+      strengths: [],
+      weaknesses: [],
+      missing_elements: { definitions: [], analysis: [], evaluation: [], examples: [], diagrams: [] },
+      actionable_feedback: [],
+      suggested_resources: [],
+      suggested_practice: [],
+      confidence: 0.95,
+      audited: true,
+      sources: [],
+      anchorsUsed: 1,
+      neuro_symbolic: {
+        causalChainsDetected: 1,
+        avgChainDepth: 2,
+        violations: [
+          {
+            ruleId: "TAX_SUPPLY_SHIFT_INVERTED",
+            law: "An indirect tax raises firms' costs of production and shifts supply left (upwards)",
+            quote: "When the government imposes an indirect tax on sugary drinks, it shifts the supply curve to the right and lowers equilibrium price.",
+            explanation: "Inverted indirect tax mechanism: imposing a tax raises unit production costs, shifting supply left and raising equilibrium price.",
+            severity: "fatal",
+          },
+        ],
+        diagramPresent: false,
+        diagramLabelsIntegrated: false,
+        diagramLabelsFound: [],
+        ao3DepthTier: "superficial",
+        ao3CriteriaMatched: ["Price Elasticity Dependency"],
+        rmAnnotations: [],
+      },
+    };
+
+    const comments = generatePass4Comments(
+      flawedEssay,
+      "Discuss whether an indirect tax reduces consumption. [12]",
+      flawedGrading,
+      [],
+    );
+
+    const violationComment = comments.find((c) => c.id === "pass4-causal-violation");
+    expect(violationComment).toBeDefined();
+    expect(violationComment?.badge).toBe("Fatal Mechanism Error");
+    expect(violationComment?.paragraphLabel).toBe("¶ Paragraph 2");
+    expect(violationComment?.highlightText).toContain("shifts the supply curve to the right");
+  });
 });

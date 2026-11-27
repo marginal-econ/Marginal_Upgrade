@@ -23,6 +23,65 @@ export type GroundingSource = {
   similarity: number;
 };
 
+export type RmAssessorCode = "K" | "An" | "Ev" | "Dev" | "^" | "X";
+
+export type RmAssessorAnnotation = {
+  code: RmAssessorCode;
+  label: string;
+  quote: string;
+  rationale: string;
+};
+
+export type CausalViolation = {
+  ruleId: string;
+  law: string;
+  quote: string;
+  explanation: string;
+  severity: "fatal" | "moderate";
+};
+
+export type NeuroSymbolicDossier = {
+  causalChainsDetected: number;
+  avgChainDepth: number;
+  violations: CausalViolation[];
+  diagramPresent: boolean;
+  diagramLabelsIntegrated: boolean;
+  diagramLabelsFound: string[];
+  ao3DepthTier: "none" | "superficial" | "developing" | "sustained" | "justified_judgement";
+  ao3CriteriaMatched: string[];
+  rmAnnotations: RmAssessorAnnotation[];
+};
+
+export type ComparativeAnchorMatch = {
+  anchorMark: number;
+  anchorMaxMark: number;
+  anchorBand: string;
+  verdict: "much_worse" | "slightly_worse" | "equal" | "slightly_better" | "much_better";
+  ao12Delta: number;
+  ao3Delta: number;
+  reason: string;
+};
+
+export type ComparativeJudgementResult = {
+  estimatedMark: number;
+  plausibleLow: number;
+  plausibleHigh: number;
+  anchorsCompared: number;
+  comparisons: ComparativeAnchorMatch[];
+  judgeModel: string;
+};
+
+export type EnsemblePanelTelemetry = {
+  families: string[];
+  pass1Mark: number;
+  pass1Model: string;
+  pass2Mark: number;
+  pass2Model: string;
+  comparativeMark: number | null;
+  interFamilySpread: number;
+  conformalInterval: { low: number; high: number; coverage: number };
+};
+
 export type Grading = {
   total_mark: number;
   max_mark: number;
@@ -51,6 +110,14 @@ export type Grading = {
   modelSwapped?: boolean;
   activeKeyType?: "primary" | "backup_pool" | "vip_fallback";
   latencyMs?: number;
+  /** Marginal Engine V4 — Neuro-Symbolic Causal Graph Audit */
+  neuro_symbolic?: NeuroSymbolicDossier;
+  /** Marginal Engine V4 — Blind Psychometric Comparative Judgement */
+  comparative_judgement?: ComparativeJudgementResult;
+  /** Marginal Engine V4 — Orthogonal Multi-Family Ensemble Telemetry */
+  ensemble_panel?: EnsemblePanelTelemetry;
+  /** Marginal Engine V4 — Official RM-Assessor style margin stamps */
+  rm_annotations?: RmAssessorAnnotation[];
 };
 
 const EMPTY_MISSING: MissingElements = {
@@ -110,6 +177,17 @@ export function stripScoreFractionsFromText(value: unknown): string {
   s = s.replace(/\bmarks?\s+are\s+awarded\b/gi, "credit is awarded");
   s = s.replace(/\b\d+\s+marks?\s+for\s+AO(\d)\b/gi, "credit for AO$1");
 
+  // Clean phrases like "resulting in a top-band score of 10/12" before bare fraction removal
+  // so we never leave a dangling preposition ("resulting in a top-band score of.").
+  s = s.replace(
+    /\b(?:resulting\s+in|achieving|earning)\s+(?:a\s+)?(?:(?:top|upper\s+middle|lower\s+middle|bottom)[- ]band\s+)?(?:score|mark|grade)\s+of\s+\d+\s*(?:\/|\s*out\s+of\s*)\s*\d+\b/gi,
+    "achieving this band",
+  );
+  s = s.replace(
+    /\b(?:score|mark|grade|total|rating)\s+of\s+\d+\s*(?:\/|\s*out\s+of\s*)\s*\d+\b/gi,
+    "band placement",
+  );
+
   // Standalone score fractions like "3/4" or "1/4" or "7/8" when between 0 and 30
   s = s.replace(/\b(\d+)\s*\/\s*(\d+)\b/g, (match, p1, p2) => {
     const n1 = Number(p1);
@@ -119,6 +197,9 @@ export function stripScoreFractionsFromText(value: unknown): string {
     }
     return match;
   });
+
+  // Clean up any remaining dangling "score of." / "mark of." artifacts
+  s = s.replace(/\b(?:score|mark|grade|total|band)\s+of(?=\s*[.,;:!?)]|\s*$)/gi, "assessment");
 
   // Paper 4 references in general prose
   s = s.replace(/\b(?:In\s+extended\s+)?Paper\s+4\s+essays?\b/gi, "In extended essays");

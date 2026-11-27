@@ -48,6 +48,11 @@ export const AI_PROVIDERS = [
     baseUrl: "https://openrouter.ai/api/v1",
     keyHint: "sk-or-...",
     models: [
+      "nvidia/nemotron-3.5-super-vl:free",
+      "baidu/ernie-5.5-flash-preview:free",
+      "openrouter/free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
       "meta-llama/llama-3.3-70b-instruct",
       "deepseek/deepseek-chat",
       "deepseek/deepseek-r1",
@@ -55,10 +60,15 @@ export const AI_PROVIDERS = [
       "openai/gpt-4o-mini",
       "anthropic/claude-3.5-sonnet",
     ],
-    embeddingModels: ["nvidia/nemotron-3-embed-1b:free", "openai/text-embedding-3-large"],
+    embeddingModels: [
+      "nvidia/nemotron-3.5-embed-1b:free",
+      "nvidia/nemotron-3.5-embed-8b:free",
+      "openai/text-embedding-3-large",
+    ],
     embeddingCapable: true,
     visionCapable: true,
     visionModels: [
+      "nvidia/nemotron-3.5-super-vl:free",
       "anthropic/claude-3.5-sonnet",
       "google/gemini-2.0-flash-001",
       "openai/gpt-4o-mini",
@@ -184,22 +194,31 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
     deepseek: ["deepseek-chat", "deepseek-reasoner"],
   };
 
+  // If user selected a free-tier model on OpenRouter (:free or openrouter/free),
+  // keep the entire candidate list strictly within verified free-tier models so
+  // free keys never waste hops or hit 402 Insufficient credits on paid models.
+  if (
+    provider === "openrouter" &&
+    (primaryModel?.includes(":free") || primaryModel === "openrouter/free")
+  ) {
+    const freeFallbacks = [
+      "nvidia/nemotron-3.5-super-vl:free",
+      "baidu/ernie-5.5-flash-preview:free",
+      "openrouter/free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "liquid/lfm-3-1.7b:free",
+    ];
+    for (const fm of freeFallbacks) {
+      if (!result.includes(fm)) result.push(fm);
+    }
+    return result;
+  }
+
   const fallbacks = fallbackMap[provider] || [];
   for (const m of fallbacks) {
     if (!result.includes(m)) {
       result.push(m);
-    }
-  }
-
-  // If user selected a free-tier model on OpenRouter (:free), ensure free-tier fallbacks are available
-  if (provider === "openrouter" && primaryModel?.includes(":free")) {
-    const freeFallbacks = [
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "deepseek/deepseek-r1:free",
-      "qwen/qwen-2.5-72b-instruct:free",
-    ];
-    for (const fm of freeFallbacks) {
-      if (!result.includes(fm)) result.push(fm);
     }
   }
 
@@ -232,7 +251,9 @@ export function getEconomyModelForProvider(provider: string, currentModel?: stri
     case "xai":
       return "grok-beta";
     case "openrouter":
-      return "meta-llama/llama-3.3-70b-instruct";
+      return currentModel?.includes(":free") || currentModel === "openrouter/free"
+        ? "nvidia/nemotron-3.5-lightning:free"
+        : "meta-llama/llama-3.3-70b-instruct";
     case "mistral":
       return "mistral-small-latest";
     case "anthropic":

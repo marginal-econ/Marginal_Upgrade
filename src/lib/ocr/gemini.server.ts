@@ -25,16 +25,16 @@ import type { ProviderConfig } from "../ai/active.server";
 /**
  * Handwriting OCR. Vision is strictly routed through Google Gemini.
  */
-const GOOGLE_MODEL = "models/gemini-3.8-flash";
+const GOOGLE_MODEL = "models/gemini-3-flash-preview";
 const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 
 /**
- * Model chain strictly restricted to Google Gemini vision.
+ * Model fallback chain through visionChat() (Google Gemini + OpenRouter vision fallback).
  */
 const GATEWAY_MODELS = [
-  "google/gemini-3.8-flash",
-  "google/gemini-2.5-flash",
-  "google/gemini-2.0-flash-001",
+  "models/gemini-3-flash-preview",
+  "models/gemini-flash-lite-latest",
+  "models/gemini-3.1-flash-lite",
 ];
 const ATTEMPTS_PER_MODEL = 2;
 const CONCURRENCY = 3;
@@ -207,14 +207,20 @@ async function transcribeViaGoogle(
             ],
             generationConfig: genConfig,
           }),
-          signal: AbortSignal.timeout(25_000),
+          signal: AbortSignal.timeout(40_000),
         });
 
         if (!response.ok) {
           const detail = await response.text().catch(() => "");
           lastErr = new Error(`Google (${m}) returned ${response.status}. ${detail.slice(0, 200)}`);
-          if (response.status === 429 || response.status === 503 || response.status === 402 || response.status === 401) {
-            markKeyRateLimited(currentKey, 300_000);
+          const isQuotaOrAuth =
+            response.status === 429 ||
+            response.status === 503 ||
+            response.status === 402 ||
+            response.status === 401 ||
+            response.status === 403;
+          if (isQuotaOrAuth) {
+            markKeyRateLimited(currentKey, response.status === 429 || response.status === 503 ? 180_000 : 600_000);
             console.warn(
               `[transcribeViaGoogle] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
             );
@@ -228,9 +234,10 @@ async function transcribeViaGoogle(
 
         markKeyHealthy(currentKey);
         const payload = (await response.json()) as {
-          candidates?: { content?: { parts?: { text?: string }[] } }[];
+          candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
         };
         const text = (payload.candidates?.[0]?.content?.parts ?? [])
+          .filter((part) => !part.thought)
           .map((part) => part.text ?? "")
           .join("")
           .trim();

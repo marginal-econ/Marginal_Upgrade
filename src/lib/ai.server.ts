@@ -655,6 +655,14 @@ async function chatViaProvider(
     for (const m of candidateModels) {
       usedModel = m;
       const modelBody: Record<string, any> = { ...body, model: m };
+      if (config.provider === "openrouter") {
+        if (m.startsWith("nvidia/nemotron")) {
+          // Nemotron reasoning models can exhaust small max_tokens budgets on hidden thinking and return empty content.
+          modelBody.reasoning = { effort: options.reasoningEffort ?? "none" };
+        } else if (!/^(openai|deepseek|anthropic)\//i.test(m)) {
+          delete modelBody.reasoning;
+        }
+      }
       let had429OnFreePool = false;
 
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
@@ -1578,6 +1586,9 @@ async function visionChatViaOpenAiCompatible(
       },
     ],
   };
+  if (config.provider === "openrouter" && effectiveVisionModel.startsWith("nvidia/nemotron")) {
+    body.reasoning = { effort: "none" };
+  }
   if (options.maxCompletionTokens) {
     if (config.provider === "openai" || /^(gpt-5|o1|o3|o4)/i.test(effectiveVisionModel)) {
       body.max_completion_tokens = options.maxCompletionTokens;
@@ -1592,12 +1603,17 @@ async function visionChatViaOpenAiCompatible(
   for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
     const currentKey = keysToTry[kIdx]!;
     try {
+      const reqHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${currentKey}`,
+      };
+      if (config.provider === "openrouter") {
+        reqHeaders["HTTP-Referer"] = "https://marginaleconomics.com";
+        reqHeaders["X-Title"] = "Marginal Economics";
+      }
       const response = await fetch(`${config.baseUrl}/chat/completions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${currentKey}`,
-        },
+        headers: reqHeaders,
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(60_000),
       });
@@ -1610,7 +1626,7 @@ async function visionChatViaOpenAiCompatible(
             const { triggerPaidKeyAlert } = await import("./alerts.server");
             void triggerPaidKeyAlert({
               keySuffix: currentKey.slice(-4),
-              model: config.model,
+              model: effectiveVisionModel,
               feature: "vision_chat",
             });
           } catch {}
@@ -1621,7 +1637,7 @@ async function visionChatViaOpenAiCompatible(
         };
         return {
           text: data.choices?.[0]?.message?.content ?? "",
-          model: config.model,
+          model: effectiveVisionModel,
           promptTokens: data.usage?.prompt_tokens ?? null,
           completionTokens: data.usage?.completion_tokens ?? null,
         };
@@ -1631,8 +1647,9 @@ async function visionChatViaOpenAiCompatible(
       lastStatus = response.status;
       lastText = text;
 
-      if (response.status === 429 || response.status === 503 || response.status === 500) {
-        markKeyRateLimited(currentKey, 60_000);
+      const isQuotaOrAuth = response.status === 402 || response.status === 401 || response.status === 403;
+      if (response.status === 429 || response.status === 503 || response.status === 500 || isQuotaOrAuth) {
+        markKeyRateLimited(currentKey, isQuotaOrAuth ? 600_000 : 60_000);
         console.warn(
           `[visionChatViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
         );
@@ -1711,12 +1728,25 @@ async function visionChatViaGoogle(
     body.systemInstruction = { parts: [{ text: options.systemPrompt }] };
   }
 
-  const modelsToTry = [
-    "models/gemini-3.8-flash",
-    "models/gemini-2.5-flash",
-    "models/gemini-2.0-flash",
-    "models/gemini-1.5-flash",
-  ];
+  const normalizedPrimary =
+    options.model && /^(?:models\/)?gemini-/i.test(options.model)
+      ? options.model.startsWith("models/")
+        ? options.model
+        : `models/${options.model}`
+      : null;
+
+  const modelsToTry = Array.from(
+    new Set(
+      [
+        normalizedPrimary,
+        "models/gemini-3-flash-preview",
+        "models/gemini-flash-lite-latest",
+        "models/gemini-3.1-flash-lite",
+        "models/gemini-3.8-flash",
+        "models/gemini-2.5-flash",
+      ].filter(Boolean) as string[],
+    ),
+  );
   let lastErr: unknown = null;
 
   for (const model of modelsToTry) {
@@ -1735,9 +1765,10 @@ async function visionChatViaGoogle(
 
         if (!response.ok) {
           const detail = await response.text().catch(() => "");
-          lastErr = new Error(`Google Gemini Vision returned ${response.status}: ${detail.slice(0, 300)}`);
-          if (response.status === 429 || response.status === 503) {
-            markKeyRateLimited(currentKey, 60_000);
+          lastErr = new Error(`Google Gemini Vision (${model}) returned ${response.status}: ${detail.slice(0, 300)}`);
+          const isQuotaOrAuth = response.status === 402 || response.status === 401 || response.status === 403;
+          if (response.status === 429 || response.status === 503 || isQuotaOrAuth) {
+            markKeyRateLimited(currentKey, isQuotaOrAuth ? 600_000 : 60_000);
             if (kIdx + 1 < keysToTry.length) continue;
           }
           if (response.status === 404) {
@@ -1748,18 +1779,19 @@ async function visionChatViaGoogle(
 
         markKeyHealthy(currentKey);
         const payload = (await response.json()) as {
-          candidates?: { content?: { parts?: { text?: string }[] } }[];
+          candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
           usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
         };
 
         const text = (payload.candidates?.[0]?.content?.parts ?? [])
+          .filter((p) => !p.thought)
           .map((p) => p.text ?? "")
           .join("")
           .trim();
 
         return {
           text,
-          model: "google/gemini-3.8-flash",
+          model,
           promptTokens: payload.usageMetadata?.promptTokenCount ?? null,
           completionTokens: payload.usageMetadata?.candidatesTokenCount ?? null,
         };
@@ -1802,10 +1834,20 @@ export async function visionChat(options: {
   let callError: Error | null = null;
 
   try {
+    // 1. Explicit non-Google override (e.g. OpenRouter / Anthropic / OpenAI vision test)
+    if (options.overrideProvider && !isGeminiProvider(options.overrideProvider.provider)) {
+      const provResult =
+        options.overrideProvider.provider === "anthropic"
+          ? await visionChatViaAnthropic(options.overrideProvider, options)
+          : await visionChatViaOpenAiCompatible(options.overrideProvider, options);
+      result = { ...provResult, latencyMs: Date.now() - started };
+      return result;
+    }
+
     // Collect all available Google Gemini vision keys
     const googleKeys: string[] = [];
 
-    // 1. Explicit override if Google provider
+    // 1b. Explicit override if Google provider
     if (options.overrideProvider && isGeminiProvider(options.overrideProvider.provider)) {
       const { allOrderedKeys } = buildOrderedKeyPool(options.overrideProvider);
       googleKeys.push(...allOrderedKeys);
@@ -1842,7 +1884,7 @@ export async function visionChat(options: {
             provider: "google",
             api_key: row.api_key,
             base_url: null,
-            model: "gemini-3.8-flash",
+            model: "gemini-3-flash-preview",
             label: "Google",
           });
           const { allOrderedKeys } = buildOrderedKeyPool(cfg);
@@ -1858,14 +1900,46 @@ export async function visionChat(options: {
     if (envKey) googleKeys.push(envKey.trim());
 
     const uniqueGoogleKeys = Array.from(new Set(googleKeys.filter((k) => k && k.length > 5)));
+    let googleErr: Error | null = null;
     if (uniqueGoogleKeys.length > 0) {
-      const provResult = await visionChatViaGoogle(uniqueGoogleKeys, options);
-      result = { ...provResult, latencyMs: Date.now() - started };
-      return result;
+      try {
+        const provResult = await visionChatViaGoogle(uniqueGoogleKeys, options);
+        result = { ...provResult, latencyMs: Date.now() - started };
+        return result;
+      } catch (err: any) {
+        googleErr = err instanceof Error ? err : new Error(String(err));
+        console.warn("[visionChat] Google Gemini Vision failed, checking OpenRouter vision fallback:", googleErr.message);
+      }
     }
 
+    // 5. Fallback: OpenRouter vision-capable free pool (e.g. nvidia/nemotron-3.5-super-vl:free)
+    try {
+      const { supabaseAdmin } = await import("../integrations/backend/client.server");
+      const { data: orRows } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("provider", "openrouter")
+        .order("is_active", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (orRows && orRows.length > 0 && orRows[0]!.api_key) {
+        const orConfig = normaliseConfig(orRows[0]!);
+        orConfig.model = "nvidia/nemotron-3.5-super-vl:free";
+        const provResult = await visionChatViaOpenAiCompatible(orConfig, {
+          ...options,
+          model: "nvidia/nemotron-3.5-super-vl:free",
+        });
+        result = { ...provResult, latencyMs: Date.now() - started };
+        return result;
+      }
+    } catch (orErr) {
+      console.warn("[visionChat] OpenRouter vision fallback failed:", orErr);
+    }
+
+    if (googleErr) throw googleErr;
+
     throw new AiGatewayError(
-      "No Google Gemini API key is configured for vision/handwriting. Add a Google Gemini key under Admin → AI Providers with purpose 'Vision' and mark it active.",
+      "No Google Gemini or OpenRouter vision API key is configured for vision/handwriting. Add one under Admin → AI Providers with purpose 'Vision' and mark it active.",
       500,
     );
   } catch (err: any) {
@@ -1875,13 +1949,13 @@ export async function visionChat(options: {
     try {
       const { supabaseAdmin } = await import("../integrations/backend/client.server");
       const latencyMs = Date.now() - started;
-      const model = result?.model || options.model || "google/gemini-3.8-flash";
+      const model = result?.model || options.model || "models/gemini-3-flash-preview";
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: options.userId ?? null,
         feature: options.feature ?? "vision_chat",
         model,
         prompt_tokens: result?.promptTokens ?? null,
-        completionTokens: result?.completionTokens ?? null,
+        completion_tokens: result?.completionTokens ?? null,
         latency_ms: latencyMs,
         ok: !callError,
         error_message: callError ? callError.message : null,

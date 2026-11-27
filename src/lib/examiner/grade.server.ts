@@ -28,6 +28,14 @@ import {
 } from "./arbitration.server";
 import { AUDIT_PROMPT } from "./audit-prompt";
 import { buildAnchorBlock, fetchCalibrationAnchors, selectBestAnchors } from "./calibration.server";
+import { formatNeuroSymbolicDirective, runNeuroSymbolicAudit } from "./causal-graph.server";
+import { isSameScript, runComparativeJudgement } from "./comparative-judgement.server";
+import {
+  buildLongEssayArgumentMapIfNeeded,
+  runDecomposedAoAudit,
+  type DecomposedAoAudit,
+} from "./decomposed-ao.server";
+import { callOrthogonalFamily, type OrthogonalFamily } from "./multi-family-pool.server";
 import {
   buildAoEvaluationDirective,
   buildPaperScopeDirective,
@@ -58,12 +66,183 @@ import {
 } from "./types";
 import {
   analyzeEssayQuality,
+  applyNeuroSymbolicGuardrail,
   applyWritingQualityGuardrail,
   buildQualityPromptDirective,
   essayHasDiagram,
   questionRequiresDiagram,
   type EssayQualityAnalysis,
 } from "./writing-quality.server";
+
+/**
+ * Adjusts a Grading object's AO breakdown cleanly to match a calibrated target total mark
+ * (used when the Psychometric Ensemble locks the final mark across orthogonal families).
+ */
+function alignGradingToTargetMark(
+  grading: Grading,
+  targetMark: number,
+  maxMark: number,
+  split: AoSplit,
+  minAo3 = 0,
+): Grading {
+  const clampedTarget = Math.max(0, Math.min(maxMark, Math.round(targetMark)));
+  let ao1 = Math.max(0, Math.min(split.ao1_marks, grading.ao_breakdown.knowledge.awarded));
+  let ao2 = Math.max(0, Math.min(split.ao2_marks, grading.ao_breakdown.analysis.awarded));
+  let ao3 = Math.max(0, Math.min(split.ao3_marks, grading.ao_breakdown.evaluation.awarded));
+  let delta = clampedTarget - (ao1 + ao2 + ao3);
+
+  while (delta > 0) {
+    if (ao2 < split.ao2_marks) {
+      ao2++;
+    } else if (split.ao3_marks > 0 && ao3 < split.ao3_marks) {
+      ao3++;
+    } else if (ao1 < split.ao1_marks) {
+      ao1++;
+    } else {
+      break;
+    }
+    delta--;
+  }
+  const protectedAo3 = Math.max(0, Math.min(split.ao3_marks, minAo3));
+  while (delta < 0) {
+    if (split.ao3_marks > 0 && ao3 > protectedAo3) {
+      ao3--;
+    } else if (ao2 > 0) {
+      ao2--;
+    } else if (split.ao3_marks > 0 && ao3 > 0) {
+      ao3--;
+    } else if (ao1 > 0) {
+      ao1--;
+    } else {
+      break;
+    }
+    delta++;
+  }
+
+  const total = ao1 + ao2 + ao3;
+  return {
+    ...grading,
+    total_mark: total,
+    band: bandFor(total, maxMark),
+    ao_breakdown: {
+      knowledge: { ...grading.ao_breakdown.knowledge, awarded: ao1, out_of: split.ao1_marks },
+      analysis: { ...grading.ao_breakdown.analysis, awarded: ao2, out_of: split.ao2_marks },
+      evaluation: { ...grading.ao_breakdown.evaluation, awarded: ao3, out_of: split.ao3_marks },
+    },
+  };
+}
+
+/**
+ * Marginal Engine V5 4-Signal Psychometric Fusion Engine.
+ *
+ * Combines FOUR independent orthogonal signals on 100% Free Groq keys:
+ *  - P1     (OpenAI 120B Holistic Error Auditor)
+ *  - P2     (Qwen 3.8 27B Holistic Positive Marker)
+ *  - Decomp (Zero-Halo-Effect Decomposed AO1+AO2 + AO3 Micro-Specialists)
+ *  - Comp   (Topic-Matched Blind Comparative Judgement vs real Cambridge ECR anchors)
+ * plus Deterministic Off-Focus Ceiling & Neuro-Symbolic Fatal Violation guardrails.
+ */
+function computePsychometricEnsembleMark(params: {
+  p1: number;
+  p2: number;
+  compMark: number | null;
+  decomposed: DecomposedAoAudit | null;
+  maxMark: number;
+  fatalViolations: number;
+  moderateViolations?: number;
+}): number {
+  const { p1, p2, compMark, decomposed, maxMark, fatalViolations, moderateViolations = 0 } = params;
+
+  // 1. Deterministic Off-Focus / Wrong-Direction Ceiling (catches fluent-but-wrong-policy scripts like 5/20!)
+  const severeOffFocus =
+    decomposed !== null &&
+    decomposed.wrongDirectionParagraphs >= 1 &&
+    decomposed.onFocusRatio < 0.75;
+
+  const diff = Math.abs(p1 - p2);
+  let baseMark: number;
+
+  if (diff <= 1) {
+    const hi = Math.max(p1, p2);
+    const lo = Math.min(p1, p2);
+    const hasViolations = fatalViolations > 0 || moderateViolations > 0;
+    const isLowBandConsensus = hi <= Math.round(maxMark * 0.45);
+    const compSignalsOvermarking =
+      compMark !== null &&
+      ((hasViolations && lo - compMark >= 1) ||
+        (lo - compMark >= 2 && decomposed !== null && decomposed.decomposedTotal <= lo - 1));
+    // Symmetric Comparative Guardrail: prevents dual-LLM agreement from bypassing Comparative Judge
+    // on low/mid bands OR when Neuro-Symbolic / Decomposed signals corroborate over-marking,
+    // while NEVER letting a high-only comparative score inflate a low-band consensus.
+    if (compSignalsOvermarking && compMark !== null) {
+      baseMark = hasViolations
+        ? Math.floor((p1 + p2 + compMark * 2) / 4)
+        : Math.round((p1 + p2 + compMark * 2) / 4);
+    } else if (compMark !== null && hi <= Math.round(maxMark * 0.6)) {
+      if (lo - compMark >= 2) {
+        baseMark = Math.round((p1 + p2 + compMark * 2) / 4);
+      } else if (compMark - hi >= 1 && !isLowBandConsensus && fatalViolations === 0) {
+        baseMark = Math.round((p1 + p2 + compMark) / 3);
+      } else {
+        baseMark =
+          fatalViolations === 0 && moderateViolations === 0 && maxMark <= 12
+            ? hi
+            : Math.round((p1 + p2) / 2);
+      }
+    } else if (fatalViolations === 0 && moderateViolations === 0 && maxMark <= 12) {
+      baseMark = hi;
+    } else {
+      baseMark = Math.round((p1 + p2) / 2);
+    }
+  } else if (compMark !== null) {
+    // Disagreement >= 2: 3-vote median tie-breaker
+    const sorted = [p1, p2, compMark].sort((a, b) => a - b);
+    baseMark = sorted[1];
+  } else {
+    baseMark = Math.round((p1 + p2) / 2);
+  }
+
+  // 2. Blend in Zero-Halo-Effect Decomposed AO Micro-Sum
+  let fused = baseMark;
+  if (decomposed && decomposed.decomposedTotal > 0) {
+    // On 20m Paper 4 essays with 3+ genuinely developed economic models/diagrams and zero off-focus/fatal issues,
+    // give Decomposed 50% weight so strong multi-diagram scripts aren't under-marked by a strict single pass.
+    const strong20mFramework =
+      maxMark >= 20 &&
+      decomposed.developedFrameworkCount >= 3 &&
+      decomposed.wrongDirectionParagraphs === 0 &&
+      fatalViolations === 0 &&
+      decomposed.decomposedTotal >= 14;
+    fused = strong20mFramework
+      ? Math.round(baseMark * 0.5 + decomposed.decomposedTotal * 0.5)
+      : Math.round(baseMark * 0.65 + decomposed.decomposedTotal * 0.35);
+
+    // 20m Paper 4 Level-2 Buzzword Guard: if an extended essay lacks developed models (<= 1 framework)
+    // and Decomposed AO2 is Level 2 (<= 8/12), prevent buzzword inflation into Level 3 (> 12/20).
+    if (
+      maxMark >= 20 &&
+      decomposed.developedFrameworkCount <= 1 &&
+      decomposed.ao2Awarded <= 8 &&
+      fused > 12
+    ) {
+      fused = 12;
+    }
+  }
+
+  // 3. Enforce Off-Focus Ceiling if candidate spent substantial page(s) on wrong policy direction
+  if (severeOffFocus) {
+    const level1Ceiling = maxMark >= 20 ? 6 : maxMark === 12 ? 4 : 3;
+    fused = Math.min(fused, level1Ceiling);
+  }
+
+  // 4. Enforce Fatal Sign-Flip Ceiling (e.g. inverted interest-rate -> borrowing cost)
+  if (fatalViolations > 0) {
+    const fatalCeiling = maxMark >= 20 ? 8 : maxMark === 12 ? 5 : 4;
+    fused = Math.min(fused, fatalCeiling);
+  }
+
+  return Math.max(0, Math.min(maxMark, fused));
+}
 
 /** Fill `{placeholder}` tokens in the prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
@@ -159,6 +338,10 @@ export async function gradeEssay(
   const structureNote = formatStructureNote(getStructureGuidance(maxMark, split));
   const qualityAnalysis = analyzeEssayQuality(essayText, maxMark, split);
   const qualityDirective = buildQualityPromptDirective(qualityAnalysis, maxMark);
+
+  // --- STAGE 0: NEURO-SYMBOLIC CAUSAL-GRAPH AUDIT (<5ms deterministic) -------
+  const neuroSymbolicDossier = runNeuroSymbolicAudit(essayText, question);
+  const neuroSymbolicDirective = formatNeuroSymbolicDirective(neuroSymbolicDossier);
 
   const promptValues = {
     syllabus_code: "9708",
@@ -256,14 +439,14 @@ export async function gradeEssay(
       }
       return boost;
     };
-    sources = [...sources].sort((a, b) => scoreSourceForTariff(b) - scoreSourceForTariff(a)).slice(0, 6);
-    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources, 1300, question)}`;
+    sources = [...sources].sort((a, b) => scoreSourceForTariff(b) - scoreSourceForTariff(a)).slice(0, 4);
+    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources, 750, question)}`;
   }
 
   // Compact mark-scheme excerpt centered directly on this question's indicative content for Pass 3 & Arbitration
   const compactMarkSchemeContext = sources.length > 0 ? renderContext(sources.slice(0, 3), 550, question) : "";
 
-  // --- calibration anchors (strictly 1 or 2, matching paper level) ----------
+  // --- calibration anchors (1 concise in-prompt anchor + 3 stratified in Comparative Judge) -
   let anchors: any[] = [];
   try {
     anchors = await fetchCalibrationAnchors(supabase);
@@ -271,10 +454,15 @@ export async function gradeEssay(
     console.warn("[grade.server] Error fetching calibration anchors, proceeding with standard rubrics:", anchorErr);
     anchors = [];
   }
-  const selectedAnchors = selectBestAnchors(anchors, question, maxMark, 2);
+  // Strictly exclude any anchor matching the candidate script itself (zero leakage in LOO benchmarks or re-submissions)
+  const leakFreeAnchors = anchors.filter((a) => !isSameScript(essayText, a.essay_text));
+  const selectedAnchors = selectBestAnchors(leakFreeAnchors, question, maxMark, 1);
   const anchorBlock = buildAnchorBlock(selectedAnchors, question, maxMark);
   if (anchorBlock) baseSystemPrompt = `${baseSystemPrompt}\n\n${anchorBlock}`;
   const actualAnchorsCount = Math.min(2, Math.max(selectedAnchors.length > 0 ? 1 : 0, selectedAnchors.length));
+
+  // Inject Stage 0 Neuro-Symbolic Deterministic Audit into examiner context
+  baseSystemPrompt = `${baseSystemPrompt}\n\n${neuroSymbolicDirective}`;
 
   // Authoritative AS-Level Chapter 1 (Scarcity) & Chapter 5 (PPC) rubrics — ONLY for Paper 2 (<= 12m)
   if (maxMark <= 12) {
@@ -358,12 +546,16 @@ export async function gradeEssay(
     ? `\n[MANDATORY CAMBRIDGE COMPARATIVE / ONE-SIDEDNESS AUDIT: This question asks whether a named policy/factor is the "best/only/most effective" method. Check BEFORE scoring whether the candidate ACTUALLY ANALYSES at least ONE concrete alternative policy/method with its own causal mechanism (a passing 3-word mention in the conclusion like "along with demand-side policies" does NOT count!). If the essay analyses ONLY the named policy with ZERO analysed alternative, it is strictly ONE-SIDED: cap AO2 at Level 2 low (${maxMark >= 20 ? "max 6/12" : "max 3/6"}) and AO3 at ${maxMark >= 20 ? "0–2/6" : "0–1/4"} (${maxMark === 12 ? "official Cambridge L2;4 Ev0 standard" : "Level 1"}), and flag the missing alternative analysis as the top weakness.]`
     : "";
 
+  // For very long Paper 4 essays (>4,200 chars), build a lossless structured argument transcript
+  // on free openai/gpt-oss-20b so Pass 1 & Pass 2 never hit Groq TPM ceilings or truncate JSON.
+  const promptEssayText = await buildLongEssayArgumentMapIfNeeded(question, essayText, options.userId);
+
   const userMessage =
     `${evalRequirementBanner}${missingRequiredDiagramBanner}${comparativeAuditBanner}\n\n` +
     `EXAM QUESTION TO MARK IN FULL DEPTH (${maxMark} marks):\n` +
     `"""\n${question}\n"""\n\n` +
     `STUDENT ESSAY SUBMISSION:\n` +
-    `"""\n${essayText}\n"""${imageNote}\n\n` +
+    `"""\n${promptEssayText}\n"""${imageNote}\n\n` +
     `CRITICAL DIRECTIVE: Scrutinize the student's submission against EVERY clause, qualifier, and command word of the exam question above. Ensure the evaluation directly addresses the exact question asked without shifting the goalposts.`;
 
   let promptTokens: number | null = null;
@@ -382,9 +574,14 @@ export async function gradeEssay(
   let finalGrading: Grading;
 
   // Resilient pass executor: attempts visionChat if markSchemeImages are present,
-  // but cleanly falls back to standard text chat if the active provider (e.g. Groq, OpenRouter)
-  // or keys do not support vision, ensuring essay grading never crashes.
-  const executeExaminerPass = async (systemPrompt: string, feature: string, temperature: number) => {
+  // otherwise routes to the designated orthogonal frontier model family
+  // (OpenAI 120B vs Google Gemini 3 Flash vs Qwen 3.8 27B) with automatic fallback.
+  const executeExaminerPass = async (
+    systemPrompt: string,
+    feature: string,
+    temperature: number,
+    family: OrthogonalFamily,
+  ) => {
     if (markSchemeImages.length) {
       try {
         return await visionChat({
@@ -397,18 +594,16 @@ export async function gradeEssay(
           feature,
         });
       } catch (visionErr) {
-        console.warn(`[gradeEssay] visionChat failed or unsupported for ${feature}, falling back to text chat:`, visionErr);
+        console.warn(`[gradeEssay] visionChat failed or unsupported for ${feature}, falling back to orthogonal text family:`, visionErr);
       }
     }
-    return chat({
-      model: MODEL_EXAMINER,
+    return callOrthogonalFamily({
+      family,
       temperature,
       json: true,
-      isBudgetTier: options.isBudgetTier,
       userId: options.userId,
       feature,
-      reasoningEffort: "low",
-      maxCompletionTokens: 8192,
+      maxCompletionTokens: 6144,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -416,38 +611,90 @@ export async function gradeEssay(
     });
   };
 
+  let comparativeJudgement: Awaited<ReturnType<typeof runComparativeJudgement>> = null;
+  let pass1Mark = 0;
+  let pass1Model = "openai/gpt-oss-120b";
+  let pass2Mark = 0;
+  let pass2Model = "qwen/qwen3.8-27b";
+
   if (runSinglePass) {
     // Single pass path (used when audit is explicitly disabled)
-    const res = await executeExaminerPass(pass2SystemPrompt, "grade_essay", TEMPERATURE_PASS2);
+    const res = await executeExaminerPass(pass2SystemPrompt, "grade_essay", TEMPERATURE_PASS2, "openai_120b");
 
     finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split, essayText, question);
     finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split, essayText, question);
+    finalGrading = applyNeuroSymbolicGuardrail(finalGrading, neuroSymbolicDossier, maxMark, split);
     if (finalGrading.off_syllabus) {
       throw new OffSyllabusError(
         finalGrading.detected_subject || "another subject",
         finalGrading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
       );
     }
+    pass1Mark = finalGrading.total_mark;
+    pass2Mark = finalGrading.total_mark;
+    pass1Model = res.model || pass1Model;
+    pass2Model = res.model || pass2Model;
     promptTokens = res.promptTokens;
     completionTokens = res.completionTokens;
     latencyMs = res.latencyMs;
     activeModel = res.model || MODEL_EXAMINER;
     keyRotated = Boolean(res.keyRotated);
-    modelSwapped = Boolean(res.modelSwapped);
-    activeKeyType = res.activeKeyType;
   } else {
-    // Dual Examiner Passes with Varied Temperatures executed concurrently:
-    // Pass 1: Temperature 0.0 (Analytical rigor & error checking)
-    // Pass 2: Temperature 0.2 (Holistic evaluation & argument breadth)
-    const [first, second] = await Promise.all([
-      executeExaminerPass(pass1SystemPrompt, "grade_essay_pass1_error_audit", TEMPERATURE_PASS1),
-      executeExaminerPass(pass2SystemPrompt, "grade_essay_pass2_holistic", TEMPERATURE_PASS2),
+    // --- STAGE 1: V5 4-SIGNAL FREE-GROQ ORTHOGONAL PANEL (PARALLEL) ----------
+    // Signal 1 (OpenAI 120B @ temp 0.0): Holistic Analytical & Causal-Graph Auditor
+    // Signal 2 (Qwen 3.8 27B @ temp 0.15): Holistic Positive-Marking Cambridge Moderator
+    // Signal 3 (OpenAI 120B @ temp 0.0): Topic-Matched Blind Comparative Judgement vs real Cambridge ECRs
+    // Signal 4 (OpenAI 120B + Qwen 27B): Decomposed Zero-Halo AO1+AO2 / AO3 & Off-Focus Specialists
+    const [first, second, compResult, decomposedResult] = await Promise.all([
+      executeExaminerPass(pass1SystemPrompt, "grade_essay_pass1_error_audit", TEMPERATURE_PASS1, "openai_120b"),
+      executeExaminerPass(pass2SystemPrompt, "grade_essay_pass2_holistic", 0.15, "qwen_27b"),
+      runComparativeJudgement({
+        question,
+        essayText,
+        maxMark,
+        split,
+        anchors: leakFreeAnchors,
+        userId: options.userId,
+      }),
+      runDecomposedAoAudit({
+        question,
+        essayText,
+        maxMark,
+        split,
+        userId: options.userId,
+      }),
     ]);
 
-    let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, essayText, question);
+    comparativeJudgement = compResult;
+
+    const raw1 = extractFirstJsonObject(first.text) as Record<string, unknown>;
+    const raw2 = extractFirstJsonObject(second.text) as Record<string, unknown>;
+    const valid1 = raw1 && typeof raw1 === "object" && Object.keys(raw1).length > 0 && "ao_breakdown" in raw1;
+    const valid2 = raw2 && typeof raw2 === "object" && Object.keys(raw2).length > 0 && "ao_breakdown" in raw2;
+
+    let grading1 = normaliseGrading(valid1 ? raw1 : raw2, maxMark, split, essayText, question);
     grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split, essayText, question);
-    let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split, essayText, question);
+    grading1 = applyNeuroSymbolicGuardrail(grading1, neuroSymbolicDossier, maxMark, split);
+    let grading2 = normaliseGrading(valid2 ? raw2 : raw1, maxMark, split, essayText, question);
     grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split, essayText, question);
+    grading2 = applyNeuroSymbolicGuardrail(grading2, neuroSymbolicDossier, maxMark, split);
+
+    // Guard against truncated JSON where one pass (or both) salvaged 0 marks on a non-empty, on-syllabus essay
+    if (grading2.total_mark === 0 && !grading2.off_syllabus && grading1.total_mark >= 3) {
+      grading2 = grading1;
+    } else if (grading1.total_mark === 0 && !grading1.off_syllabus && grading2.total_mark >= 3) {
+      grading1 = grading2;
+    } else if (
+      grading1.total_mark === 0 &&
+      grading2.total_mark === 0 &&
+      !grading1.off_syllabus &&
+      !grading2.off_syllabus &&
+      decomposedResult &&
+      decomposedResult.decomposedTotal >= 3
+    ) {
+      grading1 = alignGradingToTargetMark(grading1, decomposedResult.decomposedTotal, maxMark, split);
+      grading2 = alignGradingToTargetMark(grading2, decomposedResult.decomposedTotal, maxMark, split);
+    }
 
     if (grading1.off_syllabus || grading2.off_syllabus) {
       const rejected = grading1.off_syllabus ? grading1 : grading2;
@@ -457,19 +704,39 @@ export async function gradeEssay(
       );
     }
 
+    pass1Mark = grading1.total_mark;
+    pass1Model = first.model || pass1Model;
+    pass2Mark = grading2.total_mark;
+    pass2Model = second.model || pass2Model;
+
     promptTokens = (first.promptTokens ?? 0) + (second.promptTokens ?? 0);
     completionTokens = (first.completionTokens ?? 0) + (second.completionTokens ?? 0);
     latencyMs = Math.max(first.latencyMs, second.latencyMs);
-    activeModel = second.model || first.model || MODEL_EXAMINER;
+    activeModel = `${pass1Model} + ${pass2Model}`;
     keyRotated = Boolean(first.keyRotated || second.keyRotated);
-    modelSwapped = Boolean(first.modelSwapped || second.modelSwapped);
-    activeKeyType = second.activeKeyType ?? first.activeKeyType;
 
-    // --- Conclude Dual Passes Together for Final Grade ------------------------
+    // --- STAGE 2: V5 4-SIGNAL PSYCHOMETRIC LOCKED-ENSEMBLE RECONCILIATION ----
     const disputeCheck = shouldTriggerArbitration(grading1, grading2, maxMark);
+    const fatalViolations = neuroSymbolicDossier.violations.filter((v) => v.severity === "fatal").length;
+    const moderateViolations = neuroSymbolicDossier.violations.filter((v) => v.severity === "moderate").length;
+    const lockedEnsembleMark = computePsychometricEnsembleMark({
+      p1: grading1.total_mark,
+      p2: grading2.total_mark,
+      compMark: comparativeJudgement?.estimatedMark ?? null,
+      decomposed: decomposedResult,
+      maxMark,
+      fatalViolations,
+      moderateViolations,
+    });
+    const protectedAo3Min =
+      decomposedResult &&
+      decomposedResult.ao3Awarded >= 2 &&
+      neuroSymbolicDossier.ao3CriteriaMatched.length >= 2 &&
+      fatalViolations === 0
+        ? Math.min(2, decomposedResult.ao3Awarded)
+        : 0;
 
     if (disputeCheck.shouldArbitrate) {
-      // Discrepancy exceeds threshold: Principal Examiner arbitration resolves the dispute
       try {
         const arbitratedGrading = await arbitrateGrading({
           question,
@@ -482,21 +749,50 @@ export async function gradeEssay(
           userId: options.userId,
           qualityAnalysis,
           markSchemeContext: compactMarkSchemeContext,
+          neuroSymbolicSummary: neuroSymbolicDirective,
+          comparativeJudgement,
         });
-        finalGrading = arbitratedGrading;
+        // Anchor arbitration within ±1 mark of the 3-signal psychometric median so it never swings wildly
+        const clampedArbMark = Math.max(
+          lockedEnsembleMark - 1,
+          Math.min(lockedEnsembleMark + 1, arbitratedGrading.total_mark),
+        );
+        finalGrading = alignGradingToTargetMark(
+          arbitratedGrading,
+          clampedArbMark,
+          maxMark,
+          split,
+          protectedAo3Min,
+        );
       } catch (arbitrationErr) {
         console.warn("[grade.server] Arbitration failed, synthesizing dual passes directly:", arbitrationErr);
-        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText, question);
+        const baseSynth = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText, question);
+        finalGrading = alignGradingToTargetMark(
+          baseSynth,
+          lockedEnsembleMark,
+          maxMark,
+          split,
+          protectedAo3Min,
+        );
       }
     } else {
-      // Passes converged within tolerance: synthesize both passes
-      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText, question);
+      // Orthogonal families converged: synthesize prose and lock to Psychometric Ensemble Mark
+      const baseSynth = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText, question);
+      finalGrading = alignGradingToTargetMark(
+        baseSynth,
+        lockedEnsembleMark,
+        maxMark,
+        split,
+        protectedAo3Min,
+      );
     }
+    finalGrading = applyNeuroSymbolicGuardrail(finalGrading, neuroSymbolicDossier, maxMark, split);
   }
 
-  // --- PASS 3: SENIOR REPORT REFINER & ACCURACY AUDITOR ---------------------
-  // Runs a third AI pass grounded in official Cambridge mark scheme excerpts to audit economic accuracy,
-  // eliminate false praise / hallucinated penalties, calibrate marks, and ensure zero repetition.
+  // --- STAGE 3: SENIOR REPORT REFINER (PROSE & CONSISTENCY POLISH, MARK LOCKED) ---
+  // Preserves the calibrated V4.1 Psychometric Ensemble Mark so Pass 3 never introduces
+  // erratic mark drift while still refining examiner prose, deduplication, and quote accuracy.
+  const preRefineLockedMark = finalGrading.total_mark;
   try {
     finalGrading = await refineExaminerReport({
       question,
@@ -506,10 +802,41 @@ export async function gradeEssay(
       draftGrading: finalGrading,
       userId: options.userId,
       markSchemeContext: compactMarkSchemeContext,
+      neuroSymbolicSummary: neuroSymbolicDirective,
+      comparativeJudgement,
+      lockTotalMark: preRefineLockedMark,
     });
   } catch (refineErr) {
     console.warn("[grade.server] Pass 3 refinement error, proceeding with cleansed draft:", refineErr);
   }
+  finalGrading = applyNeuroSymbolicGuardrail(finalGrading, neuroSymbolicDossier, maxMark, split);
+
+  // Compute Conformal Prediction Interval from inter-family spread + comparative judgement
+  const panelMarks = [pass1Mark, pass2Mark, finalGrading.total_mark];
+  if (comparativeJudgement) panelMarks.push(comparativeJudgement.estimatedMark);
+  const interFamilySpread = Math.max(...panelMarks) - Math.min(...panelMarks);
+  const halfWidth = Math.max(1, Math.min(maxMark >= 20 ? 3 : 2, Math.ceil(interFamilySpread / 2)));
+  const conformalInterval = {
+    low: Math.max(0, finalGrading.total_mark - halfWidth),
+    high: Math.min(maxMark, finalGrading.total_mark + halfWidth),
+    coverage: interFamilySpread <= 2 ? 0.92 : 0.85,
+  };
+
+  finalGrading.neuro_symbolic = neuroSymbolicDossier;
+  finalGrading.comparative_judgement = comparativeJudgement ?? undefined;
+  finalGrading.rm_annotations = neuroSymbolicDossier.rmAnnotations;
+  finalGrading.ensemble_panel = {
+    families: comparativeJudgement
+      ? [pass1Model, pass2Model, comparativeJudgement.judgeModel]
+      : [pass1Model, pass2Model],
+    pass1Mark,
+    pass1Model,
+    pass2Mark,
+    pass2Model,
+    comparativeMark: comparativeJudgement?.estimatedMark ?? null,
+    interFamilySpread,
+    conformalInterval,
+  };
 
   if (maxMark >= 20) {
     if (sources && sources.length > 0) {

@@ -24,7 +24,7 @@
  */
 
 import { cleanStars } from "@/lib/utils";
-import { bandFor, stripScoreFractionsFromText, type Grading } from "./types";
+import { bandFor, stripScoreFractionsFromText, type Grading, type NeuroSymbolicDossier } from "./types";
 import type { AoSplit } from "./config";
 
 export type EssayQualityAnalysis = {
@@ -877,4 +877,132 @@ export function applyEconomicMechanicsGuardrail(
       evaluation: { ...evaluation, awarded: ao3 },
     },
   };
+}
+
+const AO1_VIOLATION_IDS = new Set([
+  "PRODUCER_SURPLUS_DEF_ERROR",
+  "INDIRECT_TAX_INCOME_DEF_ERROR",
+  "FISCAL_MONETARY_CONFLATION",
+  "PUBLIC_VS_MERIT_GOOD_CONFLATION",
+]);
+
+function falsePraisePatternForViolation(ruleId: string): RegExp | null {
+  if (ruleId.startsWith("SUBSIDY_INCIDENCE_")) {
+    return /\b(?:subsidy\s+incidence|incidence\s+of\s+(?:the\s+|a\s+)?subsid|elasticity\s+(?:affects|and)\s+subsid)/i;
+  }
+  if (ruleId.startsWith("TAX_INCIDENCE_")) {
+    return /\b(?:tax\s+incidence|incidence\s+of\s+(?:the\s+|an?\s+)?(?:indirect\s+)?tax)/i;
+  }
+  if (ruleId === "MONOPOLISTIC_COMP_EFFICIENCY_ERROR") {
+    return /\b(?:allocative(?:ly)?\s+efficien|productive(?:ly)?\s+efficien|price[- ]taker)/i;
+  }
+  if (ruleId === "PRICE_RISE_SHIFTS_DEMAND_RIGHT") {
+    return /\b(?:demand\s+shift|minimum\s+price\s+diagram)/i;
+  }
+  if (ruleId === "PUBLIC_VS_MERIT_GOOD_CONFLATION") {
+    return /\bpublic\s+goods?\b/i;
+  }
+  return null;
+}
+
+/**
+ * Deterministic Neuro-Symbolic Economic Law Guardrail:
+ * Guarantees that verified economic-law inversions flagged by `causal-graph.server.ts`
+ * are NEVER praised in `strengths`, are ALWAYS surfaced in `weaknesses`, and enforce
+ * Cambridge AO1/AO2 level ceilings even when dual LLM passes miss an inversion.
+ */
+export function applyNeuroSymbolicGuardrail(
+  grading: Grading,
+  dossier: NeuroSymbolicDossier | undefined | null,
+  maxMark: number,
+  split: AoSplit,
+): Grading {
+  if (!dossier || dossier.violations.length === 0) {
+    return grading;
+  }
+
+  let strengths = [...(grading.strengths || [])];
+  const weaknesses = [...(grading.weaknesses || [])];
+  let summary = grading.examiner_summary || "";
+  let ao1 = grading.ao_breakdown.knowledge.awarded;
+  let ao2 = grading.ao_breakdown.analysis.awarded;
+  let ao3 = grading.ao_breakdown.evaluation.awarded;
+  let analysisComment = grading.ao_breakdown.analysis.comment || "";
+
+  let hasFatal = false;
+  let hasModerate = false;
+  let hasAo1Violation = false;
+
+  for (const v of dossier.violations) {
+    if (v.severity === "fatal") hasFatal = true;
+    else hasModerate = true;
+    if (AO1_VIOLATION_IDS.has(v.ruleId)) hasAo1Violation = true;
+
+    const praiseRe = falsePraisePatternForViolation(v.ruleId);
+    if (praiseRe) {
+      strengths = strengths.filter((s) => !praiseRe.test(s));
+      if (v.ruleId.startsWith("SUBSIDY_INCIDENCE_")) {
+        summary = summary
+          .replace(/,?\s*especially\s+(?:regarding|on)\s+subsidy\s+incidence/gi, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+        analysisComment = analysisComment
+          .replace(/\b(?:accurately|insightfully)\s+(?:links?|describes?)\s+subsidy\s+incidence[^.]*\./gi, "")
+          .trim();
+      }
+    }
+
+    const shortKey = v.explanation.slice(0, 42).toLowerCase();
+    const alreadyNoted = weaknesses.some(
+      (w) =>
+        w.toLowerCase().includes(shortKey) ||
+        (v.ruleId.startsWith("SUBSIDY_INCIDENCE_") && /subsidy\s+incidence/i.test(w) && /invert|inelastic|consumer/i.test(w)) ||
+        (v.ruleId.startsWith("TAX_INCIDENCE_") && /tax\s+incidence/i.test(w) && /invert|inelastic/i.test(w)),
+    );
+    if (!alreadyNoted) {
+      weaknesses.unshift(v.explanation);
+    }
+  }
+
+  if (hasAo1Violation && ao1 >= split.ao1_marks && split.ao1_marks > 0) {
+    ao1 = split.ao1_marks - 1;
+  }
+
+  if (hasFatal) {
+    const fatalAo2Cap = maxMark === 8 ? 1 : maxMark === 12 ? 2 : 4;
+    ao2 = Math.min(ao2, fatalAo2Cap);
+    const fatalTotalCap = maxMark === 8 ? 4 : maxMark === 12 ? 6 : 10;
+    if (ao1 + ao2 + ao3 > fatalTotalCap) {
+      const excess = ao1 + ao2 + ao3 - fatalTotalCap;
+      ao3 = Math.max(0, ao3 - excess);
+    }
+  } else if (hasModerate) {
+    // Moderate analytical inversion: cap AO2 at Level 2 maximum (never Level 3 / Top Band AO2)
+    const modAo2Cap = maxMark === 8 ? 3 : maxMark === 12 ? 4 : 8;
+    if (ao2 > modAo2Cap) {
+      ao2 = modAo2Cap;
+      if (!/incidence|inversion|error|misconception/i.test(analysisComment)) {
+        analysisComment = `${analysisComment} A conceptual inversion in the causal analysis restricts AO2 to Level 2.`.trim();
+      }
+    }
+  }
+
+  const newTotal = ao1 + ao2 + ao3;
+  return cleanStars({
+    ...grading,
+    total_mark: newTotal,
+    band: bandFor(newTotal, maxMark),
+    examiner_summary: stripScoreFractionsFromText(summary),
+    ao_breakdown: {
+      knowledge: { ...grading.ao_breakdown.knowledge, awarded: ao1 },
+      analysis: {
+        ...grading.ao_breakdown.analysis,
+        awarded: ao2,
+        comment: stripScoreFractionsFromText(analysisComment),
+      },
+      evaluation: { ...grading.ao_breakdown.evaluation, awarded: ao3 },
+    },
+    strengths: strengths.slice(0, 4).map((s) => stripScoreFractionsFromText(s)),
+    weaknesses: weaknesses.slice(0, 4).map((w) => stripScoreFractionsFromText(w)),
+  });
 }

@@ -374,7 +374,7 @@ const STOP_WORDS = new Set([
   "would", "could", "should", "also", "some", "more", "most", "than",
   "their", "they", "then", "them", "into", "over", "such", "only", "very",
   "much", "each", "which", "what", "when", "where", "candidate", "lacks",
-  "lacking", "weakness", "requires", "needed", "needs", "mark", "marks",
+  "lacking", "weakness", "requires", "needed", "needs", "need", "mark", "marks",
   "level", "credit", "comment", "response", "answer", "essay", "point",
   "points", "discussion", "explanation", "explain", "analyse", "analyze",
   "analysis", "evaluate", "evaluation", "knowledge", "well", "good", "poor",
@@ -382,27 +382,193 @@ const STOP_WORDS = new Set([
   "give", "gives", "given", "using", "uses", "used", "make", "makes",
   "made", "state", "states", "stated", "detail", "details", "briefly",
   "clear", "clearly", "further", "order", "push", "toward", "full",
+  "link", "between", "under", "explained", "driven", "reduced", "remain",
+  "remains", "remaining", "however", "therefore", "because", "may", "can",
 ]);
 
 /**
- * Extracts high-information economic keywords and bigrams from diagnostic feedback text.
+ * Lightweight morphological stemmer for economics vocabulary so variants like
+ * "subsidy"/"subsidies", "elastic"/"elasticity", "produce"/"producers" match reliably.
  */
-function extractDiagnosticKeywords(text: string): { words: string[]; phrases: string[] } {
-  const clean = text.toLowerCase().replace(/[^a-z0-9\s-]/g, " ");
-  const rawWords = clean.split(/\s+/).filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+function stemEconWord(word: string): string {
+  let w = word.toLowerCase();
+  if (w.length <= 2) return w;
+  if (w.endsWith("ies") && w.length > 4) return `${w.slice(0, -3)}y`;
+  if (w.endsWith("icity") && w.length > 6) return w.slice(0, -5);
+  if (w.endsWith("ity") && w.length > 5) return w.slice(0, -3);
+  if (w.endsWith("tion") && w.length > 6) return w.slice(0, -4);
+  if (w.endsWith("ing") && w.length > 5) return w.slice(0, -3);
+  if (w.endsWith("ers") && w.length > 5) return w.slice(0, -3);
+  if (w.endsWith("er") && w.length > 4) return w.slice(0, -2);
+  if (w.endsWith("es") && w.length > 4 && !w.endsWith("ss")) return w.slice(0, -2);
+  if (w.endsWith("s") && w.length > 3 && !w.endsWith("ss") && !w.endsWith("us") && !w.endsWith("is")) {
+    return w.slice(0, -1);
+  }
+  return w;
+}
 
-  // Extract key 2-word collocations (e.g. "price ceiling", "black market", "deadweight loss")
-  const tokens = clean.split(/\s+/).filter(Boolean);
+/**
+ * Cambridge 9708 Economics Concept Synonyms & Acronym Bridges.
+ * Ensures diagnostic language like "supply elasticity" matches "PES" in the essay,
+ * "AI-driven" matches "AI and robotics", "deadweight loss" matches "DWL", etc.
+ */
+const ECON_SYNONYM_GROUPS: Array<{ trigger: RegExp; expansions: string[] }> = [
+  {
+    trigger: /\b(?:supply\s+elasticity|elasticity\s+of\s+supply|pes)\b/i,
+    expansions: ["pes", "elastic", "elasticity", "supply"],
+  },
+  {
+    trigger: /\b(?:demand\s+elasticity|elasticity\s+of\s+demand|ped)\b/i,
+    expansions: ["ped", "elastic", "inelastic", "elasticity", "demand"],
+  },
+  {
+    trigger: /\b(?:income\s+elasticity|yed)\b/i,
+    expansions: ["yed", "income", "elasticity"],
+  },
+  {
+    trigger: /\b(?:cross\s+elasticity|xed)\b/i,
+    expansions: ["xed", "cross", "substitute", "complement"],
+  },
+  {
+    trigger: /\b(?:ai|artificial\s+intelligence|robotics|automation)\b/i,
+    expansions: ["ai", "robotics", "automation", "capital", "technology"],
+  },
+  {
+    trigger: /\b(?:msb|marginal\s+social\s+benefit)\b/i,
+    expansions: ["msb", "social", "benefit", "externality"],
+  },
+  {
+    trigger: /\b(?:mpb|marginal\s+private\s+benefit)\b/i,
+    expansions: ["mpb", "private", "benefit"],
+  },
+  {
+    trigger: /\b(?:msc|marginal\s+social\s+cost)\b/i,
+    expansions: ["msc", "social", "cost"],
+  },
+  {
+    trigger: /\b(?:mpc|marginal\s+private\s+cost)\b/i,
+    expansions: ["mpc", "private", "cost"],
+  },
+  {
+    trigger: /\b(?:deadweight|welfare\s+loss|dwl)\b/i,
+    expansions: ["dwl", "deadweight", "welfare", "loss"],
+  },
+  {
+    trigger: /\b(?:aggregate\s+demand|\bad\b)\b/i,
+    expansions: ["ad", "aggregate", "demand"],
+  },
+  {
+    trigger: /\b(?:aggregate\s+supply|\bas\b|\blras\b|\bsras\b)\b/i,
+    expansions: ["as", "sras", "lras", "aggregate", "supply"],
+  },
+  {
+    trigger: /\b(?:economies\s+of\s+scale|eos)\b/i,
+    expansions: ["economies", "scale", "eos", "average"],
+  },
+  {
+    trigger: /\b(?:marshall[\s-]*lerner)\b/i,
+    expansions: ["marshall", "lerner", "depreciation", "pedx", "pedm"],
+  },
+  {
+    trigger: /\b(?:opportunity\s+cost|budget\s+deficit|fiscal)\b/i,
+    expansions: ["opportunity", "deficit", "budget", "spending", "expensive"],
+  },
+];
+
+/**
+ * Extracts exact verbatim quotes inside diagnostic text (e.g. "..." or '...').
+ */
+function extractQuotedSpans(text: string): string[] {
+  const quotes: string[] = [];
+  const regex = /[“"']([^“"']{8,140})[”"']/g;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(text)) !== null) {
+    const q = m[1].trim();
+    if (q.length >= 8) quotes.push(q);
+  }
+  return quotes;
+}
+
+/**
+ * Tokenizes a block of text cleanly (preserving short economics acronyms like AI, AD, AS, MC, MR, AC, AR, PED, PES).
+ */
+function tokenizeEconomicsText(text: string): string[] {
+  // Replace punctuation AND hyphens with spaces so "AI-driven" yields ["ai", "driven"]
+  const clean = text.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
+  return clean
+    .split(/\s+/)
+    .filter((w) => (w.length >= 3 || /^(?:ai|ad|as|mc|mr|ac|ar|lr|sr)$/i.test(w)) && !STOP_WORDS.has(w))
+    .map(stemEconWord);
+}
+
+/**
+ * Extracts high-information economic keywords, stemmed tokens, synonyms, quotes, and bigrams.
+ */
+function extractDiagnosticKeywords(text: string): {
+  words: string[];
+  phrases: string[];
+  quotes: string[];
+} {
+  const rawTokens = tokenizeEconomicsText(text);
+  const wordSet = new Set<string>(rawTokens);
+
+  for (const group of ECON_SYNONYM_GROUPS) {
+    if (group.trigger.test(text)) {
+      for (const exp of group.expansions) {
+        wordSet.add(stemEconWord(exp));
+      }
+    }
+  }
+
+  // Extract key 2-word collocations on hyphen-split text
+  const cleanTokens = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
   const phrases: string[] = [];
-  for (let i = 0; i < tokens.length - 1; i++) {
-    const w1 = tokens[i];
-    const w2 = tokens[i + 1];
-    if (w1.length >= 3 && w2.length >= 3 && !STOP_WORDS.has(w1) && !STOP_WORDS.has(w2)) {
+  for (let i = 0; i < cleanTokens.length - 1; i++) {
+    const w1 = cleanTokens[i];
+    const w2 = cleanTokens[i + 1];
+    if (
+      (w1.length >= 3 || /^(?:ai|ad|as)$/i.test(w1)) &&
+      (w2.length >= 3 || /^(?:ai|ad|as)$/i.test(w2)) &&
+      !STOP_WORDS.has(w1) &&
+      !STOP_WORDS.has(w2)
+    ) {
       phrases.push(`${w1} ${w2}`);
     }
   }
 
-  return { words: Array.from(new Set(rawWords)), phrases: Array.from(new Set(phrases)) };
+  return {
+    words: Array.from(wordSet),
+    phrases: Array.from(new Set(phrases)),
+    quotes: extractQuotedSpans(text),
+  };
+}
+
+/**
+ * Computes document-frequency weights across all text paragraphs so ubiquitous terms
+ * (e.g. "subsidy" appearing in 6 paragraphs) don't drown out rare, discriminating terms
+ * (e.g. "ai", "robotics", "pes", "teachers", "bureaucracy").
+ */
+function computeIdfWeights(textBlocks: ParagraphBlock[]): Map<string, number> {
+  const docFreq = new Map<string, number>();
+  const n = Math.max(1, textBlocks.length);
+
+  for (const block of textBlocks) {
+    const uniqueStems = new Set(tokenizeEconomicsText(block.text));
+    for (const s of uniqueStems) {
+      docFreq.set(s, (docFreq.get(s) ?? 0) + 1);
+    }
+  }
+
+  const weights = new Map<string, number>();
+  for (const [term, df] of docFreq.entries()) {
+    // Smooth IDF: rare (1/9) => ~2.3, common (6/9) => ~0.65
+    weights.set(term, Math.log((n + 1) / (df + 0.5)) + 0.4);
+  }
+  return weights;
 }
 
 /**
@@ -471,8 +637,9 @@ function findBestMatchingParagraphBlock(
   const explicit = findExplicitParagraphIndex(diagnosticText, textBlocks);
   if (explicit) return explicit;
 
-  // 2. Extract keywords and bigram phrases
-  const { words, phrases } = extractDiagnosticKeywords(diagnosticText);
+  // 2. Extract keywords, stems, synonyms, quotes, and IDF weights across essay paragraphs
+  const { words, phrases, quotes } = extractDiagnosticKeywords(diagnosticText);
+  const idfWeights = computeIdfWeights(textBlocks);
 
   // 3. Score each candidate text paragraph
   let bestBlock = textBlocks[0];
@@ -481,49 +648,54 @@ function findBestMatchingParagraphBlock(
   textBlocks.forEach((block, idx) => {
     let score = 0;
     const lowerPara = block.text.toLowerCase();
+    const normPara = lowerPara.replace(/\s+/g, " ");
+    const paraStemSet = new Set(tokenizeEconomicsText(block.text));
 
-    // Phrase matches: +12 points each
+    // Exact verbatim quote match inside this paragraph: overwhelming anchor (+45)
+    for (const q of quotes) {
+      const normQ = q.toLowerCase().replace(/\s+/g, " ").trim();
+      if (normQ.length >= 8 && normPara.includes(normQ)) {
+        score += 45;
+      }
+    }
+
+    // Phrase matches with word-boundary safety: +12 points each
     for (const phrase of phrases) {
-      if (lowerPara.includes(phrase)) {
+      const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`, "i").test(lowerPara)) {
         score += 12;
       }
     }
 
-    // Keyword matches: +3 points each
-    for (const word of words) {
-      if (lowerPara.includes(word)) {
-        score += 3;
+    // IDF-weighted stemmed token matches: rare discriminating concepts ("ai", "pes", "robotics")
+    // dominate common boilerplate words ("subsidies", "government", "market")
+    for (const stem of words) {
+      if (paraStemSet.has(stem)) {
+        const idf = idfWeights.get(stem) ?? 1.2;
+        score += idf * 5.0;
       }
     }
 
-    // Category-specific calibration
+    // Category-specific calibration (gentle tie-breakers so topical IDF always wins)
     if (category === "evaluation") {
-      // Evaluative markers: "however", "depends on", "in conclusion", "short run vs long run", etc.
       const hasEvalMarker =
         /\b(?:however|on the other hand|in contrast|nevertheless|alternatively|depends?\s+(?:on|upon)|short[\s-]run|long[\s-]run|in conclusion|overall|weighing|on balance|to what extent)\b/i.test(
           lowerPara,
         );
-      if (hasEvalMarker) score += 10;
-      // Evaluation is naturally in latter half of essay
-      if (idx >= Math.floor(textBlocks.length / 2)) score += 4;
-      // If starts with "however" or "in conclusion", extra confidence
-      if (/^(?:however|on the other hand|in conclusion|overall)/i.test(block.text.trim())) score += 8;
+      if (hasEvalMarker) score += 6;
+      if (idx >= Math.floor(textBlocks.length / 2)) score += 3;
+      if (/^(?:however|on the other hand|in conclusion|overall)/i.test(block.text.trim())) score += 5;
     } else if (category === "analysis") {
-      // Causal transmission markers: "leads to", "consequently", "causes", "therefore", "shifts"
       const hasCausalMarker =
         /\b(?:leads?\s+to|causes?|consequently|therefore|as a result|shifts?|creates?|results?\s+in|transmission|contracts?|extends?|multiplier)\b/i.test(
           lowerPara,
         );
-      if (hasCausalMarker) score += 6;
-      // Analytical body paragraphs are typically ¶2 and later, but not the final conclusion paragraph
-      if (idx >= 1 && idx < textBlocks.length - 1) score += 5;
-      // Slight deduction for introductory definition paragraph
-      if (idx === 0) score -= 6;
+      if (hasCausalMarker) score += 2.5;
+      if (idx >= 1 && idx < textBlocks.length - 1) score += 2;
+      if (idx === 0) score -= 4;
     } else if (category === "knowledge") {
-      // General definitions are usually in opening paragraph unless a specific term matched later
       if (idx === 0 && score === 0) score += 6;
     } else if (category === "diagram") {
-      // For diagram omission: paragraph discussing equilibrium, shifts, curves, or market mechanisms
       if (
         /\b(?:equilibrium|supply|demand|curve|shift|shortage|surplus|price|quantity|deadweight|cost|revenue|output|gdp)\b/i.test(
           lowerPara,
@@ -534,11 +706,9 @@ function findBestMatchingParagraphBlock(
       if (idx >= 1) score += 4;
     }
 
-    // Collision avoidance: if another comment already targeted this paragraph,
-    // apply a minor penalty to encourage diverse annotations across the essay,
-    // but allow it if keyword score is substantially higher
+    // Collision avoidance: encourage spreading cards across paragraphs without overriding strong topic matches
     if (usedBlockIndices.has(block.index)) {
-      score -= 8;
+      score -= 6;
     }
 
     if (score > highestScore) {
@@ -572,35 +742,44 @@ function extractBestHighlightSentence(
     return (rawSentences[0] || paraText).trim();
   }
 
-  const { words, phrases } = extractDiagnosticKeywords(diagnosticText);
+  const { words, phrases, quotes } = extractDiagnosticKeywords(diagnosticText);
   let bestSentence = rawSentences[0];
   let highestScore = -Infinity;
 
   rawSentences.forEach((sentence) => {
     let score = 0;
     const lower = sentence.toLowerCase();
+    const normSent = lower.replace(/\s+/g, " ");
+    const sentStems = new Set(tokenizeEconomicsText(sentence));
+
+    // Verbatim quote inside this sentence
+    for (const q of quotes) {
+      const normQ = q.toLowerCase().replace(/\s+/g, " ").trim();
+      if (normQ.length >= 8 && normSent.includes(normQ)) score += 40;
+    }
 
     // Phrase matches
     for (const phrase of phrases) {
-      if (lower.includes(phrase)) score += 10;
+      const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`, "i").test(lower)) score += 10;
     }
 
-    // Word matches
-    for (const word of words) {
-      if (lower.includes(word)) score += 3;
+    // Stemmed + synonym token matches
+    for (const stem of words) {
+      if (sentStems.has(stem)) score += 4;
     }
 
-    // Category clues
+    // Category clues (light tie-breakers)
     if (category === "evaluation") {
       if (/^(?:however|on the other hand|in conclusion|overall|nevertheless|in contrast)/i.test(sentence)) {
-        score += 8;
+        score += 5;
       }
       if (/\b(?:depends?\s+(?:on|upon)|short[\s-]run|long[\s-]run|weigh|trade-off)\b/i.test(lower)) {
-        score += 6;
+        score += 4;
       }
     } else if (category === "analysis") {
-      if (/\b(?:leads?\s+to|causes?|consequently|therefore|as a result|shifts?|transmission)\b/i.test(lower)) {
-        score += 6;
+      if (/\b(?:leads?\s+to|causes?|consequently|therefore|as a result|shifts?|transmission|pes|elastic)\b/i.test(lower)) {
+        score += 3;
       }
     }
 
@@ -949,6 +1128,96 @@ export function isDiagramThoroughlyExplained(
 }
 
 /**
+ * Matches a Pass 4 card's critique & targeted paragraph against unused entries in
+ * `grading.actionable_feedback` using IDF-weighted stem/synonym overlap.
+ * Prevents falling back to generic boilerplate whenever the real actionable bullet
+ * uses different phrasing (e.g., "PES" instead of "chain" or "mechanism").
+ */
+function pickActionableSuggestion(params: {
+  critique: string;
+  category: "diagram" | "analysis" | "evaluation" | "knowledge";
+  actionableFeedback: string[];
+  usedActionableIndices: Set<number>;
+  targetBlockText: string;
+  idfWeights: Map<string, number>;
+}): string | null {
+  const { critique, category, actionableFeedback, usedActionableIndices, targetBlockText, idfWeights } = params;
+  if (!actionableFeedback || actionableFeedback.length === 0) return null;
+
+  const critiqueTokens = new Set(extractDiagnosticKeywords(critique).words);
+  const paraTokens = new Set(tokenizeEconomicsText(targetBlockText));
+
+  const categoryRegex: Record<typeof category, RegExp> = {
+    diagram: /\b(diagram|figure|curve|axis|axes|shift|label|coordinate|j[\s-_]*curve)\b/i,
+    analysis: /\b(explain|trace|link|step|cost|price|supply|demand|pes|ped|shift|chain|mechanism|transmission|subsid|tax|revenue|output|profit|ms[bc]|mp[bc])\b/i,
+    evaluation: /\b(evaluat|weigh|rank|prioriti[sz]e|compar|judgement|judgment|conclusion|criterion|criteria|depend|trade[\s-]*off|short[\s-]*run|long[\s-]*run|elastic)\b/i,
+    knowledge: /\b(defin|term|terminology|concept|formula|distinguish|distinction|accurate|precision)\b/i,
+  };
+
+  let bestIdx = -1;
+  let bestScore = 0;
+
+  actionableFeedback.forEach((item, idx) => {
+    if (usedActionableIndices.has(idx) || !item || !item.trim()) return;
+    let score = 0;
+    const itemTokens = new Set(extractDiagnosticKeywords(item).words);
+
+    for (const t of itemTokens) {
+      const w = idfWeights.get(t) ?? 1.2;
+      if (critiqueTokens.has(t)) score += w * 4.5;
+      if (paraTokens.has(t)) score += w * 2.5;
+    }
+
+    if (categoryRegex[category].test(item)) {
+      score += 3;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  });
+
+  if (bestIdx >= 0 && bestScore >= 4.0) {
+    usedActionableIndices.add(bestIdx);
+    return actionableFeedback[bestIdx];
+  }
+  return null;
+}
+
+/**
+ * Builds a concise, paragraph-grounded rewrite suggestion when `actionable_feedback`
+ * had no unused match, referencing the exact concepts detected in the critique/paragraph
+ * rather than emitting generic textbook boilerplate.
+ */
+function buildContextualSuggestionFallback(
+  critique: string,
+  targetBlockText: string,
+  category: "analysis" | "evaluation" | "knowledge",
+): string {
+  const { words } = extractDiagnosticKeywords(critique);
+  const paraStems = new Set(tokenizeEconomicsText(targetBlockText));
+  const sharedConcepts = words
+    .filter((w) => paraStems.has(w) && w.length >= 2)
+    .slice(0, 3);
+  const topicLabel = sharedConcepts.length > 0 ? sharedConcepts.join(" / ") : "this point";
+
+  if (category === "analysis") {
+    return sharedConcepts.length > 0
+      ? `Spell out each intermediate step connecting ${topicLabel} here: explain the cost or incentive adjustment, how market price and quantity respond, and the resulting impact on market welfare.`
+      : "Trace the intermediate price, cost, or incentive adjustment explicitly in this paragraph before stating the final market outcome.";
+  }
+  if (category === "evaluation") {
+    return sharedConcepts.length > 0
+      ? `Weigh ${topicLabel} explicitly against an evaluative criterion (time horizon, elasticity magnitude, or opportunity cost) and state which force dominates in your final judgement.`
+      : "Rank which argument matters most here using an explicit criterion (short vs long run, elasticity size, or fiscal trade-off) and reach a decisive verdict.";
+  }
+  return sharedConcepts.length > 0
+    ? `Sharpen the formal Cambridge 9708 definition and theoretical boundary for ${topicLabel} directly in this paragraph.`
+    : "State the exact textbook Cambridge 9708 definition and theoretical distinction cleanly before applying it.";
+}
+
+/**
  * Pass 4: In-situ diagnostic alignment pass that compares the dual-examiner
  * candidate report against the candidate script, decoding diagram integration
  * and mapping specific weaknesses directly to paragraphs/sentences.
@@ -965,8 +1234,15 @@ export function generatePass4Comments(
   const blocks = parseParagraphBlocks(essayText, diagramMatches);
   if (blocks.length === 0) return [];
 
-  // Track weakness texts already mapped to prevent duplicate diagnostics across categories
+  const textBlocks = blocks.filter((b) => !b.isDiagram);
+  const idfWeights = computeIdfWeights(textBlocks);
+  const actionableFeedback = Array.isArray(grading.actionable_feedback)
+    ? grading.actionable_feedback
+    : [];
+
+  // Track weakness texts & actionable items already mapped to prevent duplicate diagnostics
   const usedWeaknessTexts = new Set<string>();
+  const usedActionableIndices = new Set<number>();
   // Track block indices already targeted by a comment to disperse annotations
   const usedBlockIndices = new Set<number>();
 
@@ -977,7 +1253,6 @@ export function generatePass4Comments(
   const formatSuggestion = (rawSuggestion: string, fallback: string) => {
     if (!isFullMarks) return rawSuggestion || fallback;
     let s = rawSuggestion || fallback;
-    // Strip deficit-oriented phrases
     s = s.replace(/to push toward full marks[.,]?\s*/gi, "");
     s = s.replace(/to secure full level \d+ (?:ao\d+ )?marks[.,]?\s*/gi, "");
     s = s.replace(/to gain level \d+ (?:ao\d+ )?credit[.,]?\s*/gi, "");
@@ -991,7 +1266,6 @@ export function generatePass4Comments(
   // 1. Pass 4: Decode Diagram Placement & Integration
   if (diagramMatches.length > 0) {
     diagramMatches.forEach((m, idx) => {
-      // Find the specific block where this diagram sits
       let targetBlock = blocks.find(
         (b) =>
           b.isDiagram &&
@@ -1008,7 +1282,6 @@ export function generatePass4Comments(
 
       const targetIndex = targetBlock ? targetBlock.index : 0;
       const targetLabel = targetBlock ? targetBlock.label : "Diagram";
-      // Check whether preceding, subsequent, or surrounding analysis thoroughly explains this diagram
       const hasDetailedExplanation = isDiagramThoroughlyExplained(
         m.title,
         targetIndex,
@@ -1016,7 +1289,6 @@ export function generatePass4Comments(
         essayText,
       );
 
-      // Check whether the Cambridge AI examiner flagged an explicit diagram deficiency
       const missingDiagramNotes = grading.missing_elements?.diagrams || [];
       const hasExaminerDiagramDefect =
         missingDiagramNotes.length > 0 ||
@@ -1026,8 +1298,6 @@ export function generatePass4Comments(
           ),
         );
 
-      // If the student placed the diagram AND thoroughly explained it in the accompanying text,
-      // and the examiner has not flagged any diagram defect, DO NOT generate an unsolicited critique comment!
       if (hasDetailedExplanation && !hasExaminerDiagramDefect) {
         return;
       }
@@ -1041,9 +1311,15 @@ export function generatePass4Comments(
           ? missingDiagramNotes[0]
           : guidance.critique;
 
-      const rawSuggestion =
-        grading.actionable_feedback?.find((f) => /diagram|figure|curve|shift|j[\s-_]*curve/i.test(f)) ||
-        guidance.suggestion;
+      const matchedActionable = pickActionableSuggestion({
+        critique: `${critique} ${m.title} diagram`,
+        category: "diagram",
+        actionableFeedback,
+        usedActionableIndices,
+        targetBlockText: m.title,
+        idfWeights,
+      });
+      const rawSuggestion = matchedActionable || guidance.suggestion;
 
       comments.push({
         id: `pass4-diagram-${idx}`,
@@ -1059,7 +1335,6 @@ export function generatePass4Comments(
       });
     });
   } else {
-    // If no diagram was included at all, highlight where a diagram should be integrated
     const targetBlock = findBestMatchingParagraphBlock(
       "diagram curves shifts market equilibrium transmission mechanism",
       "diagram",
@@ -1094,16 +1369,66 @@ export function generatePass4Comments(
     });
   }
 
-  // 2. Pass 4: Map AO2 Causal Analysis Weaknesses
-  const analysisWeakness =
-    grading.weaknesses?.find(
-      (w) =>
-        !usedWeaknessTexts.has(w) &&
-        /\b(analysis|causal|mechanism|mechanisms|chain|transmission|transmission\s+link|link|links|multiplier|transmission\s+mechanism)\b/i.test(w),
-    ) ||
-    grading.missing_elements?.analysis?.find((w) => !usedWeaknessTexts.has(w));
+  // 2. Pass 4: Map Deterministic Neuro-Symbolic Economic Law Violations (if any)
+  const neuroViolations = grading.neuro_symbolic?.violations ?? [];
+  for (let vIdx = 0; vIdx < Math.min(2, neuroViolations.length); vIdx++) {
+    const v = neuroViolations[vIdx];
+    const queryWithQuote = `"${v.quote}" ${v.explanation}`;
+    const targetBlock = findBestMatchingParagraphBlock(
+      queryWithQuote,
+      "analysis",
+      blocks,
+      usedBlockIndices,
+    );
+    usedBlockIndices.add(targetBlock.index);
+    const highlightSentence = extractBestHighlightSentence(targetBlock.text, queryWithQuote, "analysis");
+    const matchedActionable = pickActionableSuggestion({
+      critique: v.explanation,
+      category: "analysis",
+      actionableFeedback,
+      usedActionableIndices,
+      targetBlockText: targetBlock.text,
+      idfWeights,
+    });
 
-  if (analysisWeakness) {
+    comments.push({
+      id: vIdx === 0 ? "pass4-causal-violation" : `pass4-causal-violation-${vIdx}`,
+      category: "analysis",
+      title: "AO2 Economic Mechanism: Directional Error",
+      badge: v.severity === "fatal" ? "Fatal Mechanism Error" : "Conceptual Slip",
+      color: "rose",
+      paragraphIndex: targetBlock.index,
+      paragraphLabel: targetBlock.label,
+      highlightText: highlightSentence,
+      critique: stripScoreFractionsFromText(stripStars(v.explanation)),
+      suggestion: stripScoreFractionsFromText(
+        stripStars(formatSuggestion(matchedActionable || v.law, v.law)),
+      ),
+    });
+  }
+
+  // 3. Pass 4: Map AO2 Causal Analysis Weaknesses (up to 2 distinct issues)
+  const analysisCandidates: string[] = [];
+  for (const w of grading.weaknesses ?? []) {
+    if (
+      !usedWeaknessTexts.has(w) &&
+      /\b(analysis|causal|mechanism|mechanisms|chain|transmission|link|links|multiplier|under-explained|underdeveloped|shift|elasticity|pes|ped)\b/i.test(
+        w,
+      ) &&
+      !/\b(?:diagram|figure|curve|axes|axis|unlabelled|unintegrated)\b/i.test(w)
+    ) {
+      analysisCandidates.push(w);
+    }
+  }
+  for (const w of grading.missing_elements?.analysis ?? []) {
+    if (!usedWeaknessTexts.has(w)) {
+      analysisCandidates.push(w);
+    }
+  }
+
+  const maxAnalysisCards = Math.max(0, 2 - neuroViolations.length);
+  for (let aIdx = 0; aIdx < Math.min(maxAnalysisCards, analysisCandidates.length); aIdx++) {
+    const analysisWeakness = analysisCandidates[aIdx];
     usedWeaknessTexts.add(analysisWeakness);
 
     const bestBlock = findBestMatchingParagraphBlock(
@@ -1118,12 +1443,23 @@ export function generatePass4Comments(
     usedBlockIndices.add(targetIndex);
     const highlightSentence = extractBestHighlightSentence(bestBlock.text, analysisWeakness, "analysis");
 
-    const rawSuggestion =
-      grading.actionable_feedback?.find((f) => /chain|reasoning|transmission|mechanism/i.test(f)) ||
-      "State every intermediate link in your economic chain: explain the shock, transmission through prices, and final market outcome.";
+    const contextualFallback = buildContextualSuggestionFallback(
+      analysisWeakness,
+      bestBlock.text,
+      "analysis",
+    );
+    const matchedActionable = pickActionableSuggestion({
+      critique: analysisWeakness,
+      category: "analysis",
+      actionableFeedback,
+      usedActionableIndices,
+      targetBlockText: bestBlock.text,
+      idfWeights,
+    });
+    const rawSuggestion = matchedActionable || contextualFallback;
 
     comments.push({
-      id: "pass4-analysis-gap",
+      id: aIdx === 0 ? "pass4-analysis-gap" : `pass4-analysis-gap-${aIdx}`,
       category: "analysis",
       title: isFullMarks ? "AO2 Synoptic Analysis: Extension & Edge Cases" : "AO2 Causal Analysis: Mechanism Transmission",
       badge: isFullMarks ? "Extension Tip" : "Analysis Gap",
@@ -1132,60 +1468,86 @@ export function generatePass4Comments(
       paragraphLabel: targetLabel,
       highlightText: highlightSentence,
       critique: stripScoreFractionsFromText(stripStars(analysisWeakness)),
-      suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, "Consider detailing secondary economic feedbacks (e.g. wage pressures or capacity limits)."))),
+      suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, contextualFallback))),
     });
   }
 
-  // 3. Pass 4: Map AO3 Critical Evaluation Weaknesses
-  const evalWeakness =
-    grading.weaknesses?.find(
-      (w) =>
-        !usedWeaknessTexts.has(w) &&
-        /\b(evaluat|evaluation|conclusion|judgement|balance|depend|depends|criterion|criteria|short run|elasticity)\b/i.test(w),
-    ) ||
-    grading.missing_elements?.evaluation?.find((w) => !usedWeaknessTexts.has(w)) ||
-    (grading.ao_breakdown?.evaluation?.out_of &&
+  // 4. Pass 4: Map AO3 Critical Evaluation Weaknesses (up to 2 distinct issues)
+  const evalCandidates: string[] = [];
+  for (const w of grading.weaknesses ?? []) {
+    if (
+      !usedWeaknessTexts.has(w) &&
+      /\b(evaluat|evaluation|conclusion|judgement|judgment|balance|depend|depends|criterion|criteria|short run|long run|rank|prioriti[sz]|trade[\s-]*off)\b/i.test(
+        w,
+      )
+    ) {
+      evalCandidates.push(w);
+    }
+  }
+  for (const w of grading.missing_elements?.evaluation ?? []) {
+    if (!usedWeaknessTexts.has(w)) {
+      evalCandidates.push(w);
+    }
+  }
+  if (
+    evalCandidates.length === 0 &&
+    grading.ao_breakdown?.evaluation?.out_of &&
     grading.ao_breakdown.evaluation.out_of > 0 &&
     (grading.ao_breakdown.evaluation.awarded ?? 0) < grading.ao_breakdown.evaluation.out_of &&
     grading.ao_breakdown.evaluation.comment &&
     !usedWeaknessTexts.has(grading.ao_breakdown.evaluation.comment)
-      ? grading.ao_breakdown.evaluation.comment
-      : null);
-
-  if (evalWeakness && blocks.filter((b) => !b.isDiagram).length >= 2) {
-    usedWeaknessTexts.add(evalWeakness);
-
-    const evalBlock = findBestMatchingParagraphBlock(
-      evalWeakness,
-      "evaluation",
-      blocks,
-      usedBlockIndices,
-    );
-
-    const targetIndex = evalBlock.index;
-    const targetLabel = evalBlock.label;
-    usedBlockIndices.add(targetIndex);
-    const highlightSentence = extractBestHighlightSentence(evalBlock.text, evalWeakness, "evaluation");
-
-    const rawSuggestion =
-      grading.actionable_feedback?.find((f) => /evaluat|weigh|criterion|conclusion/i.test(f)) ||
-      "Explicitly weigh competing viewpoints against a defined economic criterion (e.g. time frame, PED elasticity, magnitude) before writing your final verdict.";
-
-    comments.push({
-      id: "pass4-eval-gap",
-      category: "evaluation",
-      title: isFullMarks ? "AO3 Evaluative Sophistication: Distinction Depth" : "AO3 Critical Evaluation: Depth & Weighing",
-      badge: isFullMarks ? "Examiner Note" : "Evaluation Gap",
-      color: isFullMarks ? "emerald" : "sky",
-      paragraphIndex: targetIndex,
-      paragraphLabel: targetLabel,
-      highlightText: highlightSentence,
-      critique: stripScoreFractionsFromText(stripStars(evalWeakness)),
-      suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, "Explicitly weigh competing viewpoints against a defined economic criterion (e.g. time frame or elasticity bounds)."))),
-    });
+  ) {
+    evalCandidates.push(grading.ao_breakdown.evaluation.comment);
   }
 
-  // 4. Pass 4: Map AO1 Knowledge / Terminology Gaps (if any)
+  if (evalCandidates.length > 0 && textBlocks.length >= 2) {
+    for (let eIdx = 0; eIdx < Math.min(2, evalCandidates.length); eIdx++) {
+      const evalWeakness = evalCandidates[eIdx];
+      usedWeaknessTexts.add(evalWeakness);
+
+      const evalBlock = findBestMatchingParagraphBlock(
+        evalWeakness,
+        "evaluation",
+        blocks,
+        usedBlockIndices,
+      );
+
+      const targetIndex = evalBlock.index;
+      const targetLabel = evalBlock.label;
+      usedBlockIndices.add(targetIndex);
+      const highlightSentence = extractBestHighlightSentence(evalBlock.text, evalWeakness, "evaluation");
+
+      const contextualFallback = buildContextualSuggestionFallback(
+        evalWeakness,
+        evalBlock.text,
+        "evaluation",
+      );
+      const matchedActionable = pickActionableSuggestion({
+        critique: evalWeakness,
+        category: "evaluation",
+        actionableFeedback,
+        usedActionableIndices,
+        targetBlockText: evalBlock.text,
+        idfWeights,
+      });
+      const rawSuggestion = matchedActionable || contextualFallback;
+
+      comments.push({
+        id: eIdx === 0 ? "pass4-eval-gap" : `pass4-eval-gap-${eIdx}`,
+        category: "evaluation",
+        title: isFullMarks ? "AO3 Evaluative Sophistication: Distinction Depth" : "AO3 Critical Evaluation: Depth & Weighing",
+        badge: isFullMarks ? "Examiner Note" : "Evaluation Gap",
+        color: isFullMarks ? "emerald" : "sky",
+        paragraphIndex: targetIndex,
+        paragraphLabel: targetLabel,
+        highlightText: highlightSentence,
+        critique: stripScoreFractionsFromText(stripStars(evalWeakness)),
+        suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, contextualFallback))),
+      });
+    }
+  }
+
+  // 5. Pass 4: Map AO1 Knowledge / Terminology Gaps (if any)
   // Suppress "Terminology Gap" if student secured full AO1 knowledge marks and there are no explicit missing definitions
   const hasKnowledgeGap =
     (grading.ao_breakdown?.knowledge?.awarded ?? 0) < (grading.ao_breakdown?.knowledge?.out_of ?? 2) ||
@@ -1193,10 +1555,9 @@ export function generatePass4Comments(
 
   // Strict regex: must NOT match "acknowledge" as "knowledge"
   const knowledgeWeakness =
-    (hasKnowledgeGap || !isFullMarks)
+    hasKnowledgeGap || !isFullMarks
       ? grading.weaknesses?.find((w) => {
           if (usedWeaknessTexts.has(w)) return false;
-          // Exclude instances where "acknowledge" is used without actual terminology keywords
           if (/\backnowledg/i.test(w) && !/\b(definition|terminology|formula)\b/i.test(w)) return false;
           return (
             /\b(definition|definitions|terminology|terms|formula|concept|concepts)\b/i.test(w) ||
@@ -1220,6 +1581,21 @@ export function generatePass4Comments(
     usedBlockIndices.add(targetIndex);
     const highlightSentence = extractBestHighlightSentence(knowledgeBlock.text, knowledgeWeakness, "knowledge");
 
+    const contextualFallback = buildContextualSuggestionFallback(
+      knowledgeWeakness,
+      knowledgeBlock.text,
+      "knowledge",
+    );
+    const matchedActionable = pickActionableSuggestion({
+      critique: knowledgeWeakness,
+      category: "knowledge",
+      actionableFeedback,
+      usedActionableIndices,
+      targetBlockText: knowledgeBlock.text,
+      idfWeights,
+    });
+    const rawSuggestion = matchedActionable || contextualFallback;
+
     comments.push({
       id: "pass4-knowledge-gap",
       category: "knowledge",
@@ -1230,9 +1606,16 @@ export function generatePass4Comments(
       paragraphLabel: targetLabel,
       highlightText: highlightSentence,
       critique: stripScoreFractionsFromText(stripStars(knowledgeWeakness)),
-      suggestion: isFullMarks
-        ? "Full marks secured. For academic distinction: provide formal mathematical or textbook bounds for all economic variables."
-        : "Provide formal textbook definitions for all key economic variables in your opening framing to establish full AO1 credit.",
+      suggestion: stripScoreFractionsFromText(
+        stripStars(
+          isFullMarks
+            ? formatSuggestion(
+                rawSuggestion,
+                "Full marks secured. For academic distinction: provide formal mathematical or textbook bounds for all economic variables.",
+              )
+            : rawSuggestion,
+        ),
+      ),
     });
   }
 

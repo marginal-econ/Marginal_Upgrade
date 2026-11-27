@@ -89,8 +89,10 @@ export function useLiveExaminer(params: {
   blueprint?: QuestionRubricBlueprint | null;
   enabled: boolean;
   initialCache?: any;
+  tabId?: string;
+  onGuardError?: (err: Error) => void;
 }) {
-  const { text, question, level, maxMark, contextBlock, blueprint, enabled, initialCache } = params;
+  const { text, question, level, maxMark, contextBlock, blueprint, enabled, initialCache, tabId, onGuardError } = params;
   const checkFn = useServerFn(checkEssayWriting);
 
   // Document version and change history for rebasing
@@ -693,6 +695,7 @@ export function useLiveExaminer(params: {
               dirtySentences: dirtyPayloads,
               priorSummaries,
               blueprint: blueprint ?? undefined,
+              tabId: tabId || "default",
             },
           }),
           timeoutPromise,
@@ -700,6 +703,13 @@ export function useLiveExaminer(params: {
 
         // Ignore stale out-of-order response if a newer check or restart has occurred
         if (mySeq !== requestSeqRef.current) return;
+
+        // If the backend AI call failed, do NOT cache empty ao:null verdicts on dirty sentences
+        if ((result as any)?.checkFailed) {
+          setError("AI check briefly unavailable — instant local checks remain active.");
+          runLayerA(currentText);
+          return;
+        }
 
         if (!hasMoreBatches) {
           lastCheckedTextRef.current = trimmed;
@@ -866,7 +876,9 @@ export function useLiveExaminer(params: {
       } catch (err: any) {
         if (mySeq !== requestSeqRef.current) return;
         if (isDailyLimitError(err)) {
-          setError("Daily check limit reached. Instant local checks remain active.");
+          const errObj = err instanceof Error ? err : new Error(String(err));
+          setError(errObj.message);
+          onGuardError?.(errObj);
         } else {
           const rawMsg = err?.message || "";
           if (rawMsg.startsWith("[") || rawMsg.includes("invalid_type")) {
@@ -882,7 +894,7 @@ export function useLiveExaminer(params: {
         }
       }
     },
-    [blueprint, checkFn, contextBlock, enabled, level, maxMark, question, runLayerA],
+    [blueprint, checkFn, contextBlock, enabled, level, maxMark, onGuardError, question, runLayerA, tabId],
   );
 
   // Trigger cadence: synchronous Layer A (<15ms), smart delta-only Layer B ONLY on uncached completed sentences
