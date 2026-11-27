@@ -36,6 +36,7 @@ import {
   type DecomposedAoAudit,
 } from "./decomposed-ao.server";
 import { callOrthogonalFamily, type OrthogonalFamily } from "./multi-family-pool.server";
+import { runDynamicRubricAudit, type RubricAuditResult } from "./rubric-auditor.server";
 import {
   buildAoEvaluationDirective,
   buildPaperScopeDirective,
@@ -133,112 +134,108 @@ function alignGradingToTargetMark(
 }
 
 /**
- * Marginal Engine V5 4-Signal Psychometric Fusion Engine.
+ * Marginal Engine V6 — 5-Signal Trimmed-Mean Psychometric Fusion Engine.
  *
- * Combines FOUR independent orthogonal signals on 100% Free Groq keys:
+ * Combines FIVE independent orthogonal signals on 100% Free Groq keys:
  *  - P1     (OpenAI 120B Holistic Error Auditor)
  *  - P2     (Qwen 3.8 27B Holistic Positive Marker)
  *  - Decomp (Zero-Halo-Effect Decomposed AO1+AO2 + AO3 Micro-Specialists)
- *  - Comp   (Topic-Matched Blind Comparative Judgement vs real Cambridge ECR anchors)
- * plus Deterministic Off-Focus Ceiling & Neuro-Symbolic Fatal Violation guardrails.
+ *  - Rubric (Dynamic Question-Rubric & Evidence-Chain Auditor on OpenAI 20B)
+ *  - Comp   (Topic-Matched Blind Comparative Judgement when balanced anchors exist)
+ * Uses an unbiased Trimmed Mean (dropping min & max outlier when >= 4 signals exist)
+ * plus generalizable Cambridge evidence guardrails (off-focus, fatal sign-flip, descriptive L2 cap).
  */
 function computePsychometricEnsembleMark(params: {
   p1: number;
   p2: number;
   compMark: number | null;
   decomposed: DecomposedAoAudit | null;
+  rubric?: RubricAuditResult | null;
   maxMark: number;
   fatalViolations: number;
   moderateViolations?: number;
 }): number {
-  const { p1, p2, compMark, decomposed, maxMark, fatalViolations, moderateViolations = 0 } = params;
+  const {
+    p1,
+    p2,
+    compMark,
+    decomposed,
+    rubric = null,
+    maxMark,
+    fatalViolations,
+    moderateViolations = 0,
+  } = params;
 
-  // 1. Deterministic Off-Focus / Wrong-Direction Ceiling (catches fluent-but-wrong-policy scripts like 5/20!)
-  const severeOffFocus =
-    decomposed !== null &&
-    decomposed.wrongDirectionParagraphs >= 1 &&
-    decomposed.onFocusRatio < 0.75;
-
-  const diff = Math.abs(p1 - p2);
-  let baseMark: number;
-
-  if (diff <= 1) {
-    const hi = Math.max(p1, p2);
-    const lo = Math.min(p1, p2);
-    const hasViolations = fatalViolations > 0 || moderateViolations > 0;
-    const isLowBandConsensus = hi <= Math.round(maxMark * 0.45);
-    const compSignalsOvermarking =
-      compMark !== null &&
-      ((hasViolations && lo - compMark >= 1) ||
-        (lo - compMark >= 2 && decomposed !== null && decomposed.decomposedTotal <= lo - 1));
-    // Symmetric Comparative Guardrail: prevents dual-LLM agreement from bypassing Comparative Judge
-    // on low/mid bands OR when Neuro-Symbolic / Decomposed signals corroborate over-marking,
-    // while NEVER letting a high-only comparative score inflate a low-band consensus.
-    if (compSignalsOvermarking && compMark !== null) {
-      baseMark = hasViolations
-        ? Math.floor((p1 + p2 + compMark * 2) / 4)
-        : Math.round((p1 + p2 + compMark * 2) / 4);
-    } else if (compMark !== null && hi <= Math.round(maxMark * 0.6)) {
-      if (lo - compMark >= 2) {
-        baseMark = Math.round((p1 + p2 + compMark * 2) / 4);
-      } else if (compMark - hi >= 1 && !isLowBandConsensus && fatalViolations === 0) {
-        baseMark = Math.round((p1 + p2 + compMark) / 3);
-      } else {
-        baseMark =
-          fatalViolations === 0 && moderateViolations === 0 && maxMark <= 12
-            ? hi
-            : Math.round((p1 + p2) / 2);
-      }
-    } else if (fatalViolations === 0 && moderateViolations === 0 && maxMark <= 12) {
-      baseMark = hi;
-    } else {
-      baseMark = Math.round((p1 + p2) / 2);
-    }
-  } else if (compMark !== null) {
-    // Disagreement >= 2: 3-vote median tie-breaker
-    const sorted = [p1, p2, compMark].sort((a, b) => a - b);
-    baseMark = sorted[1];
-  } else {
-    baseMark = Math.round((p1 + p2) / 2);
-  }
-
-  // 2. Blend in Zero-Halo-Effect Decomposed AO Micro-Sum
-  let fused = baseMark;
+  // 1. Collect all valid independent mark signals
+  const signals: number[] = [p1, p2];
   if (decomposed && decomposed.decomposedTotal > 0) {
-    // On 20m Paper 4 essays with 3+ genuinely developed economic models/diagrams and zero off-focus/fatal issues,
-    // give Decomposed 50% weight so strong multi-diagram scripts aren't under-marked by a strict single pass.
-    const strong20mFramework =
-      maxMark >= 20 &&
-      decomposed.developedFrameworkCount >= 3 &&
-      decomposed.wrongDirectionParagraphs === 0 &&
-      fatalViolations === 0 &&
-      decomposed.decomposedTotal >= 14;
-    fused = strong20mFramework
-      ? Math.round(baseMark * 0.5 + decomposed.decomposedTotal * 0.5)
-      : Math.round(baseMark * 0.65 + decomposed.decomposedTotal * 0.35);
-
-    // 20m Paper 4 Level-2 Buzzword Guard: if an extended essay lacks developed models (<= 1 framework)
-    // and Decomposed AO2 is Level 2 (<= 8/12), prevent buzzword inflation into Level 3 (> 12/20).
-    if (
-      maxMark >= 20 &&
-      decomposed.developedFrameworkCount <= 1 &&
-      decomposed.ao2Awarded <= 8 &&
-      fused > 12
-    ) {
-      fused = 12;
+    signals.push(decomposed.decomposedTotal);
+  }
+  if (rubric && rubric.rubricEstimatedMark > 0) {
+    signals.push(rubric.rubricEstimatedMark);
+  }
+  if (compMark !== null) {
+    // Only include Comp if it doesn't wildly inflate a low-band P1/P2 consensus
+    const isLowBandConsensus = Math.max(p1, p2) <= Math.round(maxMark * 0.45);
+    if (!(isLowBandConsensus && compMark > Math.max(p1, p2) + 1)) {
+      signals.push(compMark);
     }
   }
 
-  // 3. Enforce Off-Focus Ceiling if candidate spent substantial page(s) on wrong policy direction
+  // 2. Unbiased Trimmed-Mean / Median Fusion (eliminates single-pass outliers & +1 hi-bias)
+  const sorted = [...signals].sort((a, b) => a - b);
+  let fused: number;
+  if (sorted.length >= 4) {
+    const trimmed = sorted.slice(1, -1);
+    const avg = trimmed.reduce((s, v) => s + v, 0) / trimmed.length;
+    fused = fatalViolations > 0 || moderateViolations > 0 ? Math.floor(avg) : Math.round(avg);
+  } else if (sorted.length === 3) {
+    fused = sorted[1];
+  } else {
+    const avg = sorted.reduce((s, v) => s + v, 0) / sorted.length;
+    fused = Math.round(avg);
+  }
+
+  // 3. Generalizable Cambridge Evidence Guardrails
+  const severeOffFocus =
+    (decomposed !== null &&
+      decomposed.wrongDirectionParagraphs >= 1 &&
+      decomposed.onFocusRatio < 0.75) ||
+    (rubric !== null &&
+      rubric.offFocusParagraphs >= 1 &&
+      (decomposed === null || decomposed.onFocusRatio < 0.78));
+
   if (severeOffFocus) {
     const level1Ceiling = maxMark >= 20 ? 6 : maxMark === 12 ? 4 : 3;
     fused = Math.min(fused, level1Ceiling);
   }
 
-  // 4. Enforce Fatal Sign-Flip Ceiling (e.g. inverted interest-rate -> borrowing cost)
   if (fatalViolations > 0) {
     const fatalCeiling = maxMark >= 20 ? 8 : maxMark === 12 ? 5 : 4;
     fused = Math.min(fused, fatalCeiling);
+  }
+
+  // 20m Paper 4 Level-2 Descriptive/Buzzword Ceiling: only cap at 12/20 when BOTH
+  // Rubric Auditor and Decomposed AO agree the script lacks developed models AND neither
+  // holistic examiner placed it solidly in Top Band (>= 15/20).
+  if (maxMark >= 20 && Math.max(p1, p2) < 15) {
+    const rubricDescriptive = rubric !== null && rubric.chainQuality === "descriptive_assertions";
+    const decompDescriptive =
+      decomposed !== null && decomposed.developedFrameworkCount <= 1 && decomposed.ao2Awarded <= 8;
+    if (rubricDescriptive && decompDescriptive && fused > 12) {
+      fused = 12;
+    }
+  }
+
+  // 12m Unreferenced Diagram + Generic/Asserted AO3 Ceiling: prevents Level 2 scripts from drifting into Top Band
+  if (
+    maxMark === 12 &&
+    rubric !== null &&
+    rubric.unreferencedDiagram &&
+    (rubric.ao3Verdict === "asserted_generic" || rubric.ao3Verdict === "none") &&
+    fused > 8
+  ) {
+    fused = 8;
   }
 
   return Math.max(0, Math.min(maxMark, fused));
@@ -640,12 +637,13 @@ export async function gradeEssay(
     activeModel = res.model || MODEL_EXAMINER;
     keyRotated = Boolean(res.keyRotated);
   } else {
-    // --- STAGE 1: V5 4-SIGNAL FREE-GROQ ORTHOGONAL PANEL (PARALLEL) ----------
+    // --- STAGE 1: V6 5-SIGNAL FREE-GROQ ORTHOGONAL PANEL (PARALLEL) ----------
     // Signal 1 (OpenAI 120B @ temp 0.0): Holistic Analytical & Causal-Graph Auditor
     // Signal 2 (Qwen 3.8 27B @ temp 0.15): Holistic Positive-Marking Cambridge Moderator
     // Signal 3 (OpenAI 120B @ temp 0.0): Topic-Matched Blind Comparative Judgement vs real Cambridge ECRs
     // Signal 4 (OpenAI 120B + Qwen 27B): Decomposed Zero-Halo AO1+AO2 / AO3 & Off-Focus Specialists
-    const [first, second, compResult, decomposedResult] = await Promise.all([
+    // Signal 5 (OpenAI 20B @ temp 0.0): Dynamic Question-Rubric & Evidence-Chain Auditor
+    const [first, second, compResult, decomposedResult, rubricResult] = await Promise.all([
       executeExaminerPass(pass1SystemPrompt, "grade_essay_pass1_error_audit", TEMPERATURE_PASS1, "openai_120b"),
       executeExaminerPass(pass2SystemPrompt, "grade_essay_pass2_holistic", 0.15, "qwen_27b"),
       runComparativeJudgement({
@@ -657,6 +655,13 @@ export async function gradeEssay(
         userId: options.userId,
       }),
       runDecomposedAoAudit({
+        question,
+        essayText,
+        maxMark,
+        split,
+        userId: options.userId,
+      }),
+      runDynamicRubricAudit({
         question,
         essayText,
         maxMark,
@@ -724,6 +729,7 @@ export async function gradeEssay(
       p2: grading2.total_mark,
       compMark: comparativeJudgement?.estimatedMark ?? null,
       decomposed: decomposedResult,
+      rubric: rubricResult,
       maxMark,
       fatalViolations,
       moderateViolations,
