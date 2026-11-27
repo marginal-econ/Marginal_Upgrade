@@ -33,7 +33,6 @@ import {
   Info,
   Sliders,
   Globe2,
-  PlayCircle,
 } from "lucide-react";
 import * as React from "react";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -47,7 +46,6 @@ import { DIAGRAMS } from "@/lib/diagrams/catalog";
 import type { DiagramEntry } from "@/lib/diagrams/types";
 import type { NavigationLayout } from "@/lib/account.functions";
 import { setPlatformNavLayout } from "@/components/app/app-shell";
-import { openPlatformTourVideo } from "@/components/app/platform-tour-video";
 
 export type SearchCategory = "all" | "pages" | "definitions" | "diagrams" | "papers" | "actions";
 
@@ -168,23 +166,6 @@ export function CommandPalette({
   // 1. Static platform pages and workspaces
   const pages: SearchResultItem[] = useMemo(() => {
     const list: SearchResultItem[] = [
-      {
-        id: "action-watch-tour-video",
-        title: "Watch Platform Tour Video (1:43)",
-        subtitle: "Full walkthrough of every Cambridge 9708 feature available to all users",
-        category: "actions",
-        categoryLabel: "Quick Actions",
-        icon: PlayCircle,
-        iconBg: "bg-primary/15",
-        iconColor: "text-primary",
-        badge: "Video",
-        badgeTone: "border-primary/30 text-primary bg-primary/10",
-        keywords: ["video", "tour", "walkthrough", "onboarding", "features", "watch", "guide"],
-        onSelect: () => {
-          onOpenChange(false);
-          openPlatformTourVideo();
-        },
-      },
       {
         id: "page-dashboard",
         title: "Candidate Dashboard",

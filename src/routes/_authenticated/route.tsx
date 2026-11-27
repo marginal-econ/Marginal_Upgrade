@@ -5,7 +5,6 @@ import { useCallback, useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { OnboardingTutorial } from "@/components/app/onboarding-tutorial";
-import { AuthenticatedPlatformTourHost } from "@/components/app/platform-tour-video";
 import { PrivacyConsent } from "@/components/app/privacy-consent";
 import { FeatureTutorialProvider } from "@/components/tutorials/tutorial-context";
 import { FeatureTutorialDialog } from "@/components/tutorials/feature-tutorial-dialog";
@@ -134,10 +133,6 @@ function AuthenticatedLayout() {
           onFinished={() => {}}
         />
         <FeatureTutorialDialog />
-        <AuthenticatedPlatformTourHost
-          userId={user.id}
-          canAutoShow={Boolean(privacyResolved && data !== undefined && !initialOnboardingActive)}
-        />
       </AppShell>
     </FeatureTutorialProvider>
   );
