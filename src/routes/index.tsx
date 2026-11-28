@@ -36,7 +36,9 @@ import {
   Trophy,
   Wand2,
   Zap,
+  PlayCircle,
 } from "lucide-react";
+import { PlatformTourVideoModal } from "@/components/app/platform-tour-video";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -386,6 +388,7 @@ function Index() {
   }, []);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [tourVideoOpen, setTourVideoOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
@@ -686,7 +689,18 @@ function Index() {
                     <span>Live Quiz (PIN)</span>
                   </Link>
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setTourVideoOpen(true)}
+                  className="h-12 px-4 text-sm font-semibold border-2 border-primary/35 bg-primary/8 hover:bg-primary/15 text-primary gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
+                >
+                  <PlayCircle className="size-4 shrink-0" />
+                  <span>Watch 2:23 Tour</span>
+                </Button>
               </div>
+              <PlatformTourVideoModal open={tourVideoOpen} onOpenChange={setTourVideoOpen} />
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                   <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> No credit card required
@@ -1338,6 +1352,7 @@ function TrialHome({
   const navigate = useNavigate();
   const [invitedBy, setInvitedBy] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [tourVideoOpen, setTourVideoOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
@@ -1531,7 +1546,7 @@ function TrialHome({
               </form>
 
               {/* CTA Action Row */}
-              <div className="flex flex-wrap items-center gap-4 pt-1">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Link
                   to={isAuthenticated ? "/grade" : "/auth"}
                   className="rounded-xs bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 text-sm font-semibold shadow-hard inline-flex items-center gap-2 cursor-pointer transition-all"
@@ -1539,10 +1554,19 @@ function TrialHome({
                   <span>Start practicing</span>
                   <ArrowRight className="size-4" />
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setTourVideoOpen(true)}
+                  className="rounded-xs border-2 border-primary/40 bg-primary/10 hover:bg-primary/15 text-primary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-all"
+                >
+                  <PlayCircle className="size-4 shrink-0" />
+                  <span>Watch 2:23 Tour</span>
+                </button>
                 <span className="text-xs text-muted-foreground font-mono">
                   Free. No account needed to explore.
                 </span>
               </div>
+              <PlatformTourVideoModal open={tourVideoOpen} onOpenChange={setTourVideoOpen} />
             </div>
 
             {/* Right Column: Hand-drawn Cambridge Economics Diagram (PaperGrinder Margin Art) */}

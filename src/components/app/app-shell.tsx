@@ -45,6 +45,7 @@ import {
   FileText,
   Info,
   Globe2,
+  PlayCircle,
 } from "lucide-react";
 import * as React from "react";
 import type { ReactNode } from "react";
@@ -81,6 +82,7 @@ import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { matchTutorialByPath } from "@/lib/tutorials-data";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
 import { CommandPalette } from "@/components/app/command-palette";
+import { openPlatformTourVideo } from "@/components/app/platform-tour-video";
 
 export type NavItem = {
   to: string;
@@ -1095,6 +1097,13 @@ export function AppShell({
                   <GraduationCap className="size-3.5 text-purple-500" />
                   <span>Feature Tutorials</span>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openPlatformTourVideo()}
+                  className="flex items-center gap-2 cursor-pointer text-xs"
+                >
+                  <PlayCircle className="size-3.5 text-primary" />
+                  <span>Watch Tour Video (2:23)</span>
+                </DropdownMenuItem>
                 <FeedbackDialog
                   trigger={
                     <div className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground w-full">
@@ -1423,6 +1432,16 @@ export function AppShell({
                   >
                     <GraduationCap className="size-4 text-purple-500" /> Feature Tutorials
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      openPlatformTourVideo();
+                    }}
+                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted w-full text-left cursor-pointer"
+                  >
+                    <PlayCircle className="size-4 text-primary" /> Watch Tour Video (2:23)
+                  </button>
 
                   <div className="flex items-center justify-between pt-2 border-t border-border/60">
                     <Link
@@ -1498,6 +1517,15 @@ export function AppShell({
               <SearchIcon className="size-3.5 text-primary" />
             </button>
             <TopTutorialButton size="sm" showLabel={false} className="size-8 p-0 justify-center shrink-0" />
+            <button
+              type="button"
+              onClick={() => openPlatformTourVideo()}
+              className="flex items-center justify-center size-8 rounded-lg border border-primary/25 bg-primary/8 hover:bg-primary/15 text-primary transition-colors cursor-pointer shadow-2xs shrink-0"
+              title="Watch Platform Tour Video (2:23)"
+              aria-label="Watch Platform Tour Video"
+            >
+              <PlayCircle className="size-3.5" />
+            </button>
             <LayoutSwitcherButton
               navLayout={navLayout}
               onChange={handleLayoutChange}
@@ -1593,6 +1621,13 @@ export function AppShell({
                 >
                   <GraduationCap className="size-3.5 text-purple-500" />
                   <span>Feature Tutorials</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openPlatformTourVideo()}
+                  className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                >
+                  <PlayCircle className="size-3.5 text-primary" />
+                  <span>Watch Tour Video (2:23)</span>
                 </DropdownMenuItem>
 
                 {/* Navigation Layout Switcher */}
@@ -1986,6 +2021,17 @@ export function AppShell({
                 />
               )}
 
+              {/* Watch Platform Tour Video Trigger */}
+              <button
+                type="button"
+                onClick={() => openPlatformTourVideo()}
+                className="flex items-center gap-1.5 h-8 px-2 xl:px-2.5 rounded-lg border border-primary/25 bg-primary/8 hover:bg-primary/15 text-xs font-semibold text-primary transition-all shadow-2xs cursor-pointer group shrink-0"
+                title="Watch 2:23 Platform Feature Tour Video"
+              >
+                <PlayCircle className="size-3.5 group-hover:scale-105 transition-transform shrink-0" />
+                <span className="hidden xl:inline">Watch Tour</span>
+              </button>
+
               {/* Send Feedback Dialog */}
               <FeedbackDialog
                 trigger={
@@ -2069,6 +2115,13 @@ export function AppShell({
                   >
                     <GraduationCap className="size-3.5 text-purple-500" />
                     <span>Feature Tutorials</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => openPlatformTourVideo()}
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <PlayCircle className="size-3.5 text-primary" />
+                    <span>Watch Tour Video (2:23)</span>
                   </DropdownMenuItem>
 
                   {/* Navigation Layout Switcher */}
@@ -2238,6 +2291,16 @@ export function AppShell({
                   }
                 />
               )}
+
+              <button
+                type="button"
+                onClick={() => openPlatformTourVideo()}
+                className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-primary/25 bg-primary/8 hover:bg-primary/15 text-xs font-semibold text-primary transition-all shadow-2xs cursor-pointer group shrink-0"
+                title="Watch 2:23 Platform Feature Tour Video"
+              >
+                <PlayCircle className="size-3.5 group-hover:scale-105 transition-transform shrink-0" />
+                <span className="hidden xl:inline">Watch Tour</span>
+              </button>
 
               <FeedbackDialog
                 trigger={
