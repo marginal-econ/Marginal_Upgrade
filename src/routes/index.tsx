@@ -310,14 +310,6 @@ const TOOLS = [
     href: "/diagrams",
   },
   {
-    icon: Flame,
-    tile: "bg-amber-600",
-    badge: "15-Yr Intelligence",
-    title: "Past Paper Topic Predictor",
-    body: "Statistical rotation modeling across 15 years of Cambridge 9708 exam papers (2010–2025).",
-    href: "/paper-matrix",
-  },
-  {
     icon: Scan,
     tile: "bg-ao1",
     badge: "Vision AI",

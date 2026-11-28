@@ -303,23 +303,6 @@ export function CommandPalette({
         },
       },
       {
-        id: "page-paper-matrix",
-        title: "15-Year Past Paper Predictor",
-        subtitle: "Examine 15 years of Cambridge 9708 exam trends, frequency heatmaps, and predicted question themes",
-        category: "pages",
-        categoryLabel: "Syllabus Hub",
-        icon: Flame,
-        iconBg: "bg-orange-500/10",
-        iconColor: "text-orange-500",
-        badge: "Trends",
-        badgeTone: "border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-500/10",
-        keywords: ["predictor", "matrix", "trends", "past papers", "frequency", "forecast", "15 year"],
-        onSelect: () => {
-          navigate({ to: "/paper-matrix" });
-          onOpenChange(false);
-        },
-      },
-      {
         id: "page-question-bank",
         title: "Official Cambridge Question Bank",
         subtitle: "Explore searchable past paper questions organized by syllabus section and marks",

@@ -156,12 +156,16 @@ export type McqDiagnostic = {
   correctReasoning: string;
   distractorTrap: string;
   speedTip: string;
+  /** Per-option economic elimination map so 1 shared cached v2 proof adapts to ANY student's chosen distractor */
+  optionNotes?: Partial<Record<"A" | "B" | "C" | "D", string>>;
 };
 
 export type McqExplanationResult = {
   text: string;
   diagnostic?: McqDiagnostic;
   visionGrounded?: boolean;
+  /** v2 = Answer-key-verified per-option explanation (replaces stale unversioned v1 cache) */
+  version?: number;
 };
 
 /** Fast in-memory cache for active server instances (paperId:number -> McqExplanationResult) */
@@ -321,15 +325,76 @@ export async function savePaperExplanationServer(
   }
 }
 
+function adaptCachedExplanationForStudent(
+  cached: McqExplanationResult,
+  correctAnswer: "A" | "B" | "C" | "D",
+  userAnswer: "A" | "B" | "C" | "D" | null,
+): McqExplanationResult {
+  const isCorrect = userAnswer !== null && userAnswer === correctAnswer;
+  const optionNotes = cached.diagnostic?.optionNotes;
+  const studentSpecificTrap =
+    !isCorrect && userAnswer && optionNotes?.[userAnswer]
+      ? optionNotes[userAnswer]!
+      : cached.diagnostic?.distractorTrap ?? "";
+
+  const adaptedDiagnostic: McqDiagnostic | undefined = cached.diagnostic
+    ? {
+        ...cached.diagnostic,
+        distractorTrap: studentSpecificTrap || cached.diagnostic.distractorTrap,
+      }
+    : undefined;
+
+  const formatted = formatThreeLineMcqFeedback({
+    explanation: adaptedDiagnostic ? { diagnostic: adaptedDiagnostic, text: cached.text } : cached,
+    correctAnswer,
+    userAnswer,
+    isCorrect,
+  });
+
+  return cleanStars({
+    text: formatted.plainText,
+    diagnostic: adaptedDiagnostic
+      ? {
+          ...adaptedDiagnostic,
+          concept: formatted.concept ?? adaptedDiagnostic.concept,
+          correctReasoning: formatted.line1.text,
+          distractorTrap: formatted.line2.text,
+          keyRule: formatted.line3.text,
+        }
+      : undefined,
+    visionGrounded: cached.visionGrounded,
+    version: cached.version,
+  });
+}
+
+function detectsAnswerContradiction(
+  reasoning: string,
+  correctAnswer: "A" | "B" | "C" | "D",
+): boolean {
+  const others = (["A", "B", "C", "D"] as const).filter((opt) => opt !== correctAnswer);
+  for (const wrong of others) {
+    const pattern = new RegExp(
+      `\\b(?:option|answer)\\s+${wrong}\\s+is\\s+(?:the\\s+)?(?:only\\s+)?(?:uniquely\\s+)?correct\\b`,
+      "i",
+    );
+    if (pattern.test(reasoning)) return true;
+  }
+  return false;
+}
+
 /**
- * Vision-grounded Principal Examiner explanation of why one question's
- * official Cambridge 9708 mark-scheme answer is uniquely correct.
+ * V2 Vision-Grounded, Answer-Key-Verified Principal Examiner MCQ Explanation.
  *
- * When a cropped PDF screenshot (`questionImageDataUrl`) is supplied, uses
- * high-resolution `visionChat()` FIRST so the examiner literally reads every
- * diagram axis, curve shift, shaded region, table cell, and option A/B/C/D
- * directly off the printed exam page. Automatically falls back to text-based
- * `chat()` with low reasoning effort if vision is unavailable.
+ * Fixes vs v1:
+ *  1. Per-Option Grounded Map (`optionNotes: { A, B, C, D }`): cached once under `version: 2`,
+ *     then dynamically adapted to WHICHEVER wrong option each student actually picked (fixes
+ *     v1's cross-student cache contamination!).
+ *  2. Higher-fidelity Vision (`maxCompletionTokens: 1200`) + Medium-Reasoning Text (`temp 0.0`)
+ *     so diagram axes, curve shifts, shaded areas (W/X/Y/Z), and calculations are verified accurately.
+ *  3. Hard Answer-Key Reconciliation Gate: if the model's `verifiedAnswer` disagrees with
+ *     Cambridge's official mark scheme letter or contradicts it in prose, triggers a targeted
+ *     reconciliation pass before caching.
+ *  4. Automatically bypasses stale unversioned v1 cache entries so every paper upgrades cleanly.
  */
 export async function explainPdfMcqAnswer(options: {
   paperId?: string | null;
@@ -358,17 +423,18 @@ export async function explainPdfMcqAnswer(options: {
     userId,
   } = options;
 
-  // If paperId is provided and no mistakeType override is requested, check if we already have the stored explanation!
+  // Serve cached v2 explanation (ignoring stale unversioned v1 entries) and adapt to THIS student's option
   if (paperId && !mistakeType) {
     const memoryHit = inMemoryExplanationCache.get(`${paperId}:${number}`);
-    if (memoryHit) {
-      return memoryHit;
+    if (memoryHit && memoryHit.version === 2) {
+      return adaptCachedExplanationForStudent(memoryHit, correctAnswer, userAnswer);
     }
     const stored = await getStoredPaperExplanationsServer(paperId);
-    if (stored[number]) {
-      return stored[number];
+    if (stored[number] && stored[number].version === 2) {
+      return adaptCachedExplanationForStudent(stored[number], correctAnswer, userAnswer);
     }
   }
+
   const inferred = classifyMcqQuestion({
     level: level === "a2" ? "A2" : "AS",
     number,
@@ -385,56 +451,51 @@ export async function explainPdfMcqAnswer(options: {
 
   const systemPrompt = [
     "You are a Cambridge International AS & A Level Economics (9708) Principal Examiner",
-    `(${level === "a2" ? "A2 Level Paper 3" : "AS Level Paper 1"}) delivering a strictly accurate, 3-line diagnostic breakdown for a past paper multiple-choice question.`,
+    `(${level === "a2" ? "A2 Level Paper 3" : "AS Level Paper 1"}) verifying and explaining an official past-paper multiple-choice question.`,
     "",
-    "CRITICAL CONSTRAINT - ULTRA-CONCISE 3 LINES (CANNOT EXCEED 3 LINES):",
-    "High school students will not read long, grueling essays. Your entire explanation MUST NOT EXCEED 3 LINES.",
-    "Keep it ultra-concise, teenage-accessible, razor-sharp, and 100% pitch-accurate to Cambridge 9708 conventions:",
-    `1. correctReasoning: Exactly ONE short, punchy sentence (max 16 words, under 100 chars) stating why Option ${correctAnswer} is correct.`,
-    isStudentCorrect
-      ? `2. distractorTrap: Exactly ONE short sentence (max 15 words, under 95 chars) diagnosing the top tempting distractor trap avoided.`
-      : userAnswer
-        ? `2. distractorTrap: Exactly ONE short sentence (max 15 words, under 95 chars) diagnosing why Option ${userAnswer} fails.`
-        : "2. distractorTrap: Exactly ONE short sentence (max 15 words, under 95 chars) diagnosing the main distractor trap.",
-    "3. keyRule: Exactly ONE punchy Cambridge golden rule or formula takeaway (max 12 words, under 85 chars).",
-    "",
-    "STRICT ACCURACY & GROUNDING RULES:",
+    "STRICT ACCURACY & VERIFICATION PROTOCOL:",
     hasImage
-      ? "1. READ THE ATTACHED OFFICIAL PDF IMAGE FIRST. Inspect EVERY word of the stem, ALL axis labels, curve labels (e.g. D1->D2, S1->S2, AD/AS, MC/MR), shaded areas (e.g. W, X, Y, Z), table numbers, and the EXACT wording of Options A, B, C, and D directly from the image. If the OCR text excerpt below is incomplete or garbled, TRUST THE PDF IMAGE 100%."
-      : "1. Base your explanation strictly on the exact question stem and options provided. Never invent numbers, curve labels, or statements that do not appear in the question.",
-    `2. The official Cambridge 9708 mark scheme answer is Option ${correctAnswer}. Never contradict the mark scheme; prove rigorously why Option ${correctAnswer} is uniquely true under Cambridge 9708 conventions.`,
-    "3. NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Do not use markdown bold, italics, or asterisk bullets. Return plain text only.",
-    "4. LENGTH: Keep each of the 3 fields to 1 single concise sentence (under 12-16 words each, max 100 characters).",
+      ? "1. READ THE ATTACHED OFFICIAL PDF IMAGE FIRST. Carefully verify every word of the stem, ALL diagram axes, curve labels (e.g. D1->D2, S1->S2, AD/AS, MC/MR/AR/AC), shaded regions (W/X/Y/Z), table numbers, and exact wording of Options A, B, C, and D. Trust the image 100% over garbled PDF text."
+      : "1. Base your proof strictly on the exact stem, numbers, and Options A–D provided. Never invent curves, figures, or opposite-direction claims.",
+    `2. The OFFICIAL Cambridge 9708 mark scheme answer is Option ${correctAnswer}. Check your arithmetic, elasticity signs, and curve shifts carefully so your proof rigorously demonstrates why Option ${correctAnswer} is uniquely true and why each other option fails.`,
+    "3. Explain ALL FOUR options (A, B, C, D) in `optionNotes` with concrete economic reasons referencing the question's actual data/curves/terms.",
+    "4. Keep each explanation field crisp, concrete, and student-friendly (1 clear sentence per field, ~10–18 words, ZERO asterisks * or **).",
     "",
-    "Return ONLY a single valid JSON object (no markdown fences, no commentary outside JSON) with these exact keys:",
-    '- "concept": exact Cambridge 9708 syllabus unit & specific concept tested (short phrase)',
-    `- "correctReasoning": exactly ONE ultra-concise sentence (max 16 words) proving why Option ${correctAnswer} is correct`,
-    '- "distractorTrap": exactly ONE ultra-concise sentence (max 15 words) explaining the trap / why the wrong option fails',
-    '- "keyRule": exactly ONE ultra-concise sentence (max 12 words) with the Cambridge rule or takeaway formula',
-    '- "speedTip": optional short elimination tip (max 12 words)',
-    '- "summary": exactly 3 lines combining the 3 points above separated by newline',
+    "Return ONLY valid JSON with these exact keys:",
+    "{",
+    '  "concept": "<exact Cambridge 9708 unit & concept tested>",',
+    `  "verifiedAnswer": "${correctAnswer}",`,
+    `  "correctReasoning": "<1 crisp sentence proving why Option ${correctAnswer} is uniquely correct with exact mechanism/numbers>",`,
+    '  "optionNotes": {',
+    '    "A": "<1 crisp sentence: why A is correct or specifically why A is wrong>",',
+    '    "B": "<1 crisp sentence: why B is correct or specifically why B is wrong>",',
+    '    "C": "<1 crisp sentence: why C is correct or specifically why C is wrong>",',
+    '    "D": "<1 crisp sentence: why D is correct or specifically why D is wrong>"',
+    "  },",
+    '  "topDistractor": "<A|B|C|D — the single most tempting wrong option>",',
+    '  "keyRule": "<1 crisp Cambridge golden rule or formula takeaway (max 14 words)>",',
+    '  "speedTip": "<1 crisp exam-room elimination shortcut (max 14 words)>"',
+    "}",
   ].join("\n");
 
   const userMessage = [
     `Official Cambridge 9708 Question ${number} (${level === "a2" ? "A2 Paper 3" : "AS Paper 1"}):`,
     hasImage
-      ? "(High-resolution official PDF image of Question " +
-        number +
-        " is attached — read the exact stem, diagrams, tables, and Options A–D directly from the image.)"
+      ? `(High-resolution official PDF crop of Question ${number} is attached — read axes, curves, tables, and Options A–D directly from the image.)`
       : "",
     stemText.trim()
-      ? `Extracted PDF text reference (use only to assist; trust the attached PDF image if any diagram/table differs):\n${stemText.trim().slice(0, 1600)}`
+      ? `Extracted PDF text reference:\n${stemText.trim().slice(0, 1800)}`
       : hasImage
-        ? "(No PDF text layer extracted — read the entire question directly from the attached PDF image.)"
-        : `(Full diagram/stem text not captured — explain based on Cambridge 9708 Question ${number} in ${inferred.unit}: ${inferred.topic} / ${inferred.subtopic} and why Option ${correctAnswer} is the mark scheme answer)`,
+        ? "(No PDF text extracted — read everything directly from the attached image.)"
+        : `(Question ${number} in ${inferred.unit}: ${inferred.topic} / ${inferred.subtopic} — explain carefully based on Option ${correctAnswer})`,
     "",
-    `Rough syllabus hint (override if image shows a different topic): ${inferred.unit} — ${inferred.topic} / ${inferred.subtopic}`,
-    `Official Cambridge mark scheme answer: Option ${correctAnswer}`,
+    `Rough syllabus hint: ${inferred.unit} — ${inferred.topic} / ${inferred.subtopic}`,
+    `OFFICIAL CAMBRIDGE MARK SCHEME ANSWER: Option ${correctAnswer}`,
     userAnswer
       ? `Student selected: Option ${userAnswer} (${isStudentCorrect ? "CORRECT" : "INCORRECT"})`
       : "Student left this question unattempted.",
     mistakeMeta && !isStudentCorrect
-      ? `Student self-diagnosed mistake type: ${mistakeMeta.label} (${mistakeMeta.tagline}). Tailor distractorTrap and speedTip to directly repair this exact error pattern.`
+      ? `Student self-diagnosed mistake type: ${mistakeMeta.label} (${mistakeMeta.tagline}).`
       : "",
   ]
     .filter(Boolean)
@@ -450,7 +511,7 @@ export async function explainPdfMcqAnswer(options: {
         systemPrompt,
         prompt: userMessage,
         imageDataUrls: [questionImageDataUrl],
-        maxCompletionTokens: 700,
+        maxCompletionTokens: 1200,
         userId: userId ?? null,
         feature: "mcq_explain_vision",
       });
@@ -469,10 +530,10 @@ export async function explainPdfMcqAnswer(options: {
   if (!resultText) {
     const result = await chat({
       model: MODEL_EXAMINER,
-      temperature: 0.1,
+      temperature: 0.0,
       json: true,
-      reasoningEffort: "low",
-      maxCompletionTokens: 600,
+      reasoningEffort: "medium",
+      maxCompletionTokens: 1100,
       userId: userId ?? null,
       feature: "mcq_explain_text",
       messages: [
@@ -483,55 +544,104 @@ export async function explainPdfMcqAnswer(options: {
     resultText = result.text;
   }
 
-  const parsed = extractFirstJsonObject(resultText);
-  if (parsed && typeof parsed === "object") {
-    const p = parsed as Record<string, unknown>;
-    const summary = typeof p.summary === "string" && p.summary.trim() ? p.summary.trim() : "";
-    const correctReasoning =
-      typeof p.correctReasoning === "string" ? p.correctReasoning.trim() : "";
-    const distractorTrap =
-      typeof p.distractorTrap === "string" ? p.distractorTrap.trim() : "";
-    const keyRule =
-      typeof p.keyRule === "string" ? p.keyRule.trim() : "";
-    const speedTip =
-      typeof p.speedTip === "string" ? p.speedTip.trim() : "";
+  let parsed = extractFirstJsonObject(resultText) as Record<string, unknown> | null;
 
-    const rawDiagnostic: McqDiagnostic = {
+  // Hard Answer-Key Consistency & Reconciliation Gate
+  const rawVerified =
+    typeof parsed?.verifiedAnswer === "string"
+      ? parsed.verifiedAnswer.trim().toUpperCase().slice(0, 1)
+      : "";
+  const rawCorrectReasoning =
+    typeof parsed?.correctReasoning === "string" ? parsed.correctReasoning.trim() : "";
+
+  const needsReconciliation =
+    !parsed ||
+    (rawVerified && rawVerified !== correctAnswer) ||
+    detectsAnswerContradiction(rawCorrectReasoning, correctAnswer);
+
+  if (needsReconciliation) {
+    try {
+      const reconRes = await chat({
+        model: MODEL_EXAMINER,
+        temperature: 0.0,
+        json: true,
+        reasoningEffort: "medium",
+        maxCompletionTokens: 1100,
+        userId: userId ?? null,
+        feature: "mcq_explain_reconcile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content:
+              `${userMessage}\n\n` +
+              `IMPORTANT VERIFICATION CORRECTION: The official published Cambridge 9708 mark scheme answer is strictly Option ${correctAnswer}. ` +
+              `Double-check all calculations, definitions, and curve shifts and return clean JSON proving Option ${correctAnswer} accurately without contradicting the mark scheme.`,
+          },
+        ],
+      });
+      const reconParsed = extractFirstJsonObject(reconRes.text) as Record<string, unknown> | null;
+      if (reconParsed && typeof reconParsed.correctReasoning === "string") {
+        parsed = reconParsed;
+      }
+    } catch {
+      /* proceed with best parsed output */
+    }
+  }
+
+  if (parsed && typeof parsed === "object") {
+    const p = parsed;
+    const rawOptionNotes =
+      p.optionNotes && typeof p.optionNotes === "object"
+        ? (p.optionNotes as Record<string, unknown>)
+        : {};
+    const optionNotes: Partial<Record<"A" | "B" | "C" | "D", string>> = {};
+    for (const opt of ["A", "B", "C", "D"] as const) {
+      const v = rawOptionNotes[opt];
+      if (typeof v === "string" && v.trim()) {
+        optionNotes[opt] = cleanStars(v.trim());
+      }
+    }
+
+    const topDistractorRaw =
+      typeof p.topDistractor === "string" ? p.topDistractor.trim().toUpperCase().slice(0, 1) : "";
+    const topDistractor =
+      (["A", "B", "C", "D"] as const).find((o) => o === topDistractorRaw && o !== correctAnswer) ??
+      (["A", "B", "C", "D"] as const).find((o) => o !== correctAnswer && Boolean(optionNotes[o]));
+
+    const correctReasoning =
+      typeof p.correctReasoning === "string" && p.correctReasoning.trim()
+        ? p.correctReasoning.trim()
+        : optionNotes[correctAnswer] || "";
+    const defaultTrap =
+      (topDistractor && optionNotes[topDistractor]) ||
+      (typeof p.distractorTrap === "string" ? p.distractorTrap.trim() : "");
+    const keyRule = typeof p.keyRule === "string" ? p.keyRule.trim() : "";
+    const speedTip = typeof p.speedTip === "string" ? p.speedTip.trim() : "";
+
+    const baseDiagnostic: McqDiagnostic = {
       concept:
         typeof p.concept === "string" && p.concept.trim()
           ? p.concept.trim()
           : `${inferred.unit}: ${inferred.subtopic}`,
       keyRule,
-      correctReasoning: correctReasoning || summary,
-      distractorTrap,
-      speedTip,
+      correctReasoning,
+      distractorTrap: defaultTrap,
+      speedTip: speedTip ? cleanStars(speedTip) : keyRule,
+      optionNotes: Object.keys(optionNotes).length > 0 ? optionNotes : undefined,
     };
 
-    // Guarantee the explanation is strictly at most 3 concise, pitch-accurate lines
-    const formatted = formatThreeLineMcqFeedback({
-      explanation: { diagnostic: rawDiagnostic, text: summary },
-      correctAnswer,
-      userAnswer,
-      isCorrect: isStudentCorrect,
-    });
-
-    const diagnostic: McqDiagnostic = {
-      concept: formatted.concept ?? rawDiagnostic.concept,
-      keyRule: formatted.line3.text,
-      correctReasoning: formatted.line1.text,
-      distractorTrap: formatted.line2.text,
-      speedTip: speedTip ? cleanStars(speedTip) : formatted.line3.text,
-    };
-
-    const finalResult = cleanStars({
-      text: formatted.plainText,
-      diagnostic,
+    const baseCached: McqExplanationResult = cleanStars({
+      text: `${correctReasoning}\n${defaultTrap}\n${keyRule}`,
+      diagnostic: baseDiagnostic,
       visionGrounded,
+      version: 2,
     });
+
     if (paperId && !mistakeType) {
-      await savePaperExplanationServer(paperId, number, finalResult).catch(() => {});
+      await savePaperExplanationServer(paperId, number, baseCached).catch(() => {});
     }
-    return finalResult;
+    return adaptCachedExplanationForStudent(baseCached, correctAnswer, userAnswer);
   }
 
   const fallbackFormatted = formatThreeLineMcqFeedback({
@@ -541,7 +651,7 @@ export async function explainPdfMcqAnswer(options: {
     isCorrect: isStudentCorrect,
   });
 
-  const fallbackResult = cleanStars({
+  const fallbackResult: McqExplanationResult = cleanStars({
     text: fallbackFormatted.plainText,
     diagnostic: {
       concept: `${inferred.unit}: ${inferred.subtopic}`,
@@ -551,6 +661,7 @@ export async function explainPdfMcqAnswer(options: {
       speedTip: fallbackFormatted.line3.text,
     },
     visionGrounded,
+    version: 2,
   });
   if (paperId && !mistakeType) {
     await savePaperExplanationServer(paperId, number, fallbackResult).catch(() => {});

@@ -412,57 +412,6 @@ export const FEATURE_TUTORIALS: FeatureTutorial[] = [
     ],
   },
   {
-    id: "paper-matrix",
-    title: "15-Year Paper Predictor & Matrix",
-    navLabel: "Paper Predictor",
-    routePrefix: "/paper-matrix",
-    category: "Syllabus Resources",
-    paperTag: "15-Year Exam Trends",
-    estimatedTime: "70 sec read",
-    icon: Flame,
-    summary:
-      "Data-driven analysis of 15 years of Cambridge 9708 examination sessions. Uncover seasonal topic cycles, historical frequency distributions, and predicted high-probability topics for upcoming exams.",
-    whatItDoes: [
-      "Interactive 15-year historical heatmap covering May/June and Oct/Nov series",
-      "Track cyclical frequency across all syllabus units (Micro & Macro)",
-      "Identifies 'overdue' topics that haven't appeared in recent exam sittings",
-      "Variant comparison: uncover differences between Variant 1, 2, and 3 papers",
-      "Filter by paper type: Paper 1, Paper 2, Paper 3, and Paper 4",
-    ],
-    cambridgeExaminerInsight:
-      "Cambridge exam setters rotate syllabus topics cyclically. While candidates must revise the full syllabus, knowing which topics are overdue helps prioritize high-yield essay practice in the final weeks.",
-    directUrl: "/paper-matrix",
-    steps: [
-      {
-        step: 1,
-        title: "Explore the Syllabus Topic Heatmap",
-        description:
-          "The matrix plots every exam series against Cambridge 9708 syllabus topics. Colors indicate the frequency and mark weighting of questions that appeared in each session.",
-        proTip:
-          "Notice how topics like 'Exchange Rate Systems' and 'Market Failure & Government Intervention' appear almost every other year.",
-        badge: "Heatmap",
-      },
-      {
-        step: 2,
-        title: "Filter by Paper and Series",
-        description:
-          "Toggle between Paper 2 (AS Essay) and Paper 4 (A2 Essay). Switch variants to see what was tested in your specific geographic zone.",
-        proTip:
-          "Look at the preceding series (e.g. October/November) to see which topics were tested, as setters frequently alternate topics in May/June.",
-        badge: "Filters",
-      },
-      {
-        step: 3,
-        title: "Review High-Probability Forecasts",
-        description:
-          "Check the 'Predicted Topics' section to see syllabus areas with the highest statistical probability of appearing in the upcoming examination window.",
-        proTip:
-          "Practice at least 2 full timed essays on each top predicted topic using the Grade Essays feature.",
-        badge: "Predictions",
-      },
-    ],
-  },
-  {
     id: "definitions",
     title: "Definitions Hub & Glossary",
     navLabel: "Definitions Hub",
@@ -980,8 +929,6 @@ export function matchTutorialByPath(pathname: string): FeatureTutorial | undefin
     return FEATURE_TUTORIALS.find((t) => t.id === "response-structure");
   if (cleanPath.startsWith("/live-examiner"))
     return FEATURE_TUTORIALS.find((t) => t.id === "live-examiner");
-  if (cleanPath.startsWith("/paper-matrix"))
-    return FEATURE_TUTORIALS.find((t) => t.id === "paper-matrix");
   if (cleanPath.startsWith("/definitions"))
     return FEATURE_TUTORIALS.find((t) => t.id === "definitions");
   if (cleanPath.startsWith("/question-bank"))

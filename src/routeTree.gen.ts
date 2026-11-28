@@ -39,7 +39,6 @@ import { Route as AuthenticatedLiveExaminerRouteImport } from './routes/_authent
 import { Route as AuthenticatedMcqRouteImport } from './routes/_authenticated/mcq'
 import { Route as AuthenticatedMcqLiveRouteImport } from './routes/_authenticated/mcq-live'
 import { Route as AuthenticatedMcqPapersAdminRouteImport } from './routes/_authenticated/mcq-papers-admin'
-import { Route as AuthenticatedPaperMatrixRouteImport } from './routes/_authenticated/paper-matrix'
 import { Route as AuthenticatedPracticeRouteImport } from './routes/_authenticated/practice'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedResponseStructureRouteImport } from './routes/_authenticated/response-structure'
@@ -213,12 +212,6 @@ const AuthenticatedMcqPapersAdminRoute =
     path: '/mcq-papers-admin',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedPaperMatrixRoute =
-  AuthenticatedPaperMatrixRouteImport.update({
-    id: '/paper-matrix',
-    path: '/paper-matrix',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedPracticeRoute = AuthenticatedPracticeRouteImport.update({
   id: '/practice',
   path: '/practice',
@@ -334,7 +327,6 @@ export interface FileRoutesByFullPath {
   '/mcq': typeof AuthenticatedMcqRoute
   '/mcq-live': typeof AuthenticatedMcqLiveRoute
   '/mcq-papers-admin': typeof AuthenticatedMcqPapersAdminRoute
-  '/paper-matrix': typeof AuthenticatedPaperMatrixRoute
   '/practice': typeof AuthenticatedPracticeRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/response-structure': typeof AuthenticatedResponseStructureRoute
@@ -381,7 +373,6 @@ export interface FileRoutesByTo {
   '/mcq': typeof AuthenticatedMcqRoute
   '/mcq-live': typeof AuthenticatedMcqLiveRoute
   '/mcq-papers-admin': typeof AuthenticatedMcqPapersAdminRoute
-  '/paper-matrix': typeof AuthenticatedPaperMatrixRoute
   '/practice': typeof AuthenticatedPracticeRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/response-structure': typeof AuthenticatedResponseStructureRoute
@@ -430,7 +421,6 @@ export interface FileRoutesById {
   '/_authenticated/mcq': typeof AuthenticatedMcqRoute
   '/_authenticated/mcq-live': typeof AuthenticatedMcqLiveRoute
   '/_authenticated/mcq-papers-admin': typeof AuthenticatedMcqPapersAdminRoute
-  '/_authenticated/paper-matrix': typeof AuthenticatedPaperMatrixRoute
   '/_authenticated/practice': typeof AuthenticatedPracticeRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
   '/_authenticated/response-structure': typeof AuthenticatedResponseStructureRoute
@@ -479,7 +469,6 @@ export interface FileRouteTypes {
     | '/mcq'
     | '/mcq-live'
     | '/mcq-papers-admin'
-    | '/paper-matrix'
     | '/practice'
     | '/question-bank'
     | '/response-structure'
@@ -526,7 +515,6 @@ export interface FileRouteTypes {
     | '/mcq'
     | '/mcq-live'
     | '/mcq-papers-admin'
-    | '/paper-matrix'
     | '/practice'
     | '/question-bank'
     | '/response-structure'
@@ -574,7 +562,6 @@ export interface FileRouteTypes {
     | '/_authenticated/mcq'
     | '/_authenticated/mcq-live'
     | '/_authenticated/mcq-papers-admin'
-    | '/_authenticated/paper-matrix'
     | '/_authenticated/practice'
     | '/_authenticated/question-bank'
     | '/_authenticated/response-structure'
@@ -820,13 +807,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMcqPapersAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/paper-matrix': {
-      id: '/_authenticated/paper-matrix'
-      path: '/paper-matrix'
-      fullPath: '/paper-matrix'
-      preLoaderRoute: typeof AuthenticatedPaperMatrixRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/practice': {
       id: '/_authenticated/practice'
       path: '/practice'
@@ -955,7 +935,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMcqRoute: typeof AuthenticatedMcqRoute
   AuthenticatedMcqLiveRoute: typeof AuthenticatedMcqLiveRoute
   AuthenticatedMcqPapersAdminRoute: typeof AuthenticatedMcqPapersAdminRoute
-  AuthenticatedPaperMatrixRoute: typeof AuthenticatedPaperMatrixRoute
   AuthenticatedPracticeRoute: typeof AuthenticatedPracticeRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedResponseStructureRoute: typeof AuthenticatedResponseStructureRoute
@@ -991,7 +970,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMcqRoute: AuthenticatedMcqRoute,
   AuthenticatedMcqLiveRoute: AuthenticatedMcqLiveRoute,
   AuthenticatedMcqPapersAdminRoute: AuthenticatedMcqPapersAdminRoute,
-  AuthenticatedPaperMatrixRoute: AuthenticatedPaperMatrixRoute,
   AuthenticatedPracticeRoute: AuthenticatedPracticeRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedResponseStructureRoute: AuthenticatedResponseStructureRoute,

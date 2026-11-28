@@ -480,11 +480,6 @@ export function DashboardPage() {
                       <ListChecks className="size-3.5 mr-1 text-primary" /> Past Paper MCQs
                     </Link>
                   </Button>
-                  <Button asChild variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
-                    <Link to="/paper-matrix">
-                      <Flame className="size-3.5 mr-1 text-amber-500" /> Topic Predictor →
-                    </Link>
-                  </Button>
                 </div>
               </div>
 
@@ -936,13 +931,6 @@ export function DashboardPage() {
               title="Real-World Examples Bank"
               badge="AO2 & AO3"
               description="Curated Cambridge 9708 case studies across micro, macro & trade with A* essay integration templates and evaluation pivots."
-            />
-            <QuickActionCard
-              to="/paper-matrix"
-              icon={Flame}
-              title="Paper Predictor"
-              badge="15-Yr Matrix"
-              description="Statistical cycle intelligence analyzing 15 years of Cambridge 9708 past papers to flag overdue topics."
             />
           </div>
 

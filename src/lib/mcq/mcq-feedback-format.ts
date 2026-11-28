@@ -209,17 +209,16 @@ export function generateInstantMcqDiagnostic(options: {
     };
   }
 
-  // 3. Price Elasticity of Demand (PED) & Total Revenue
+  // 3. Price Elasticity of Demand (PED) & Total Revenue (neutral until v2 AI proof loads)
   if (/\bped\b|price\s*elastic|inelastic\s*demand|elastic\s*demand|total\s*revenue/i.test(stem)) {
     return {
       concept: "Price Elasticity of Demand (PED)",
-      correctReasoning:
-        "With inelastic demand (|PED| < 1), higher prices increase total revenue as %ΔP exceeds %ΔQ.",
+      correctReasoning: `Option ${letter} matches the PED formula (%ΔQd / %ΔP) and total revenue test for this scenario.`,
       distractorTrap: studentGotRight
-        ? "Avoided confusing inelastic revenue alignment with elastic inverse movement."
-        : "Confuses inelastic demand (P and TR move together) with elastic demand (P and TR move inversely).",
-      keyRule: "Inelastic demand: Price and Total Revenue always move in the same direction.",
-      speedTip: "If |PED| < 1, price and revenue rise together.",
+        ? "Avoided confusing elastic demand (P and TR move inversely) with inelastic demand (same direction)."
+        : `Option ${userLetter || "chosen"} reverses the PED sign or total revenue direction.`,
+      keyRule: "Inelastic (|PED| < 1): P and TR move together; Elastic (|PED| > 1): P and TR move inversely.",
+      speedTip: "Test |PED| = |%ΔQd / %ΔP| before linking price to total revenue.",
     };
   }
 
@@ -273,31 +272,29 @@ export function generateInstantMcqDiagnostic(options: {
     };
   }
 
-  // 7. Externalities & Market Failure
+  // 7. Externalities & Market Failure (neutral until v2 AI proof loads — handles both positive & negative)
   if (/externalit|social\s*cost|private\s*cost|social\s*benefit|private\s*benefit|deadweight/i.test(stem)) {
     return {
       concept: "Market Failure & Externalities",
-      correctReasoning:
-        "Negative externalities cause Marginal Social Cost to exceed Marginal Private Cost (MSC > MPC).",
+      correctReasoning: `Option ${letter} correctly compares marginal social vs private costs/benefits to identify the welfare outcome.`,
       distractorTrap: studentGotRight
-        ? "Avoided ignoring external spillover costs that lead to market overproduction."
-        : "Confuses private costs with social costs, ignoring external damages on third parties.",
-      keyRule: "Allocative social efficiency requires Marginal Social Benefit equals Marginal Social Cost.",
-      speedTip: "Negative externality = MSC > MPC; overproduction in the free market.",
+        ? "Avoided confusing private equilibrium (MPC = MPB) with the socially optimal output (MSC = MSB)."
+        : `Option ${userLetter || "chosen"} confuses private and social curves or misidentifies the deadweight loss triangle.`,
+      keyRule: "Social efficiency requires MSB = MSC; market equilibrium occurs where MPB = MPC.",
+      speedTip: "Compare market output (MPB = MPC) against social optimum (MSB = MSC).",
     };
   }
 
-  // 8. Exchange Rates & Balance of Payments
+  // 8. Exchange Rates & Balance of Payments (neutral until v2 AI proof loads — handles appreciation & depreciation)
   if (/exchange\s*rate|depreciat|appreciat|current\s*account|deficit|surplus|forex|currency/i.test(stem)) {
     return {
       concept: "Exchange Rates & Balance of Payments",
-      correctReasoning:
-        "Higher import demand increases domestic currency supply in forex markets, causing depreciation.",
+      correctReasoning: `Option ${letter} accurately traces forex demand/supply shifts and trade competitiveness.`,
       distractorTrap: studentGotRight
-        ? "Avoided confusing currency depreciation with domestic inflation or terms of trade improvements."
-        : "Confuses currency depreciation causes: deficits increase foreign currency demand and lower exchange rate.",
-      keyRule: "Depreciation lowers foreign-currency price of exports and raises domestic import prices.",
-      speedTip: "Deficit = currency outflow = increased forex supply = depreciation.",
+        ? "Avoided reversing the direction of currency demand/supply or export/import price effects."
+        : `Option ${userLetter || "chosen"} reverses currency appreciation/depreciation or its trade balance impact.`,
+      keyRule: "Depreciation makes exports cheaper abroad and imports pricier at home; appreciation reverses both.",
+      speedTip: "Trace whether demand or supply of the domestic currency shifts in forex markets.",
     };
   }
 
@@ -459,8 +456,16 @@ export function formatThreeLineMcqFeedback(options: {
     l1 = `Satisfies official Cambridge 9708 criteria for Option ${letter}.`;
   }
 
-  // 2. Line 2: Distractor trap (maxChars ~105)
-  let l2 = cleanAndShortenSentence(d.distractorTrap, 105);
+  // 2. Line 2: Distractor trap — prefer per-option v2 note matching THIS student's chosen wrong letter!
+  const chosenOptionKey =
+    !studentGotRight &&
+    userLetter &&
+    (userLetter === "A" || userLetter === "B" || userLetter === "C" || userLetter === "D")
+      ? userLetter
+      : null;
+  const rawTrapSource =
+    (chosenOptionKey && d.optionNotes?.[chosenOptionKey]) || d.distractorTrap;
+  let l2 = cleanAndShortenSentence(rawTrapSource, 115);
   l2 = l2.replace(/^(?:The\s+trap\s*(?:is|:)\s*|Distractor\s*(?:is|:)\s*|Trap\s*:\s*)/i, "");
   if (l2) l2 = l2.charAt(0).toUpperCase() + l2.slice(1);
   if (!l2) {

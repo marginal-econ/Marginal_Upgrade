@@ -176,7 +176,7 @@ function PricingPage() {
               <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
                 <BookOpen className="size-5" />
               </div>
-              <h3 className="font-bold text-base text-foreground">Paper Matrix &amp; MCQ</h3>
+              <h3 className="font-bold text-base text-foreground">Past Paper MCQ Library</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Complete past paper catalog from 2017 to latest series with crisp PDF canvas, interactive answer panels, and micro vs macro performance analytics.
               </p>
