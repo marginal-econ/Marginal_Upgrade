@@ -255,16 +255,16 @@ export function CommandPalette({
       },
       {
         id: "page-econgpt",
-        title: "Marginal EconGPT (AI Economics Tutor)",
-        subtitle: "Specialized ChatGPT for Economics powered by NVIDIA AI with live custom graphs & KB verification",
+        title: "Marginal Tutor (AI Economics Assistant)",
+        subtitle: "Specialized Economics AI tutor with live interactive graphs, examples & verified syllabus facts",
         category: "pages",
         categoryLabel: "Core Practice",
         icon: MessageSquare,
         iconBg: "bg-emerald-500/10",
         iconColor: "text-emerald-500",
-        badge: "NVIDIA AI",
+        badge: "AI Tutor",
         badgeTone: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-        keywords: ["chat", "econgpt", "chatgpt", "tutor", "nvidia", "explain", "graph", "concept", "help", "ai"],
+        keywords: ["chat", "econgpt", "chatgpt", "tutor", "explain", "graph", "concept", "help", "ai"],
         onSelect: () => {
           navigate({ to: "/chat", search: {} as any });
           onOpenChange(false);

@@ -115,11 +115,11 @@ const WORKSPACE_DIRECTORY: Array<{
 }> = [
   {
     id: "ws-econgpt",
-    title: "Marginal EconGPT Tutor",
-    subtitle: "Specialized Economics ChatGPT (NVIDIA AI) — custom graphs, examples & KB facts",
+    title: "Marginal Tutor",
+    subtitle: "AI Economics assistant — interactive graphs, real examples & syllabus facts",
     to: "/chat",
-    badge: "NVIDIA AI",
-    keywords: ["chat", "gpt", "econgpt", "tutor", "nvidia", "explain", "learn", "help", "graph", "chatbot", "ai"],
+    badge: "AI Tutor",
+    keywords: ["chat", "gpt", "econgpt", "tutor", "explain", "learn", "help", "graph", "chatbot", "ai"],
     icon: MessageSquare,
     iconColor: "text-emerald-500",
   },
@@ -551,9 +551,9 @@ export function DashboardPage() {
     out.push({
       id: "act-econgpt",
       group: "Launch",
-      title: `Ask EconGPT "${q.length > 48 ? `${q.slice(0, 48)}…` : q}"`,
-      subtitle: "Instant clear explanation, custom graph & verified Cambridge 9708 facts",
-      badge: "NVIDIA AI",
+      title: `Ask Marginal Tutor "${q.length > 44 ? `${q.slice(0, 44)}…` : q}"`,
+      subtitle: "Instant clear explanation, diagram & verified Cambridge 9708 facts",
+      badge: "AI Tutor",
       icon: MessageSquare,
       iconColor: "text-emerald-500",
       onSelect: () => {
@@ -1364,13 +1364,13 @@ export function DashboardPage() {
                 to="/chat"
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
               >
-                <MessageSquare className="size-3" /> EconGPT AI
+                <MessageSquare className="size-3" /> AI Tutor
               </Link>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5 flex-1">
               {[
-                { to: "/chat", label: "EconGPT Tutor", tag: "NVIDIA AI · Graphs", icon: MessageSquare, color: "text-emerald-500" },
+                { to: "/chat", label: "Marginal Tutor", tag: "AI · Live Graphs", icon: MessageSquare, color: "text-emerald-500" },
                 { to: "/data-response", label: "Data Response", tag: "P2 & P4 Sec A", icon: FileSpreadsheet, color: "text-emerald-500" },
                 { to: "/essay-generator", label: "ECR Models", tag: "20/20 Essays", icon: Wand2, color: "text-purple-500" },
                 { to: "/diagram-lab", label: "Diagram Lab", tag: "19 CAD Models", icon: Sliders, color: "text-violet-500" },

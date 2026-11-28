@@ -55,7 +55,7 @@ function applyAiGatewayMode(
   if (options.feature === "econ_gpt_chat" || options.feature === "econ_gpt_chat_fallback") {
     return {
       ...options,
-      maxCompletionTokens: Math.max(options.maxCompletionTokens ?? 3800, 3800),
+      maxCompletionTokens: Math.max(options.maxCompletionTokens ?? 2200, 1800),
     };
   }
   if (mode === "max") return options;
@@ -674,8 +674,16 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // Fast 8s timeout for real-time Live Examiner so slow/stalled keys rotate immediately; 300s otherwise
-        const timeoutMs = isLiveExaminerRealtime ? 8_000 : isLiveExaminer ? 25_000 : 300_000;
+        // Fast 8s timeout for real-time Live Examiner, 14s for interactive EconGPT chat so slow keys hop fast
+        const isInteractiveChat =
+          options.feature === "econ_gpt_chat" || options.feature === "econ_gpt_chat_fallback";
+        const timeoutMs = isLiveExaminerRealtime
+          ? 8_000
+          : isInteractiveChat
+            ? 14_000
+            : isLiveExaminer
+              ? 25_000
+              : 300_000;
         try {
           const reqHeaders: Record<string, string> = {
             "Content-Type": "application/json",

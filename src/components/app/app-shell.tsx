@@ -265,7 +265,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck, badge: "Analytics" },
       { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
       { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live AI" },
-      { to: "/chat", label: "EconGPT Tutor", icon: MessageSquare, badge: "NVIDIA AI" },
+      { to: "/chat", label: "Marginal Tutor", icon: MessageSquare, badge: "AI Tutor" },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/data-response",
@@ -326,7 +326,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
       { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck, badge: "Analytics" },
       { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
       { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live AI" },
-      { to: "/chat", label: "EconGPT Tutor", icon: MessageSquare, badge: "NVIDIA AI" },
+      { to: "/chat", label: "Marginal Tutor", icon: MessageSquare, badge: "AI Tutor" },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/data-response",
