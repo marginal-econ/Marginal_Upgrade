@@ -20,6 +20,8 @@ import {
   Search,
   Sliders,
   Sparkles,
+  Target,
+  TrendingUp,
   UsersRound,
   Wand2,
   X,
@@ -344,21 +346,35 @@ export function DashboardPage() {
   );
 
   const stats = useMemo(() => {
+    const sortedVersions = [...versions].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+
+    let essayAvgPct: number | null = null;
     let avgDisplay = "—";
     let bestDisplay = "—";
+    let essayTrend = 0;
 
-    if (versions.length > 0) {
-      const pcts = versions.map((v) => {
+    if (sortedVersions.length > 0) {
+      const pcts = sortedVersions.map((v) => {
         const max = getVersionMaxMark(v);
         return max > 0 ? ((v.total_mark ?? 0) / max) * 100 : 0;
       });
-      const avgPct = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
-      avgDisplay = `${avgPct}%`;
+      essayAvgPct = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
+      avgDisplay = `${essayAvgPct}%`;
+
+      const recentPct = pcts.slice(-5);
+      const earlierPct = pcts.slice(0, -5);
+      if (recentPct.length && earlierPct.length) {
+        essayTrend =
+          recentPct.reduce((a, b) => a + b, 0) / recentPct.length -
+          earlierPct.reduce((a, b) => a + b, 0) / earlierPct.length;
+      }
 
       let topMark = -1;
       let topMax = 12;
       let topPct = -1;
-      for (const v of versions) {
+      for (const v of sortedVersions) {
         const m = v.total_mark ?? 0;
         const max = getVersionMaxMark(v);
         const p = max > 0 ? m / max : 0;
@@ -371,17 +387,115 @@ export function DashboardPage() {
       bestDisplay = `${topMark}/${topMax}`;
     }
 
-    const mcqAcc =
+    const mcqAccuracyPct =
       mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined
-        ? `${mcqSummary.data.accuracyPct}%`
+        ? mcqSummary.data.accuracyPct
+        : null;
+    const mcqAcc = mcqAccuracyPct !== null ? `${mcqAccuracyPct}%` : "—";
+    const mcqBest =
+      mcqSummary.data?.bestPercentage !== null && mcqSummary.data?.bestPercentage !== undefined
+        ? `${mcqSummary.data.bestPercentage}%`
         : "—";
+    const mcqAttempts = mcqSummary.data?.totalAttempts ?? 0;
+
+    // Combined Accuracy Rating (60% Essay / 40% MCQ when both exist, else whichever is available)
+    const overallAccuracyPct =
+      essayAvgPct !== null && mcqAccuracyPct !== null
+        ? Math.round(essayAvgPct * 0.6 + mcqAccuracyPct * 0.4)
+        : essayAvgPct !== null
+          ? essayAvgPct
+          : mcqAccuracyPct;
+    const overallAccuracyDisplay = overallAccuracyPct !== null ? `${overallAccuracyPct}%` : "—";
+
+    // Exam Readiness Index (0-100%): 60% accuracy + 30% practice volume (5+ submissions) + 10% consistency
+    const totalSubmissions = sortedVersions.length + mcqAttempts;
+    const readinessPct =
+      totalSubmissions === 0 || overallAccuracyPct === null
+        ? 0
+        : Math.min(
+            100,
+            Math.round(
+              overallAccuracyPct * 0.6 +
+                Math.min(30, totalSubmissions * 6) +
+                (essayTrend >= 0 ? 10 : 0),
+            ),
+          );
+
+    const readinessBand =
+      readinessPct >= 80
+        ? {
+            label: "Band 1 · A* Track",
+            tone: "text-emerald-600 dark:text-emerald-400",
+            ring: "text-emerald-500",
+            pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+          }
+        : readinessPct >= 60
+          ? {
+              label: "Band 2 · A/B Track",
+              tone: "text-sky-600 dark:text-sky-400",
+              ring: "text-sky-500",
+              pill: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+            }
+          : readinessPct >= 40
+            ? {
+                label: "Developing",
+                tone: "text-amber-600 dark:text-amber-400",
+                ring: "text-amber-500",
+                pill: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+              }
+            : {
+                label: "Calibrating",
+                tone: "text-muted-foreground",
+                ring: "text-primary",
+                pill: "border-border/80 bg-muted/60 text-muted-foreground",
+              };
+
+    const essayChartPoints: TrajectoryPoint[] = sortedVersions.slice(-15).map((v, idx) => {
+      const mark = v.total_mark ?? 0;
+      const max = getVersionMaxMark(v);
+      const pct = max > 0 ? Math.min(100, Math.max(0, Math.round((mark / max) * 100))) : 0;
+      const essayObj = Array.isArray(v.essays) ? v.essays[0] : v.essays;
+      const date = new Date(v.created_at).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      return {
+        id: `e-${idx}-${v.created_at}`,
+        label: essayObj?.question || `Essay submission #${idx + 1}`,
+        scoreText: `${mark}/${max}`,
+        pct,
+        date,
+      };
+    });
+
+    const mcqChartPoints: TrajectoryPoint[] = [...(mcqSummary.data?.recentAttempts ?? [])]
+      .reverse()
+      .map((a) => ({
+        id: `m-${a.id}`,
+        label: `${a.level.toUpperCase()} · ${a.title}`,
+        scoreText: `${a.score}/${a.total}`,
+        pct: Math.min(100, Math.max(0, a.percentage)),
+        date: new Date(a.completedAt).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        }),
+      }));
 
     return {
-      essaysCount: versions.length,
+      essaysCount: sortedVersions.length,
+      essayAvgPct,
       avgDisplay,
       bestDisplay,
+      mcqAccuracyPct,
       mcqAcc,
-      mcqAttempts: mcqSummary.data?.totalAttempts ?? 0,
+      mcqBest,
+      mcqAttempts,
+      overallAccuracyPct,
+      overallAccuracyDisplay,
+      readinessPct,
+      readinessBand,
+      essayChartPoints,
+      mcqChartPoints,
     };
   }, [versions, getVersionMaxMark, mcqSummary.data]);
 
@@ -608,50 +722,111 @@ export function DashboardPage() {
       />
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* ── BAND 1: Search-First Hero & Compact Telemetry Strip ── */}
+        {/* ── BAND 1: Search-First Hero + Exam Readiness & Accuracy Rating ── */}
         <section className="space-y-4">
-          {/* Calm Header Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-                {greeting},{" "}
-                <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
-                  {firstName}
-                </span>
-              </h1>
-              <Badge
-                variant="outline"
-                className="text-[10px] font-mono font-semibold border-border/80 bg-muted/40 text-muted-foreground"
-              >
-                Cambridge 9708
-              </Badge>
+          {/* Calm Header Row with Top Exam Readiness & Accuracy Rating */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+                  {greeting},{" "}
+                  <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+                    {firstName}
+                  </span>
+                </h1>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono font-semibold border-border/80 bg-muted/40 text-muted-foreground"
+                >
+                  Cambridge 9708
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground pl-4.5">
+                {stats.essaysCount} graded essay{stats.essaysCount === 1 ? "" : "s"} ·{" "}
+                {stats.mcqAttempts} MCQ paper{stats.mcqAttempts === 1 ? "" : "s"} completed
+              </p>
             </div>
 
-            {/* Compact Single-Line Stats Telemetry Strip (links to /review) */}
-            <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 px-3 py-1.5 rounded-xl border border-border/70 bg-card/70 backdrop-blur-sm text-xs shadow-2xs">
-              <span className="text-muted-foreground">
-                Essays <strong className="font-mono text-foreground ml-0.5">{stats.essaysCount}</strong>
-              </span>
-              <span className="h-3 w-px bg-border/70" />
-              <span className="text-muted-foreground">
-                Avg <strong className="font-mono text-foreground ml-0.5">{stats.avgDisplay}</strong>
-              </span>
-              <span className="h-3 w-px bg-border/70" />
-              <span className="text-muted-foreground">
-                MCQ <strong className="font-mono text-emerald-600 dark:text-emerald-400 ml-0.5">{stats.mcqAcc}</strong>
-              </span>
-              <span className="hidden sm:inline-block h-3 w-px bg-border/70" />
-              <span className="hidden sm:inline text-muted-foreground">
-                Best <strong className="font-mono text-foreground ml-0.5">{stats.bestDisplay}</strong>
-              </span>
-              <span className="h-3 w-px bg-border/70" />
+            {/* Top Exam Readiness Gauge + Accuracy Rating Strip */}
+            <div className="flex items-center flex-wrap sm:flex-nowrap gap-3 sm:gap-4 px-3.5 py-2.5 rounded-2xl border border-border/80 bg-card/85 backdrop-blur-sm shadow-xs">
+              {/* Exam Readiness Radial Mini-Gauge */}
+              <div className="flex items-center gap-2.5">
+                <div className="relative size-11 shrink-0 flex items-center justify-center">
+                  <svg className="size-full -rotate-90" viewBox="0 0 44 44" aria-hidden="true">
+                    <circle
+                      cx="22"
+                      cy="22"
+                      r="17"
+                      fill="transparent"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      className="text-muted/45"
+                    />
+                    <circle
+                      cx="22"
+                      cy="22"
+                      r="17"
+                      fill="transparent"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeDasharray={106.8}
+                      strokeDashoffset={
+                        106.8 - (106.8 * Math.min(100, Math.max(0, stats.readinessPct))) / 100
+                      }
+                      strokeLinecap="round"
+                      className={cn("transition-all duration-700 ease-out", stats.readinessBand.ring)}
+                    />
+                  </svg>
+                  <span className="absolute text-[11px] font-extrabold font-mono tabular-nums text-foreground">
+                    {stats.readinessPct}%
+                  </span>
+                </div>
+                <div className="leading-tight">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Exam Readiness
+                  </p>
+                  <p className={cn("text-xs font-bold mt-0.5", stats.readinessBand.tone)}>
+                    {stats.readinessBand.label}
+                  </p>
+                </div>
+              </div>
+
+              <span className="hidden sm:block h-8 w-px bg-border/70 shrink-0" />
+
+              {/* Accuracy Rating */}
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <Target className="size-4" />
+                </div>
+                <div className="leading-tight">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Accuracy
+                    </span>
+                    <strong className="text-sm font-extrabold font-mono tabular-nums text-foreground">
+                      {stats.overallAccuracyDisplay}
+                    </strong>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">
+                    Essay <span className="font-mono font-semibold text-foreground">{stats.avgDisplay}</span>
+                    {" · "}
+                    MCQ{" "}
+                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      {stats.mcqAcc}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <span className="hidden sm:block h-8 w-px bg-border/70 shrink-0" />
+
               <Link
                 to="/review"
-                className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline whitespace-nowrap ml-auto sm:ml-0"
               >
                 Diagnostics
-                <ArrowUpRight className="size-3" />
+                <ArrowUpRight className="size-3.5" />
               </Link>
             </div>
           </div>
@@ -955,60 +1130,86 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* ── BAND 3: Compact Recent Activity + Quick Tools Grid (Short & Clean) ── */}
+        {/* ── BAND 3: Switchable Performance Trajectory Chart (Essays / MCQs) + More Tools ── */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-          {/* Left (7 cols): Tabbed Recent Activity (max 3 compact rows) */}
-          <div className="lg:col-span-7 rounded-2xl border border-border/80 bg-card/90 shadow-xs overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border/60">
-              <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-0.5 border border-border/60">
-                <button
-                  type="button"
-                  onClick={() => setActivityTab("essays")}
+          {/* Left (8 cols): Switchable Essay & MCQ Trajectory Chart + Synced Recent Attempts */}
+          <div className="lg:col-span-8 rounded-2xl border border-border/80 bg-card/90 shadow-xs overflow-hidden flex flex-col">
+            {/* Header + Essay/MCQ Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 border-b border-border/60">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
                   className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                    "size-7 rounded-lg flex items-center justify-center border shrink-0 transition-colors",
                     activityTab === "essays"
-                      ? "bg-background text-foreground shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? "bg-primary/10 border-primary/25 text-primary"
+                      : "bg-sky-500/10 border-sky-500/25 text-sky-500",
                   )}
                 >
-                  Recent Essays
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActivityTab("mcqs")}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer",
-                    activityTab === "mcqs"
-                      ? "bg-background text-foreground shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Recent MCQs
-                </button>
+                  <TrendingUp className="size-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm font-bold tracking-tight text-foreground">
+                      {activityTab === "essays" ? "Essay Trajectory" : "MCQ Accuracy Trajectory"}
+                    </h2>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      {activityTab === "essays"
+                        ? `Avg ${stats.avgDisplay} · Best ${stats.bestDisplay}`
+                        : `Accuracy ${stats.mcqAcc} · Best ${stats.mcqBest}`}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <Link
-                to="/review"
-                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
-              >
-                Full history
-                <ArrowUpRight className="size-3.5" />
-              </Link>
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 border border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => setActivityTab("essays")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                      activityTab === "essays"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Essays
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityTab("mcqs")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                      activityTab === "mcqs"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    MCQs
+                  </button>
+                </div>
+
+                <Link
+                  to="/review"
+                  className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  Full review
+                  <ArrowUpRight className="size-3.5" />
+                </Link>
+              </div>
             </div>
 
-            <div className="flex-1 flex flex-col justify-center">
+            {/* Interactive SVG Trajectory Chart */}
+            <div className="px-4 pt-3.5 pb-2">
               {activityTab === "essays" ? (
-                essays.isLoading ? (
-                  <div className="p-4 space-y-2.5">
-                    <Skeleton className="h-10 w-full rounded-lg" />
-                    <Skeleton className="h-10 w-full rounded-lg" />
-                  </div>
-                ) : recentEssays.length === 0 ? (
-                  <div className="px-5 py-7 flex flex-col sm:flex-row items-center justify-between gap-3">
+                progress.isLoading ? (
+                  <Skeleton className="h-[185px] w-full rounded-xl" />
+                ) : stats.essayChartPoints.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 px-5 py-7 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div className="text-center sm:text-left">
-                      <p className="text-sm font-bold text-foreground">No graded essays yet</p>
+                      <p className="text-sm font-bold text-foreground">Plot your Cambridge essay trajectory</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Submit your first script or test a 1-click Cambridge sample to unlock mark tracking.
+                        Mark your first script or try a 1-click 12-mark sample to start tracking Band progression.
                       </p>
                     </div>
                     <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold shrink-0">
@@ -1018,7 +1219,34 @@ export function DashboardPage() {
                     </Button>
                   </div>
                 ) : (
-                  <ul className="divide-y divide-border/60">
+                  <TrajectoryChart key="essay" points={stats.essayChartPoints} accent="essay" />
+                )
+              ) : mcqSummary.isLoading ? (
+                <Skeleton className="h-[185px] w-full rounded-xl" />
+              ) : stats.mcqChartPoints.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 px-5 py-7 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-center sm:text-left">
+                    <p className="text-sm font-bold text-foreground">Plot your Paper 1 &amp; 3 MCQ accuracy</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Complete a Cambridge past paper to track accuracy against the 80%+ Top Band benchmark.
+                    </p>
+                  </div>
+                  <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold shrink-0">
+                    <Link to="/mcq-live">
+                      <ListChecks className="size-3.5 text-sky-500 mr-1" /> Start Paper
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <TrajectoryChart key="mcq" points={stats.mcqChartPoints} accent="mcq" />
+              )}
+            </div>
+
+            {/* Compact Synced Recent Attempts Footer (max 3 rows) */}
+            {(activityTab === "essays" ? recentEssays.length > 0 : recentMcqs.length > 0) && (
+              <div className="border-t border-border/60 mt-auto">
+                {activityTab === "essays" ? (
+                  <ul className="divide-y divide-border/50">
                     {recentEssays.map((essay) => {
                       const mark = essay.latest_mark ?? 0;
                       const max = essay.max_mark ?? 12;
@@ -1034,102 +1262,80 @@ export function DashboardPage() {
                           <Link
                             to="/essay/$essayId"
                             params={{ essayId: essay.id }}
-                            className="group flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors"
+                            className="group flex items-center justify-between gap-3 px-4 py-2 hover:bg-muted/40 transition-colors"
                           >
-                            <div className="min-w-0">
-                              <p className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                                {essay.question}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
+                            <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                              {essay.question}
+                            </p>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="hidden sm:inline text-[10.5px] text-muted-foreground">
                                 {new Date(essay.updated_at).toLocaleDateString(undefined, {
                                   day: "numeric",
                                   month: "short",
-                                })}{" "}
-                                · {max}m tariff
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                                })}
+                              </span>
                               <Badge variant="outline" className={cn("text-[10px] font-mono font-bold px-1.5 py-0", bandClass)}>
                                 {pct}%
                               </Badge>
-                              <span className="text-xs sm:text-sm font-bold font-mono tabular-nums text-foreground">
+                              <span className="text-xs font-bold font-mono tabular-nums text-foreground">
                                 {essay.latest_mark ?? "—"}/{max}
                               </span>
-                              <ArrowUpRight className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                              <ArrowUpRight className="size-3 text-muted-foreground group-hover:text-primary transition-colors" />
                             </div>
                           </Link>
                         </li>
                       );
                     })}
                   </ul>
-                )
-              ) : mcqSummary.isLoading ? (
-                <div className="p-4 space-y-2.5">
-                  <Skeleton className="h-10 w-full rounded-lg" />
-                  <Skeleton className="h-10 w-full rounded-lg" />
-                </div>
-              ) : recentMcqs.length === 0 ? (
-                <div className="px-5 py-7 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="text-center sm:text-left">
-                    <p className="text-sm font-bold text-foreground">No MCQ papers completed yet</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Practice Paper 1 (AS) or Paper 3 (A Level) with instant distractor explanations.
-                    </p>
-                  </div>
-                  <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold shrink-0">
-                    <Link to="/mcq-live">
-                      <ListChecks className="size-3.5 text-sky-500 mr-1" /> Start Paper
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <ul className="divide-y divide-border/60">
-                  {recentMcqs.map((attempt) => (
-                    <li key={attempt.id}>
-                      <Link
-                        to="/mcq-live"
-                        search={attempt.paperId ? { paperId: attempt.paperId } : undefined}
-                        className="group flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors"
-                      >
-                        <div className="min-w-0 flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 shrink-0"
-                          >
-                            {attempt.level}
-                          </Badge>
-                          <p className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                            {attempt.title}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] font-mono font-bold px-1.5 py-0",
-                              attempt.percentage >= 80
-                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-                            )}
-                          >
-                            {attempt.percentage}%
-                          </Badge>
-                          <span className="text-xs sm:text-sm font-bold font-mono tabular-nums text-foreground">
-                            {attempt.score}/{attempt.total}
-                          </span>
-                          <ArrowUpRight className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                ) : (
+                  <ul className="divide-y divide-border/50">
+                    {recentMcqs.map((attempt) => (
+                      <li key={attempt.id}>
+                        <Link
+                          to="/mcq-live"
+                          search={attempt.paperId ? { paperId: attempt.paperId } : undefined}
+                          className="group flex items-center justify-between gap-3 px-4 py-2 hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="min-w-0 flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 shrink-0"
+                            >
+                              {attempt.level}
+                            </Badge>
+                            <p className="text-xs font-medium text-foreground truncate group-hover:text-sky-500 transition-colors">
+                              {attempt.title}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] font-mono font-bold px-1.5 py-0",
+                                attempt.percentage >= 80
+                                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+                              )}
+                            >
+                              {attempt.percentage}%
+                            </Badge>
+                            <span className="text-xs font-bold font-mono tabular-nums text-foreground">
+                              {attempt.score}/{attempt.total}
+                            </span>
+                            <ArrowUpRight className="size-3 text-muted-foreground group-hover:text-sky-500 transition-colors" />
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Right (5 cols): Compact More Tools 2×3 Grid */}
-          <div className="lg:col-span-5 rounded-2xl border border-border/80 bg-card/90 p-3.5 shadow-xs flex flex-col justify-between gap-3">
-            <div className="flex items-center justify-between px-0.5">
+          {/* Right (4 cols): Compact More 9708 Tools Panel */}
+          <div className="lg:col-span-4 rounded-2xl border border-border/80 bg-card/90 p-3.5 shadow-xs flex flex-col justify-between gap-2.5">
+            <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold text-foreground tracking-tight">More 9708 Tools</span>
               {Boolean(me.data?.isAdmin) && (
                 <Link
@@ -1141,7 +1347,7 @@ export function DashboardPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5 flex-1">
               {[
                 { to: "/data-response", label: "Data Response", tag: "P2 & P4 Sec A", icon: FileSpreadsheet, color: "text-emerald-500" },
                 { to: "/essay-generator", label: "ECR Models", tag: "20/20 Essays", icon: Wand2, color: "text-purple-500" },
@@ -1155,23 +1361,252 @@ export function DashboardPage() {
                   <Link
                     key={tool.to}
                     to={tool.to as any}
-                    className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border/70 bg-background/60 hover:bg-muted/60 hover:border-primary/40 transition-all"
+                    className="group flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl border border-border/60 bg-background/60 hover:bg-muted/60 hover:border-primary/40 transition-all"
                   >
-                    <div className="size-8 rounded-lg bg-muted/70 border border-border/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Icon className={cn("size-4", tool.color)} />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="size-7 rounded-lg bg-muted/70 border border-border/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Icon className={cn("size-3.5", tool.color)} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                          {tool.label}
+                        </p>
+                        <p className="text-[10px] font-mono text-muted-foreground truncate">{tool.tag}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
-                        {tool.label}
-                      </p>
-                      <p className="text-[10px] font-mono text-muted-foreground truncate">{tool.tag}</p>
-                    </div>
+                    <ArrowUpRight className="size-3.5 text-muted-foreground/70 group-hover:text-primary shrink-0 transition-colors hidden lg:block" />
                   </Link>
                 );
               })}
             </div>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Clean Switchable Performance Trajectory Chart (Supports both Essays & MCQs)
+// ---------------------------------------------------------------------------
+
+type TrajectoryPoint = {
+  id: string;
+  label: string;
+  scoreText: string;
+  pct: number;
+  date: string;
+};
+
+function TrajectoryChart({
+  points,
+  accent,
+}: {
+  points: TrajectoryPoint[];
+  accent: "essay" | "mcq";
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  const width = 740;
+  const height = 186;
+  const padding = { top: 18, right: 98, bottom: 26, left: 36 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+
+  const coords = useMemo(() => {
+    const n = points.length;
+    return points.map((pt, i) => {
+      const x =
+        n === 1
+          ? padding.left + chartW * 0.5
+          : padding.left + (i / (n - 1)) * chartW;
+      const y = padding.top + chartH - (Math.min(100, Math.max(0, pt.pct)) / 100) * chartH;
+      return { ...pt, x, y };
+    });
+  }, [points, chartW, chartH, padding.left, padding.top]);
+
+  const pathD = useMemo(() => {
+    if (coords.length < 2) return "";
+    return coords.reduce(
+      (acc, curr, idx) => (idx === 0 ? `M ${curr.x},${curr.y}` : `${acc} L ${curr.x},${curr.y}`),
+      "",
+    );
+  }, [coords]);
+
+  const areaD = useMemo(() => {
+    if (coords.length < 2) return "";
+    const first = coords[0]!;
+    const last = coords[coords.length - 1]!;
+    const bottomY = padding.top + chartH;
+    return `${pathD} L ${last.x},${bottomY} L ${first.x},${bottomY} Z`;
+  }, [pathD, coords, padding.top, chartH]);
+
+  const strokeColor = accent === "essay" ? "#7c3aed" : "#0284c7";
+  const gradId = `trajGrad-${accent}`;
+  const activePoint = hoveredIdx !== null ? coords[hoveredIdx] : coords[coords.length - 1];
+
+  return (
+    <div className="space-y-1.5">
+      {/* Subtle Live Readout Line (hover any point or shows latest) */}
+      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground px-0.5 min-h-[18px]">
+        {activePoint ? (
+          <>
+            <span className="truncate">
+              <span className="font-mono font-bold text-foreground">{activePoint.scoreText}</span>{" "}
+              <span
+                className={cn(
+                  "font-mono font-semibold",
+                  accent === "essay" ? "text-primary" : "text-sky-600 dark:text-sky-400",
+                )}
+              >
+                ({activePoint.pct}%)
+              </span>
+              <span className="mx-1.5 opacity-50">·</span>
+              <span>{activePoint.date}</span>
+              <span className="mx-1.5 opacity-50">·</span>
+              <span className="text-foreground/85">{activePoint.label}</span>
+            </span>
+            {points.length === 1 && (
+              <span className="shrink-0 text-[10px] font-mono text-muted-foreground">
+                1 more to plot trend
+              </span>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      <div className="w-full overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full h-auto min-w-[460px] sm:min-w-0 select-none"
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.22" />
+              <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Left Y-axis percentage ticks & Cambridge Band reference lines */}
+          {[
+            { pct: 80, label: "Top 80%+", lineClass: "text-emerald-500/40", textClass: "fill-emerald-600 dark:fill-emerald-400", boxClass: "stroke-emerald-500/30" },
+            { pct: 55, label: "Upper 55%+", lineClass: "text-sky-500/35", textClass: "fill-sky-600 dark:fill-sky-400", boxClass: "stroke-sky-500/30" },
+            { pct: 35, label: "Lower 35%+", lineClass: "text-amber-500/35", textClass: "fill-amber-600 dark:fill-amber-400", boxClass: "stroke-amber-500/30" },
+          ].map((band) => {
+            const y = padding.top + chartH * (1 - band.pct / 100);
+            return (
+              <g key={band.pct}>
+                <text
+                  x={padding.left - 7}
+                  y={y + 3}
+                  textAnchor="end"
+                  className="text-[9.5px] font-mono fill-muted-foreground/75"
+                >
+                  {band.pct}%
+                </text>
+                <line
+                  x1={padding.left}
+                  y1={y}
+                  x2={padding.left + chartW + 4}
+                  y2={y}
+                  stroke="currentColor"
+                  strokeDasharray="3 4"
+                  strokeWidth="1"
+                  className={band.lineClass}
+                />
+                <rect
+                  x={width - 88}
+                  y={y - 8}
+                  width="82"
+                  height="16"
+                  rx="4"
+                  className={cn("fill-background/90", band.boxClass)}
+                  strokeWidth="1"
+                />
+                <text
+                  x={width - 47}
+                  y={y + 3}
+                  textAnchor="middle"
+                  className={cn("text-[9px] font-semibold", band.textClass)}
+                >
+                  {band.label}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Baseline (0%) */}
+          <line
+            x1={padding.left}
+            y1={padding.top + chartH}
+            x2={padding.left + chartW}
+            y2={padding.top + chartH}
+            stroke="currentColor"
+            strokeWidth="1"
+            className="text-border/70"
+          />
+
+          {/* Area & Line */}
+          {areaD && <path d={areaD} fill={`url(#${gradId})`} />}
+          {pathD && (
+            <path
+              d={pathD}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* X-axis date ticks (first & last) */}
+          {coords.length > 0 && (
+            <text
+              x={coords[0]!.x}
+              y={height - 6}
+              textAnchor={coords.length === 1 ? "middle" : "start"}
+              className="text-[9.5px] font-mono fill-muted-foreground/80"
+            >
+              {coords[0]!.date}
+            </text>
+          )}
+          {coords.length > 1 && (
+            <text
+              x={coords[coords.length - 1]!.x}
+              y={height - 6}
+              textAnchor="end"
+              className="text-[9.5px] font-mono fill-muted-foreground/80"
+            >
+              {coords[coords.length - 1]!.date}
+            </text>
+          )}
+
+          {/* Interactive Data Points */}
+          {coords.map((pt, idx) => {
+            const isHovered = hoveredIdx === idx;
+            return (
+              <g
+                key={pt.id}
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              >
+                <circle cx={pt.x} cy={pt.y} r="13" fill="transparent" />
+                {isHovered && (
+                  <circle cx={pt.x} cy={pt.y} r="8.5" fill={strokeColor} fillOpacity="0.16" />
+                )}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isHovered ? "5.5" : "3.8"}
+                  stroke={strokeColor}
+                  strokeWidth="2.4"
+                  className="fill-background transition-all duration-150"
+                />
+              </g>
+            );
+          })}
+        </svg>
       </div>
     </div>
   );
