@@ -15,6 +15,7 @@ import {
   Clock,
   Copy,
   FileText,
+  FileUp,
   GraduationCap,
   ImagePlus,
   Images,
@@ -84,6 +85,13 @@ import {
   describeDiagramUrl,
   listDiagramLibrary,
 } from "@/lib/diagrams.functions";
+import {
+  extractEssayDocumentBundle,
+  isSupportedEssayDocumentFile,
+  splitQuestionAndEssay,
+} from "@/lib/essay-document-import";
+import { analyzeUploadedEssayDocument } from "@/lib/essay-document.functions";
+import { transcribeHandwriting } from "@/lib/ocr.functions";
 import { checkQuestionGrounding, gradeEssaySubmission, syncLiveEssayDraft } from "@/lib/grading.functions";
 import { gradeAssignmentSubmission } from "@/lib/classroom.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
@@ -241,11 +249,15 @@ function GradePage() {
   const queryClient = useQueryClient();
   const search = Route.useSearch();
   const grade = useServerFn(gradeEssaySubmission);
+  const analyzeDocument = useServerFn(analyzeUploadedEssayDocument);
   const checkGrounding = useServerFn(checkQuestionGrounding);
   const checkWriting = useServerFn(checkWritingQuality);
   const describeDiagramImg = useServerFn(describeDiagramImage);
   const describeDiagramLink = useServerFn(describeDiagramUrl);
   const listDiagrams = useServerFn(listDiagramLibrary);
+  const transcribeHandwritingFn = useServerFn(transcribeHandwriting);
+  const essayDocInputRef = useRef<HTMLInputElement>(null);
+  const [docImportStage, setDocImportStage] = useState<string | null>(null);
 
   const getMeFn = useServerFn(getMe);
   const meQuery = useQuery({
@@ -991,18 +1003,34 @@ function GradePage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  type GradeRunOverrides = {
+    question?: string;
+    essayText?: string;
+    maxMark?: number;
+    essayType?: "8_legacy" | "8_eval" | "12" | "20";
+    diagramTags?: string[];
+  };
+
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (overrides?: GradeRunOverrides | void) => {
+      const targetQuestion = overrides?.question ?? question;
+      const targetEssayText = overrides?.essayText ?? essayText;
+      const targetCategory = overrides?.essayType ?? essayCategory;
+      const targetMaxMark =
+        overrides?.maxMark ??
+        (targetCategory === "8_legacy" || targetCategory === "8_eval" ? 8 : Number(maxMark));
+      const targetDiagramTags = overrides?.diagramTags ?? diagrams.map((d) => d.tag);
+
       // Resolve any in-text diagram references (e.g. (Diagram: Subsidy), (Figure: ...), [DIAGRAM: ...])
-      const inText = extractDiagramReferences(essayText);
+      const inText = extractDiagramReferences(targetEssayText);
       const combinedDiagramTags = [
-        ...diagrams.map((d) => d.tag),
+        ...targetDiagramTags,
         ...inText.detectedTags,
       ];
       const uniqueTags = Array.from(new Set(combinedDiagramTags));
       const diagramRef = uniqueTags.length > 0 ? uniqueTags.join("\n\n") : undefined;
 
-      let essayToGrade = essayText;
+      let essayToGrade = targetEssayText;
       for (const rep of inText.inlineReplacements) {
         if (!essayToGrade.includes(rep.tag)) {
           essayToGrade = essayToGrade.replace(rep.matchText, `\n\n${rep.tag}\n\n`);
@@ -1012,10 +1040,10 @@ function GradePage() {
 
       return grade({
         data: {
-          question,
+          question: targetQuestion,
           essayText: essayToGrade,
-          maxMark: essayCategory === "8_legacy" || essayCategory === "8_eval" ? 8 : Number(maxMark),
-          essayType: essayCategory,
+          maxMark: targetMaxMark,
+          essayType: targetCategory,
           auditPass,
           diagramReference: diagramRef,
           markSchemeImageDataUrls:
@@ -1075,6 +1103,164 @@ function GradePage() {
 
   function removeDiagram(id: string) {
     setDiagrams((current) => current.filter((d) => d.id !== id));
+  }
+
+  async function handleEssayDocumentUpload(file: File | null | undefined) {
+    if (!file) return;
+    if (!isSupportedEssayDocumentFile(file)) {
+      toast.error(
+        `Unsupported file "${file.name}". Upload a downloaded essay (.docx, .pdf, .html, .txt, .md) or handwritten page image.`,
+      );
+      return;
+    }
+
+    setDocImportStage(`Reading "${file.name}"...`);
+    try {
+      const bundle = await extractEssayDocumentBundle(file, (stage) => {
+        setDocImportStage(stage);
+      });
+
+      let detectedQuestion = bundle.question;
+      let detectedMarks = bundle.detectedMarks;
+      let workingEssay = bundle.essayTextWithSlots;
+      const newDiagrams: AttachedDiagram[] = [];
+
+      // If scanned PDF or image, route through Vision Handwriting + Diagram OCR
+      if (bundle.handwritingPages && bundle.handwritingPages.length > 0) {
+        setDocImportStage(
+          `Transcribing ${bundle.handwritingPages.length} page${bundle.handwritingPages.length === 1 ? "" : "s"} & reading diagrams with Vision...`,
+        );
+        const ocrRes = await transcribeHandwritingFn({
+          data: {
+            images: bundle.handwritingPages,
+            hint: question.trim() || undefined,
+          },
+        });
+        const split = splitQuestionAndEssay(ocrRes.text, file.name);
+        detectedQuestion = detectedQuestion || split.question;
+        detectedMarks = detectedMarks || split.detectedMarks;
+        workingEssay = split.essayText;
+
+        if (!detectedQuestion && !question.trim() && workingEssay.trim().length >= 80) {
+          setDocImportStage("Identifying exam prompt & mark tariff from essay...");
+          const metaRes = await analyzeDocument({
+            data: {
+              textExcerpt: workingEssay.slice(0, 3500),
+              needsQuestionExtraction: true,
+              images: [],
+            },
+          });
+          if (metaRes.extractedQuestion) detectedQuestion = metaRes.extractedQuestion;
+          if (metaRes.extractedMaxMark) detectedMarks = detectedMarks || metaRes.extractedMaxMark;
+        }
+      } else if (
+        bundle.diagrams.length > 0 ||
+        (!detectedQuestion && !question.trim() && workingEssay.trim().length >= 80)
+      ) {
+        setDocImportStage(
+          bundle.diagrams.length > 0
+            ? `Analyzing ${bundle.diagrams.length} embedded diagram${bundle.diagrams.length === 1 ? "" : "s"} & essay prompt...`
+            : "Identifying exam prompt & mark tariff from essay...",
+        );
+        const docAnalysis = await analyzeDocument({
+          data: {
+            textExcerpt: workingEssay.slice(0, 3500),
+            needsQuestionExtraction: !detectedQuestion && !question.trim(),
+            images: bundle.diagrams.map((diag) => ({
+              placeholder: diag.slotToken,
+              dataUrl: diag.dataUrl,
+              sourceKind: bundle.fileKind === "pdf" ? ("pdf_page" as const) : ("embedded_image" as const),
+            })),
+          },
+        });
+
+        if (!detectedQuestion && docAnalysis.extractedQuestion) {
+          detectedQuestion = docAnalysis.extractedQuestion;
+        }
+        if (!detectedMarks && docAnalysis.extractedMaxMark) {
+          detectedMarks = docAnalysis.extractedMaxMark;
+        }
+
+        bundle.diagrams.forEach((diag, idx) => {
+          const analyzed = docAnalysis.diagrams[idx];
+          if (!analyzed?.tag) {
+            workingEssay = workingEssay.replace(diag.slotToken, "");
+            return;
+          }
+          const parsedRefs = extractDiagramReferences(analyzed.tag);
+          const cleanLabel = parsedRefs.matches[0]?.title || analyzed.title || diag.label;
+
+          newDiagrams.push({
+            id: crypto.randomUUID(),
+            label: cleanLabel,
+            tag: analyzed.tag,
+            imageUrl: diag.dataUrl,
+          });
+          workingEssay = workingEssay.replace(diag.slotToken, `\n\n(Diagram: ${cleanLabel})\n\n`);
+        });
+      }
+
+      // Clean leftover slot tokens if any and format nicely
+      workingEssay = cleanMathDollarSigns(
+        workingEssay
+          .replace(/\[\[DOC_DIAGRAM_\d+\]\]/g, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim(),
+      );
+
+      if (workingEssay && !workingEssay.includes("\n\n") && workingEssay.split(/\s+/).length >= 60) {
+        workingEssay = autoParagraphText(workingEssay);
+      }
+
+      const finalQuestion = (detectedQuestion || question).trim();
+      let finalCategory = essayCategory;
+      if (detectedMarks === 8) {
+        finalCategory =
+          finalQuestion && !isEvaluativeQuestion(finalQuestion) ? "8_legacy" : "8_eval";
+      } else if (detectedMarks === 12) {
+        finalCategory = "12";
+      } else if (detectedMarks === 20) {
+        finalCategory = "20";
+      }
+      const finalMaxMark =
+        finalCategory === "8_legacy" || finalCategory === "8_eval"
+          ? 8
+          : Number(finalCategory);
+
+      if (detectedQuestion) setQuestion(detectedQuestion);
+      if (detectedMarks) setEssayCategory(finalCategory);
+      setEssayText(workingEssay);
+      setDiagrams(newDiagrams);
+      setWritingCheck(null);
+      setResult(null);
+      setIsEditingAfterGrade(false);
+
+      const extractedWords = workingEssay.trim() ? workingEssay.trim().split(/\s+/).length : 0;
+
+      if (finalQuestion.length >= 10 && extractedWords >= 20) {
+        toast.success(
+          `Loaded "${file.name}" (${extractedWords} words${newDiagrams.length ? `, ${newDiagrams.length} diagram${newDiagrams.length === 1 ? "" : "s"}` : ""}) — auto-grading with V8 Frontier!`,
+        );
+        mutation.mutate({
+          question: finalQuestion,
+          essayText: workingEssay,
+          maxMark: finalMaxMark,
+          essayCategory: finalCategory,
+          diagrams: newDiagrams,
+        });
+      } else if (extractedWords > 0) {
+        toast.info(
+          `Imported "${file.name}" (${extractedWords} words${newDiagrams.length ? `, ${newDiagrams.length} diagram${newDiagrams.length === 1 ? "" : "s"}` : ""}). Add the exam question above to grade!`,
+        );
+        window.setTimeout(() => questionInputRef.current?.focus(), 100);
+      } else {
+        toast.error(`Could not extract readable essay text from "${file.name}".`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || `Failed to read "${file.name}".`);
+    } finally {
+      setDocImportStage(null);
+    }
   }
 
   function handleMarkClick(options?: { skipDiagramCheck?: boolean }) {
@@ -1274,6 +1460,36 @@ function GradePage() {
 
           {/* Right: Essential Actions */}
           <div className="flex items-center gap-1.5 shrink-0">
+            <input
+              ref={essayDocInputRef}
+              type="file"
+              accept=".docx,.doc,.pdf,.txt,.md,.rtf,.html,.htm,image/*"
+              className="hidden"
+              onChange={(e) => {
+                void handleEssayDocumentUpload(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+
+            {/* Upload Full Downloaded Essay (.docx / .pdf / Google Docs) */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={Boolean(docImportStage) || mutation.isPending}
+              onClick={() => essayDocInputRef.current?.click()}
+              className="h-8 px-2.5 text-xs font-semibold border-primary/40 bg-primary/[0.06] hover:bg-primary/15 text-foreground gap-1.5 rounded-xl cursor-pointer"
+              title="Upload downloaded Google Doc / Word (.docx) or PDF essay with diagrams — extracts & auto-grades in one go"
+            >
+              {docImportStage ? (
+                <Loader2 className="size-3.5 text-primary animate-spin" />
+              ) : (
+                <FileUp className="size-3.5 text-primary" />
+              )}
+              <span className="hidden sm:inline">Upload Essay (.docx / .pdf)</span>
+              <span className="sm:hidden">Upload Doc</span>
+            </Button>
+
             {/* Import Handwriting */}
             <Button
               id="tour-ocr"
@@ -1351,7 +1567,25 @@ function GradePage() {
 
           {/* Main Google Docs Studio Canvas */}
           <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-3.5 sm:px-6 md:px-8 py-5 min-w-0">
-            {mutation.isPending ? (
+            {docImportStage ? (
+              <div className="max-w-2xl mx-auto py-12">
+                <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 space-y-3 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                      <Loader2 className="size-5 animate-spin" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground">
+                        Importing Essay Document &amp; Embedded Diagrams
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {docImportStage}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : mutation.isPending ? (
               <div className="max-w-3xl mx-auto py-8 space-y-5">
                 <V8ModerationTheatre maxMark={Number(maxMark)} />
                 <GradingProgress
@@ -1457,6 +1691,27 @@ function GradePage() {
                 {/* Candidate Script Document Sheet */}
                 <div
                   ref={resultRef}
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes("Files")) {
+                      e.preventDefault();
+                      if (!isDocDragging) setIsDocDragging(true);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget === e.target) setIsDocDragging(false);
+                  }}
+                  onDrop={(e) => {
+                    setIsDocDragging(false);
+                    if (e.dataTransfer.getData("application/marginal-diagram")) return;
+                    const files = e.dataTransfer.files;
+                    if (files && files.length > 0) {
+                      const first = files[0]!;
+                      if (isSupportedEssayDocumentFile(first)) {
+                        e.preventDefault();
+                        void handleEssayDocumentUpload(first);
+                      }
+                    }
+                  }}
                   className={cn(
                     "relative rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md transition-all w-full min-w-0 max-w-full p-5 sm:p-8 lg:p-10 space-y-6 min-h-[850px] overflow-hidden",
                     isDocDragging && "ring-2 ring-primary border-primary shadow-xl shadow-primary/20",
@@ -1500,19 +1755,30 @@ function GradePage() {
                         </Badge>
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Load our verified 12-mark past paper exemplar (Exchange Rates &amp; Current Account) to test OCR, diagrams, and Cambridge marks right now.
+                        Upload a downloaded Google Doc / Word (<span className="font-mono">.docx</span>) or <span className="font-mono">.pdf</span> with diagrams to auto-grade in one go, or load our 12-mark exemplar.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <Button
                         type="button"
                         size="sm"
-                        onClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
+                        disabled={Boolean(docImportStage) || mutation.isPending}
+                        onClick={() => essayDocInputRef.current?.click()}
                         className="h-8 px-3.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs gap-1.5 cursor-pointer"
                       >
+                        <FileUp className="size-3.5" />
+                        <span>Upload Essay (.docx / .pdf)</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
+                        className="h-8 px-3 text-xs font-semibold border-primary/35 text-primary hover:bg-primary/10 gap-1.5 cursor-pointer"
+                      >
                         <Sparkles className="size-3.5" />
-                        <span>Load 12M Sample</span>
+                        <span>12M Sample</span>
                       </Button>
                       <Button
                         type="button"
@@ -1999,7 +2265,17 @@ function GradePage() {
                           const files = e.dataTransfer.files;
                           if (files && files.length > 0) {
                             e.preventDefault();
-                            handleDiagramFiles(files);
+                            const firstFile = files[0]!;
+                            const isImageOnly =
+                              firstFile.type.startsWith("image/") ||
+                              /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(firstFile.name);
+                            if (isImageOnly && essayText.trim().length > 20) {
+                              handleDiagramFiles(files);
+                            } else if (isSupportedEssayDocumentFile(firstFile)) {
+                              void handleEssayDocumentUpload(firstFile);
+                            } else {
+                              handleDiagramFiles(files);
+                            }
                           }
                         }}
                         onKeyDown={(event) => {
@@ -2027,7 +2303,11 @@ function GradePage() {
 
                       <div className="space-y-4">
                         {inTextDiagrams.matches.map((m, idx) => {
-                          const attachedImg = diagrams.find((d) => d.label.toLowerCase() === m.title.toLowerCase())?.imageUrl;
+                          const attachedImg = diagrams.find(
+                            (d) =>
+                              d.label.toLowerCase() === m.title.toLowerCase() ||
+                              d.tag === m.matchText,
+                          )?.imageUrl;
                           const posInfo = getDiagramPlacementDescription(m.matchText);
                           return (
                             <div
@@ -2473,6 +2753,10 @@ function GradePage() {
                 <div className="flex-1 overflow-y-auto pr-1">
                   <HandwritingUpload
                     hint={question}
+                    onUploadEssayDocument={(file) => {
+                      setOcrDrawerOpen(false);
+                      void handleEssayDocumentUpload(file);
+                    }}
                     onText={(text) => {
                       const formatted = autoParagraphText(cleanMathDollarSigns(text));
                       setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${formatted}` : formatted));

@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { CompactProgressBar, type ProgressStage } from "@/components/app/grading-progress";
 import { Button } from "@/components/ui/button";
 import { filesToPageImages, rotateImageDataUrl } from "@/lib/handwriting-images";
+import { extractTextFromFile } from "@/lib/extract-text";
 import { transcribeHandwriting } from "@/lib/ocr.functions";
 import { ocrPdf } from "@/lib/pdf-ocr";
 
@@ -51,9 +52,11 @@ export type StagedHandwritingPage = {
 export function HandwritingUpload({
   hint,
   onText,
+  onUploadEssayDocument,
 }: {
   hint?: string;
   onText: (text: string) => void;
+  onUploadEssayDocument?: (file: File) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"handwritten" | "typed">("handwritten");
   const [isDragging, setIsDragging] = useState(false);
@@ -96,8 +99,12 @@ export function HandwritingUpload({
     async (files: File[]) => {
       if (!files || files.length === 0) return;
 
-      // If user uploaded a typed file while on typed tab, route to typedMutation
+      // If user uploaded a typed file while on typed tab, route to full doc handler or typedMutation
       if (activeTab === "typed") {
+        if (files.length === 1 && onUploadEssayDocument) {
+          onUploadEssayDocument(files[0]!);
+          return;
+        }
         typedMutation.mutate(files);
         return;
       }
@@ -212,11 +219,20 @@ export function HandwritingUpload({
 
       for (let index = 0; index < files.length; index++) {
         const file = files[index]!;
-        if (file.type === "text/plain" || file.name.toLowerCase().match(/\.(txt|md)$/)) {
+        const lower = file.name.toLowerCase();
+        if (file.type === "text/plain" || lower.match(/\.(txt|md)$/)) {
           setTypedStage(
             files.length > 1 ? `Reading file ${index + 1} of ${files.length}…` : "Reading file…",
           );
           text += (text ? "\n\n" : "") + (await file.text());
+          pages += 1;
+          continue;
+        }
+        if (lower.match(/\.(docx?|rtf|html?)$/) || file.type.includes("wordprocessingml") || file.type === "application/msword") {
+          setTypedStage(
+            files.length > 1 ? `Reading document ${index + 1} of ${files.length}…` : "Reading Word / Google Doc…",
+          );
+          text += (text ? "\n\n" : "") + (await extractTextFromFile(file));
           pages += 1;
           continue;
         }
@@ -540,24 +556,28 @@ export function HandwritingUpload({
               ) : (
                 <FileType className="size-4 text-primary" />
               )}
-              Select PDF or Text File
+              Select Word / PDF / Text File
             </Button>
 
             <div className="text-[11px] text-muted-foreground">
-              Accepts .pdf, .txt, or .md files
+              Accepts .docx, .pdf, .txt, .md, .rtf, or .html files
             </div>
           </div>
 
           <input
             ref={typedInput}
             type="file"
-            accept=".pdf,.txt,.md,application/pdf,text/plain"
+            accept=".docx,.doc,.pdf,.txt,.md,.rtf,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,text/plain"
             multiple
             className="hidden"
             onChange={(event) => {
               const files = Array.from(event.target.files ?? []);
               event.target.value = "";
-              if (files.length > 0) typedMutation.mutate(files);
+              if (files.length === 1 && onUploadEssayDocument) {
+                onUploadEssayDocument(files[0]!);
+              } else if (files.length > 0) {
+                typedMutation.mutate(files);
+              }
             }}
           />
 

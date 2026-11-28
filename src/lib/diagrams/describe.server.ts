@@ -16,6 +16,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const SYSTEM_PROMPT = [
   "You are looking at an image of an economics diagram supplied by a Cambridge International AS/A Level Economics student, alongside their typed essay.",
+  "If the image is a full document or PDF page containing both essay paragraphs and an embedded economics diagram/chart, focus ONLY on the economics diagram/graph itself and ignore the surrounding essay text.",
   "Describe ONLY what is actually drawn — visually verify curve positions (1 vs 2), arrow directions (left/up vs right/down), and P1/P2, Q1/Q2 coordinates. Never assume a shift matches the title without checking the actual arrow and curve positions.",
   "Respond with a single structured tag, and nothing else, in this exact format:",
   "[DIAGRAM: <best-guess standard name, e.g. AD/AS, demand and supply with price ceiling, PPC, monopoly, Lorenz curve>",
