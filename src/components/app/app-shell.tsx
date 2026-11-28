@@ -1726,18 +1726,18 @@ export function AppShell({
 
         {/* ── Desktop Horizontal Topbar Navigation (navLayout === 'topbar') ── */}
         {navLayout === "topbar" && (
-          <header className="hidden lg:flex items-center justify-between h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl px-4 sm:px-6 sticky top-0 z-40 w-full shrink-0 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.2)]">
+          <header className="hidden lg:flex items-center justify-between gap-4 xl:gap-6 h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl px-5 xl:px-7 sticky top-0 z-40 w-full shrink-0 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.2)]">
             {/* Left: Brand + Navigation Dropdowns */}
-            <div className="flex items-center gap-3 xl:gap-4 min-w-0 shrink-0">
-              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group pr-1.5" title="Marginal Economics Dashboard">
+            <div className="flex items-center gap-3 xl:gap-4 min-w-0">
+              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group pr-1" title="Marginal Economics Dashboard">
                 <div className="relative group/logo shrink-0">
                   <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative size-9.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
+                  <div className="relative size-9 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
                     <img
                       src="/marginal-m-icon-clean.png"
                       alt="Marginal"
                       aria-hidden="true"
-                      className="size-7 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
+                      className="size-6.5 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
                     />
                   </div>
                 </div>
@@ -1750,7 +1750,7 @@ export function AppShell({
               <div className="hidden xl:block h-4 w-px bg-border/60 shrink-0" />
 
               {/* Top Navigation Menus */}
-              <nav className="flex items-center gap-1 shrink-0">
+              <nav className="flex items-center gap-1 xl:gap-1.5 min-w-0">
                 <Link
                   to="/dashboard"
                   className={cn(
@@ -1977,12 +1977,12 @@ export function AppShell({
             </div>
 
             {/* Right: Clean, Uncrowded Action Toolbar */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+            <div className="flex items-center gap-2 xl:gap-2.5 shrink-0 ml-auto">
               {/* Search / Command Trigger */}
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-1.5 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 sm:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-24 sm:w-28 xl:w-36 shrink-0"
+                className="flex items-center gap-1.5 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-24 sm:w-28 xl:w-32 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
@@ -1992,62 +1992,70 @@ export function AppShell({
                 </kbd>
               </button>
 
-              {/* Direct Messaging Portal */}
-              {isUserAdmin ? (
-                <Link
-                  to="/admin"
-                  search={{ tab: "messages" }}
-                  className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
-                  title="Direct Messages Portal"
+              {/* Subtle Hairline Divider separating Search from Utility Icons */}
+              <div className="hidden xl:block h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+
+              {/* Uniform Compact Utility Icon Group */}
+              <div className="flex items-center gap-1.5 xl:gap-2 shrink-0">
+                {/* Direct Messaging Portal */}
+                {isUserAdmin ? (
+                  <Link
+                    to="/admin"
+                    search={{ tab: "messages" }}
+                    className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
+                    title="Direct Messages Portal"
+                    aria-label="Direct Messages Portal"
+                  >
+                    <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
+                    {unreadMsgCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white shadow-xs ring-2 ring-background">
+                        {unreadMsgCount}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <StudentMessagesDialog
+                    trigger={
+                      <button
+                        type="button"
+                        className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
+                        title="Direct Messages from Examiners"
+                        aria-label="Direct Messages from Examiners"
+                      >
+                        <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
+                      </button>
+                    }
+                  />
+                )}
+
+                {/* Watch Platform Tour Video Trigger (compact uniform icon button to keep topbar airy) */}
+                <button
+                  type="button"
+                  onClick={() => openPlatformTourVideo()}
+                  className="flex items-center justify-center size-8 rounded-lg border border-primary/35 bg-primary/10 hover:bg-primary/20 text-primary transition-all shadow-2xs cursor-pointer group shrink-0"
+                  title="Watch Platform Tour Video (2:23)"
+                  aria-label="Watch Platform Tour Video"
                 >
-                  <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
-                  {unreadMsgCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white shadow-xs ring-2 ring-background">
-                      {unreadMsgCount}
-                    </span>
-                  )}
-                </Link>
-              ) : (
-                <StudentMessagesDialog
+                  <PlayCircle className="size-4 group-hover:scale-110 transition-transform shrink-0" />
+                </button>
+
+                {/* Send Feedback Dialog (uniform icon button) */}
+                <FeedbackDialog
                   trigger={
                     <button
                       type="button"
-                      className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
-                      title="Direct Messages from Examiners"
+                      className="flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                      title="Send feedback or report an issue"
+                      aria-label="Send feedback or report an issue"
                     >
-                      <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
+                      <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
                     </button>
                   }
                 />
-              )}
 
-              {/* Watch Platform Tour Video Trigger */}
-              <button
-                type="button"
-                onClick={() => openPlatformTourVideo()}
-                className="flex items-center gap-1.5 h-8 px-2 xl:px-2.5 rounded-lg border border-primary/25 bg-primary/8 hover:bg-primary/15 text-xs font-semibold text-primary transition-all shadow-2xs cursor-pointer group shrink-0"
-                title="Watch 2:23 Platform Feature Tour Video"
-              >
-                <PlayCircle className="size-3.5 group-hover:scale-105 transition-transform shrink-0" />
-                <span className="hidden xl:inline">Watch Tour</span>
-              </button>
-
-              {/* Send Feedback Dialog */}
-              <FeedbackDialog
-                trigger={
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 h-8 px-2 xl:px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
-                    title="Send feedback or report an issue"
-                  >
-                    <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
-                    <span className="hidden 2xl:inline">Feedback</span>
-                  </button>
-                }
-              />
-
-              {/* Night / Day Theme Toggle */}
-              <ThemeToggle className="shrink-0" />
+                {/* Night / Day Theme Toggle */}
+                <ThemeToggle className="size-8 shrink-0" />
+              </div>
 
               {/* Vertical Hairline Divider */}
               <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0" />
@@ -2057,7 +2065,7 @@ export function AppShell({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 rounded-full p-1 ring-2 ring-primary/30 hover:ring-primary/70 hover:bg-primary/5 transition-all cursor-pointer shrink-0 shadow-2xs hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:scale-105 active:scale-95 duration-200"
+                    className="flex items-center gap-1.5 rounded-full p-0.5 ring-2 ring-primary/30 hover:ring-primary/70 hover:bg-primary/5 transition-all cursor-pointer shrink-0 shadow-2xs hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:scale-105 active:scale-95 duration-200"
                     title="User Account & Settings"
                   >
                     <UserAvatar
@@ -2066,7 +2074,7 @@ export function AppShell({
                       fallbackInitials={candidateInitials}
                       showStatusDot={true}
                       shape="circle"
-                      className="size-9"
+                      className="size-8"
                     />
                   </button>
                 </DropdownMenuTrigger>
@@ -2249,11 +2257,11 @@ export function AppShell({
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 xl:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
+                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
@@ -2264,12 +2272,15 @@ export function AppShell({
                 </kbd>
               </button>
 
+              <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+
               {isUserAdmin ? (
                 <Link
                   to="/admin"
                   search={{ tab: "messages" }}
                   className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
                   title="Direct Messages Portal"
+                  aria-label="Direct Messages Portal"
                 >
                   <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
                   {unreadMsgCount > 0 && (
@@ -2285,6 +2296,7 @@ export function AppShell({
                       type="button"
                       className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
                       title="Direct Messages from Examiners"
+                      aria-label="Direct Messages from Examiners"
                     >
                       <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
                     </button>
@@ -2295,28 +2307,28 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => openPlatformTourVideo()}
-                className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-primary/25 bg-primary/8 hover:bg-primary/15 text-xs font-semibold text-primary transition-all shadow-2xs cursor-pointer group shrink-0"
-                title="Watch 2:23 Platform Feature Tour Video"
+                className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-primary/35 bg-primary/10 hover:bg-primary/20 text-xs font-semibold text-primary transition-all shadow-2xs cursor-pointer group shrink-0"
+                title="Watch Platform Tour Video (2:23)"
               >
                 <PlayCircle className="size-3.5 group-hover:scale-105 transition-transform shrink-0" />
-                <span className="hidden xl:inline">Watch Tour</span>
+                <span className="hidden xl:inline">Tour</span>
               </button>
 
               <FeedbackDialog
                 trigger={
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                    className="flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
                     title="Send feedback or report an issue"
+                    aria-label="Send feedback or report an issue"
                   >
                     <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
-                    <span className="hidden xl:inline">Feedback</span>
                   </button>
                 }
               />
 
               {/* Night / Day Theme Toggle */}
-              <ThemeToggle className="shrink-0" />
+              <ThemeToggle className="size-8 shrink-0" />
             </div>
           </header>
         )}

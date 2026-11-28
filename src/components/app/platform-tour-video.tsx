@@ -13,7 +13,11 @@ import {
 import { cn } from "@/lib/utils";
 
 const TOUR_VIDEO_EVENT = "marginal-open-tour-video";
-const TOUR_SEEN_STORAGE_PREFIX = "marginal.platformTourVideoSeen.v2";
+const TOUR_SEEN_GLOBAL_KEY = "marginal.platformTourVideoSeen.v2";
+
+// In-memory guard so even if storage is unavailable (e.g. strict private mode),
+// the auto-popup can never fire more than once in a session.
+let tourAutoShownInMemory = false;
 
 export const TOUR_CHAPTERS = [
   { id: "hook", label: "Overview", timeLabel: "0:00", seconds: 0 },
@@ -27,27 +31,63 @@ export const TOUR_CHAPTERS = [
   { id: "outro", label: "Outro", timeLabel: "2:15", seconds: 135.25 },
 ] as const;
 
-export function openPlatformTourVideo() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(TOUR_VIDEO_EVENT));
+function tourSeenUserKey(userId: string): string {
+  return `${TOUR_SEEN_GLOBAL_KEY}.${userId}`;
 }
 
-function tourSeenKey(userId: string): string {
-  return `${TOUR_SEEN_STORAGE_PREFIX}.${userId}`;
+export function hasSeenPlatformTourVideo(userId?: string): boolean {
+  if (tourAutoShownInMemory) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.localStorage.getItem(TOUR_SEEN_GLOBAL_KEY) === "true") return true;
+    if (userId && window.localStorage.getItem(tourSeenUserKey(userId)) === "true") return true;
+    if (window.sessionStorage.getItem(TOUR_SEEN_GLOBAL_KEY) === "true") return true;
+  } catch {
+    /* ignore storage errors */
+  }
+  return false;
+}
+
+export function markPlatformTourVideoSeen(userId?: string): void {
+  tourAutoShownInMemory = true;
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TOUR_SEEN_GLOBAL_KEY, "true");
+    if (userId) {
+      window.localStorage.setItem(tourSeenUserKey(userId), "true");
+    }
+    window.sessionStorage.setItem(TOUR_SEEN_GLOBAL_KEY, "true");
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+export function openPlatformTourVideo() {
+  if (typeof window === "undefined") return;
+  // Opening manually also marks seen so the auto-popup will never interrupt them later.
+  markPlatformTourVideoSeen();
+  window.dispatchEvent(new CustomEvent(TOUR_VIDEO_EVENT));
 }
 
 export function PlatformTourVideoModal({
   open,
   onOpenChange,
   onDismiss,
+  userId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDismiss?: () => void;
+  userId?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
+
+  const persistSeen = useCallback(() => {
+    markPlatformTourVideoSeen(userId);
+    onDismiss?.();
+  }, [onDismiss, userId]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -57,34 +97,43 @@ export function PlatformTourVideoModal({
       setIsPaused(true);
       return;
     }
+    // The moment the modal opens (whether auto or manual), record it as seen
+    // so navigating, refreshing, or closing never causes it to pop up again.
+    markPlatformTourVideoSeen(userId);
+
     const playPromise = el.play();
     if (playPromise && typeof playPromise.then === "function") {
       playPromise
         .then(() => setIsPaused(false))
         .catch(() => {
-          // Browser blocked unmuted autoplay (e.g., auto-opened modal); keep poster + play button visible.
+          // Browser blocked unmuted autoplay; keep crisp poster + Play overlay visible.
           setIsPaused(true);
         });
     }
-  }, [open]);
+  }, [open, userId]);
 
   const handleClose = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
-        onDismiss?.();
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+        persistSeen();
       }
       onOpenChange(nextOpen);
     },
-    [onDismiss, onOpenChange],
+    [onOpenChange, persistSeen],
   );
 
   const handlePlayClick = () => {
+    persistSeen();
     const el = videoRef.current;
     if (!el) return;
     void el.play().then(() => setIsPaused(false)).catch(() => {});
   };
 
   const jumpToChapter = (seconds: number) => {
+    persistSeen();
     const el = videoRef.current;
     if (!el) return;
     el.currentTime = seconds;
@@ -133,8 +182,15 @@ export function PlatformTourVideoModal({
               controls
               playsInline
               preload="metadata"
-              onPlay={() => setIsPaused(false)}
+              onPlay={() => {
+                setIsPaused(false);
+                persistSeen();
+              }}
               onPause={() => setIsPaused(true)}
+              onEnded={() => {
+                // Once they finish watching the video once, close it cleanly and never auto-show again.
+                handleClose(false);
+              }}
               onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
               className="w-full h-full object-contain"
             />
@@ -183,7 +239,7 @@ export function PlatformTourVideoModal({
 
         <div className="px-5 py-3 border-t border-border/70 bg-muted/20 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <p className="text-[11px] text-muted-foreground">
-            You can replay this anytime from <strong className="text-foreground">Watch Tour</strong> in the top bar or{" "}
+            Replay anytime from the <strong className="text-foreground">Play</strong> button in the top bar, your profile menu, or{" "}
             <kbd className="px-1 py-0.5 rounded border border-border bg-background font-mono text-[10px]">Ctrl+K</kbd>.
           </p>
           <Button
@@ -203,9 +259,11 @@ export function PlatformTourVideoModal({
 
 /**
  * Mounted inside the authenticated layout:
- * - Automatically shows the platform tour video once for every user entering the app after this release
+ * - Automatically shows the platform tour video AT MOST ONCE per user/browser
  *   (after PrivacyConsent and OnboardingTutorial finish so dialogs never collide).
- * - Also listens for `openPlatformTourVideo()` from anywhere in the app.
+ * - Persists seen state immediately when shown, played, clicked, or finished, so it
+ *   never keeps popping up across refreshes, route changes, or future sessions.
+ * - Also listens for `openPlatformTourVideo()` for intentional manual replays.
  */
 export function AuthenticatedPlatformTourHost({
   userId,
@@ -218,33 +276,30 @@ export function AuthenticatedPlatformTourHost({
   const autoEvaluatedRef = useRef(false);
 
   const markSeen = useCallback(() => {
-    try {
-      window.localStorage.setItem(tourSeenKey(userId), "true");
-    } catch {
-      /* ignore storage errors */
-    }
+    markPlatformTourVideoSeen(userId);
   }, [userId]);
 
   useEffect(() => {
-    const onOpenRequest = () => setOpen(true);
+    const onOpenRequest = () => {
+      markPlatformTourVideoSeen(userId);
+      setOpen(true);
+    };
     window.addEventListener(TOUR_VIDEO_EVENT, onOpenRequest);
     return () => window.removeEventListener(TOUR_VIDEO_EVENT, onOpenRequest);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (!canAutoShow || autoEvaluatedRef.current) return;
     autoEvaluatedRef.current = true;
-    try {
-      const alreadySeen = window.localStorage.getItem(tourSeenKey(userId)) === "true";
-      if (!alreadySeen) {
-        const timer = window.setTimeout(() => {
-          setOpen(true);
-        }, 450);
-        return () => window.clearTimeout(timer);
-      }
-    } catch {
-      /* ignore */
-    }
+    if (hasSeenPlatformTourVideo(userId)) return;
+
+    const timer = window.setTimeout(() => {
+      if (hasSeenPlatformTourVideo(userId)) return;
+      // Mark permanently seen immediately on pop-out so any click, navigation, or refresh dismisses it for good.
+      markPlatformTourVideoSeen(userId);
+      setOpen(true);
+    }, 450);
+    return () => window.clearTimeout(timer);
   }, [canAutoShow, userId]);
 
   return (
@@ -252,6 +307,7 @@ export function AuthenticatedPlatformTourHost({
       open={open}
       onOpenChange={setOpen}
       onDismiss={markSeen}
+      userId={userId}
     />
   );
 }
