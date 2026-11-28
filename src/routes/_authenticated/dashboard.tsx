@@ -1,54 +1,45 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  ArrowRight,
   ArrowUpRight,
-  Award,
   BookOpen,
-  CircleDot,
-  Dumbbell,
-  Flame,
+  BookText,
+  Camera,
+  ClipboardCheck,
+  FileSpreadsheet,
+  Gamepad2,
+  Globe2,
   GraduationCap,
   LibraryBig,
+  LineChart,
   ListChecks,
-  BookText,
   MessageSquare,
   PenLine,
-  RefreshCw,
   Search,
-  ShieldCheck,
   Sliders,
   Sparkles,
-  Target,
-  TrendingUp,
-  Trophy,
-  Zap,
-  ChevronDown,
-  ChevronUp,
-  ClipboardCheck,
   UsersRound,
-  FileSpreadsheet,
   Wand2,
-  Globe2,
+  X,
+  Zap,
 } from "lucide-react";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { PageHeader } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listMyEssays, getProgress } from "@/lib/grading.functions";
-import { getMe } from "@/lib/account.functions";
-import { listDocuments } from "@/lib/knowledge.functions";
-import { listClassrooms } from "@/lib/classroom.functions";
-import { listAnchors } from "@/lib/calibration.functions";
-import { getMyMcqSummary } from "@/lib/mcq-pdf.functions";
-import { TIER_LIMITS } from "@/lib/usage-limits";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/backend/client";
-import { TARIFF_SPLITS } from "@/lib/examiner/config";
-import { DashboardStarterQuest, DashboardGoalLauncher } from "@/components/app/dashboard-starter-quest";
+import { getMe } from "@/lib/account.functions";
+import { listAnchors } from "@/lib/calibration.functions";
+import { CAMBRIDGE_CORE_DEFINITIONS } from "@/lib/cambridge-definitions";
+import { listClassrooms } from "@/lib/classroom.functions";
+import { DIAGRAMS } from "@/lib/diagrams/catalog";
+import { getProgress, listMyEssays } from "@/lib/grading.functions";
+import { listDocuments } from "@/lib/knowledge.functions";
+import { getMyMcqSummary } from "@/lib/mcq-pdf.functions";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -57,47 +48,194 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       {
         name: "description",
         content:
-          "Track your Cambridge 9708 Economics essay marks, AO breakdown, and interactive performance trajectory in one place.",
+          "Search-first Cambridge 9708 Economics command hub — launch Live Examiner, Essay Grader, MCQ Suite & Arena, and syllabus tools in one click.",
       },
       { property: "og:title", content: "Dashboard — Marginal Economics" },
       {
         property: "og:description",
-        content: "Your marks, assessment-objective trends, and graded essay history.",
+        content: "Search Cambridge 9708 tools, launch Live Examiner, grade essays, and drill past-paper MCQs.",
       },
     ],
   }),
   component: DashboardPage,
 });
 
-const CAMBRIDGE_TIPS = [
+const SEARCH_PLACEHOLDERS = [
+  'Search definitions, diagrams, past essays — or paste any essay question...',
+  'Try "minimum price", "cost-push inflation", "PED", or "Paper 1 MCQ"...',
+  'Paste a Paper 2 or Paper 4 prompt to grade or practice live...',
+];
+
+const QUICK_SEARCH_CHIPS: Array<{
+  label: string;
+  action: "grade" | "definitions" | "diagram" | "mcq" | "live";
+  query?: string;
+  marks?: 8 | 12 | 20;
+}> = [
   {
-    title: "Continuous Evaluation",
-    tip: "Evaluate as you go! The strongest essays evaluate each analytical point immediately (e.g. elasticity, timeframe, assumptions) rather than leaving all AO3 judgements for a rushed conclusion.",
-    ao: "AO3",
+    label: "Minimum price [12m]",
+    action: "grade",
+    query: "Assess the effectiveness of a minimum price on demerit goods.",
+    marks: 12,
   },
   {
-    title: "Explicit Chains of Reasoning",
-    tip: "Do not jump straight from policy to outcome. Cambridge examiners award AO2 marks strictly for explicit step-by-step links: state the cause → explain transmission → analyse effect → apply to context.",
-    ao: "AO2",
+    label: "Cost-push inflation [20m]",
+    action: "grade",
+    query: "Evaluate whether monetary policy is the best way to reduce cost-push inflation.",
+    marks: 20,
+  },
+  { label: "Live Examiner", action: "live" },
+  { label: "PED definition", action: "definitions", query: "Price Elasticity of Demand" },
+  { label: "AD/AS Diagram", action: "diagram" },
+  { label: "Paper 1 & 3 MCQs", action: "mcq" },
+];
+
+type SearchResult = {
+  id: string;
+  group: "Launch" | "Workspaces" | "Definitions" | "Diagrams" | "Your Essays";
+  title: string;
+  subtitle: string;
+  badge?: string;
+  icon: typeof Search;
+  iconColor: string;
+  onSelect: () => void;
+};
+
+const WORKSPACE_DIRECTORY: Array<{
+  id: string;
+  title: string;
+  subtitle: string;
+  to: string;
+  badge: string;
+  keywords: string[];
+  icon: typeof Search;
+  iconColor: string;
+}> = [
+  {
+    id: "ws-live",
+    title: "Live Examiner",
+    subtitle: "Real-time line-by-line essay coaching, running mark & checklist",
+    to: "/live-examiner",
+    badge: "Live AI",
+    keywords: ["live", "examiner", "coach", "typing", "real-time", "checklist", "line"],
+    icon: Zap,
+    iconColor: "text-indigo-500",
   },
   {
-    title: "Accurate Terminology Over Common Speech",
-    tip: "Say 'quantitative easing' instead of 'printing money', and distinguish clearly between a 'shift in demand' and a 'movement along the demand curve'. Terminology anchors your AO1 marks.",
-    ao: "AO1",
+    id: "ws-grade",
+    title: "Essay Grader & Vision OCR",
+    subtitle: "Full Paper 2 & 4 AO1/AO2/AO3 marking, photo upload & rewrites",
+    to: "/grade",
+    badge: "90% Aligned",
+    keywords: ["grade", "essay", "mark", "ocr", "handwriting", "photo", "ao1", "ao2", "ao3"],
+    icon: PenLine,
+    iconColor: "text-primary",
   },
   {
-    title: "Contextual Justification",
-    tip: "Conclusions that repeat introduction definitions score at Level 1 for AO3. To reach Band 1, state which effect dominates and explain why in this specific country or market context.",
-    ao: "AO3",
+    id: "ws-mcq",
+    title: "MCQ Past Paper Suite",
+    subtitle: "1,400+ Paper 1 & Paper 3 questions with per-option distractor logic",
+    to: "/mcq-live",
+    badge: "P1 & P3",
+    keywords: ["mcq", "multiple choice", "paper 1", "paper 3", "past paper", "quiz"],
+    icon: ListChecks,
+    iconColor: "text-sky-500",
   },
   {
-    title: "Labelled Diagrams With Shifts",
-    tip: "A diagram earns credit only when actively integrated into the written analysis: reference new equilibria (P1 to P2, Q1 to Q2) and explain the directional mechanism in words.",
-    ao: "AO2",
+    id: "ws-arena",
+    title: "MCQ Live Quiz Arena",
+    subtitle: "Join or host live 6-digit PIN races with classmates",
+    to: "/quiz",
+    badge: "Multiplayer",
+    keywords: ["arena", "quiz", "pin", "multiplayer", "race", "friends", "game"],
+    icon: Gamepad2,
+    iconColor: "text-amber-500",
+  },
+  {
+    id: "ws-data",
+    title: "Data Response Studio",
+    subtitle: "Section A extracts, OFR calculations & curve shift analysis (P2 & P4)",
+    to: "/data-response",
+    badge: "Section A",
+    keywords: ["data", "response", "section a", "extract", "ofr", "table", "paper 2", "paper 4"],
+    icon: FileSpreadsheet,
+    iconColor: "text-emerald-500",
+  },
+  {
+    id: "ws-ecr",
+    title: "ECR Model Essay Generator",
+    subtitle: "Generate examiner-standard full-mark essays for any 9708 question",
+    to: "/essay-generator",
+    badge: "20/20 Models",
+    keywords: ["ecr", "example", "candidate", "model", "generator", "sample", "structure"],
+    icon: Wand2,
+    iconColor: "text-purple-500",
+  },
+  {
+    id: "ws-diagrams",
+    title: "Diagram CAD Lab",
+    subtitle: "19 interactive Cambridge 9708 vector models with live welfare readouts",
+    to: "/diagram-lab",
+    badge: "19 Models",
+    keywords: ["diagram", "graph", "curve", "shift", "cad", "ad/as", "monopoly", "tax", "tariff"],
+    icon: Sliders,
+    iconColor: "text-violet-500",
+  },
+  {
+    id: "ws-defs",
+    title: "Definitions Hub",
+    subtitle: "Official Cambridge 9708 mark-scheme definitions & recall flashcards",
+    to: "/definitions",
+    badge: "200+ Terms",
+    keywords: ["definition", "glossary", "terms", "flashcard", "ao1", "meaning"],
+    icon: BookText,
+    iconColor: "text-sky-500",
+  },
+  {
+    id: "ws-examples",
+    title: "Real-World Examples Bank",
+    subtitle: "Curated micro, macro & trade evidence for AO2 and AO3 evaluation",
+    to: "/examples",
+    badge: "Case Bank",
+    keywords: ["example", "real world", "case", "evidence", "application", "evaluation"],
+    icon: Globe2,
+    iconColor: "text-emerald-500",
+  },
+  {
+    id: "ws-bank",
+    title: "Question Bank",
+    subtitle: "Browse Cambridge 9708 past paper prompts by topic & tariff",
+    to: "/question-bank",
+    badge: "Past Papers",
+    keywords: ["question", "bank", "prompts", "topics", "syllabus"],
+    icon: LibraryBig,
+    iconColor: "text-indigo-500",
+  },
+  {
+    id: "ws-review",
+    title: "Diagnostics & Review",
+    subtitle: "AO1–AO3 mastery radar, mark trajectory & weakness breakdown",
+    to: "/review",
+    badge: "Analytics",
+    keywords: ["review", "diagnostics", "analytics", "progress", "chart", "radar", "history"],
+    icon: ClipboardCheck,
+    iconColor: "text-primary",
+  },
+  {
+    id: "ws-classes",
+    title: "Marginal Classrooms",
+    subtitle: "Join cohorts, submit essay assignments & track class grades",
+    to: "/classes",
+    badge: "Cohorts",
+    keywords: ["class", "classroom", "teacher", "assignment", "cohort", "homework"],
+    icon: UsersRound,
+    iconColor: "text-emerald-500",
   },
 ];
 
 export function DashboardPage() {
+  const navigate = useNavigate();
+
   const fetchProgress = useServerFn(getProgress);
   const fetchEssays = useServerFn(listMyEssays);
   const fetchMe = useServerFn(getMe);
@@ -115,11 +253,6 @@ export function DashboardPage() {
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const docs = useQuery({
-    queryKey: ["documents"],
-    queryFn: () => fetchDocs(),
-    enabled: me.data?.isStaff === true,
-  });
 
   const [clientSessionUser, setClientSessionUser] = useState<any>(null);
   useEffect(() => {
@@ -131,16 +264,6 @@ export function DashboardPage() {
   const routeContext = Route.useRouteContext();
   const sessionUser = (routeContext as any)?.user || clientSessionUser;
 
-  const rawUserTier =
-    me.data?.subscription?.tier ??
-    (sessionUser?.app_metadata as any)?.tier ??
-    (sessionUser?.user_metadata as any)?.tier;
-  const isPaidUser = Boolean(
-    me.data?.subscription?.isPaid || (rawUserTier && rawUserTier !== "free")
-  );
-  const userTierName =
-    me.data?.subscription?.tierName ||
-    (rawUserTier ? (TIER_LIMITS as any)[rawUserTier]?.name : "Free Tier");
   const isTeacherUser =
     me.data?.role === "teacher" ||
     (sessionUser?.user_metadata as any)?.role === "teacher" ||
@@ -149,208 +272,119 @@ export function DashboardPage() {
     me.data?.fullName ||
     (sessionUser?.user_metadata as any)?.full_name ||
     (sessionUser?.email ? sessionUser.email.split("@")[0] : "Economist");
+  const firstName = userDisplayName.trim().split(/\s+/)[0] || "Economist";
 
+  const docs = useQuery({
+    queryKey: ["documents"],
+    queryFn: () => fetchDocs(),
+    enabled: me.data?.isStaff === true,
+  });
   const classrooms = useQuery({
     queryKey: ["classrooms"],
     queryFn: () => fetchClassrooms(),
     enabled: Boolean(isTeacherUser || me.data?.isStaff),
   });
-
   const anchors = useQuery({
     queryKey: ["anchors"],
     queryFn: () => fetchAnchors(),
     enabled: Boolean(isTeacherUser || me.data?.isStaff),
   });
 
-  const [activeTariff, setActiveTariff] = useState<number | "all">("all");
-  const [essaySearch, setEssaySearch] = useState("");
-  const [bandFilter, setBandFilter] = useState<"all" | "band1" | "band2" | "band3">("all");
-  const [showAllEssays, setShowAllEssays] = useState(false);
-  const [tipIndex, setTipIndex] = useState(0);
-  const [hoveredPoint, setHoveredPoint] = useState<{
-    index: number;
-    mark: number;
-    maxMark?: number;
-    date: string;
-    question: string;
-  } | null>(null);
+  // Search-first state
+  const [query, setQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [activityTab, setActivityTab] = useState<"essays" | "mcqs">("essays");
+  const searchBoxRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setPlaceholderIdx((i) => (i + 1) % SEARCH_PLACEHOLDERS.length);
+    }, 4500);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
 
   const versions = useMemo(() => progress.data ?? [], [progress.data]);
-  const marks = useMemo(() => versions.map((v) => v.total_mark ?? 0), [versions]);
-  const readyDocs = (docs.data ?? []).filter((document) => document.status === "ready").length;
+  const essayList = useMemo(() => essays.data ?? [], [essays.data]);
 
   const essayMap = useMemo(
-    () => new Map((essays.data ?? []).map((e) => [e.id, e.max_mark])),
-    [essays.data],
+    () => new Map(essayList.map((e) => [e.id, e.max_mark])),
+    [essayList],
   );
 
   const getVersionMaxMark = useCallback(
     (v: {
       essay_id?: string | null;
       total_mark?: number | null;
-      essays?: { max_mark?: number | null; question?: string | null } | { max_mark?: number | null; question?: string | null }[] | null;
+      essays?:
+        | { max_mark?: number | null; question?: string | null }
+        | { max_mark?: number | null; question?: string | null }[]
+        | null;
     }) => {
       const essayObj = Array.isArray(v.essays) ? v.essays[0] : v.essays;
-      if (essayObj?.max_mark && Number(essayObj.max_mark) > 0) {
-        return Number(essayObj.max_mark);
-      }
-      if (v.essay_id && essayMap.has(v.essay_id)) {
-        return essayMap.get(v.essay_id)!;
-      }
+      if (essayObj?.max_mark && Number(essayObj.max_mark) > 0) return Number(essayObj.max_mark);
+      if (v.essay_id && essayMap.has(v.essay_id)) return essayMap.get(v.essay_id)!;
       const mark = v.total_mark ?? 0;
-      if (mark > 12) return 20;
-      if (mark > 8) return 12;
-      return 12;
+      return mark > 12 ? 20 : 12;
     },
     [essayMap],
   );
 
-  // Filtered versions by tariff
-  const filteredVersions = useMemo(() => {
-    if (activeTariff === "all") return versions;
-    return versions.filter((v) => {
-      const maxMark = getVersionMaxMark(v);
-      return maxMark === activeTariff;
-    });
-  }, [versions, activeTariff, getVersionMaxMark]);
+  const stats = useMemo(() => {
+    let avgDisplay = "—";
+    let bestDisplay = "—";
 
-  // Personal Best Attempt (percentage normalized across tariffs, with exact score & max mark)
-  const bestAttempt = useMemo(() => {
-    if (!versions.length) return null;
-    let topVersion = versions[0];
-    let topPct = -1;
-    let topMark = -1;
+    if (versions.length > 0) {
+      const pcts = versions.map((v) => {
+        const max = getVersionMaxMark(v);
+        return max > 0 ? ((v.total_mark ?? 0) / max) * 100 : 0;
+      });
+      const avgPct = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
+      avgDisplay = `${avgPct}%`;
 
-    for (const v of versions) {
-      const mark = v.total_mark ?? 0;
-      const max = getVersionMaxMark(v);
-      const pct = max > 0 ? mark / max : 0;
-      if (pct > topPct || (pct === topPct && mark > topMark)) {
-        topPct = pct;
-        topMark = mark;
-        topVersion = v;
+      let topMark = -1;
+      let topMax = 12;
+      let topPct = -1;
+      for (const v of versions) {
+        const m = v.total_mark ?? 0;
+        const max = getVersionMaxMark(v);
+        const p = max > 0 ? m / max : 0;
+        if (p > topPct || (p === topPct && m > topMark)) {
+          topPct = p;
+          topMark = m;
+          topMax = max;
+        }
       }
-    }
-    const maxMark = topVersion ? getVersionMaxMark(topVersion) : 12;
-    const mark = topVersion?.total_mark ?? 0;
-    return {
-      mark,
-      maxMark,
-      percentage: maxMark > 0 ? Math.round((mark / maxMark) * 100) : 0,
-    };
-  }, [versions, getVersionMaxMark]);
-
-  // Robust Average metrics across tariffs
-  const averageMetrics = useMemo(() => {
-    if (!versions.length) {
-      return {
-        display: "—",
-        avgPct: 0,
-        trend: 0,
-      };
-    }
-    const versionPercentages = versions.map((v) => {
-      const mark = v.total_mark ?? 0;
-      const max = getVersionMaxMark(v);
-      return max > 0 ? (mark / max) * 100 : 0;
-    });
-
-    const avgPct =
-      versionPercentages.reduce((a, b) => a + b, 0) / versionPercentages.length;
-
-    const firstMax = getVersionMaxMark(versions[0]);
-    const allSameTariff = versions.every((v) => getVersionMaxMark(v) === firstMax);
-
-    let display = "";
-    if (allSameTariff) {
-      const avgMark = marks.reduce((a, b) => a + b, 0) / marks.length;
-      display = `${avgMark.toFixed(1)}/${firstMax}`;
-    } else {
-      display = `${Math.round(avgPct)}%`;
+      bestDisplay = `${topMark}/${topMax}`;
     }
 
-    const recentPct = versionPercentages.slice(-5);
-    const earlierPct = versionPercentages.slice(0, -5);
-    const trend =
-      recentPct.length && earlierPct.length
-        ? recentPct.reduce((a, b) => a + b, 0) / recentPct.length -
-          earlierPct.reduce((a, b) => a + b, 0) / earlierPct.length
-        : 0;
+    const mcqAcc =
+      mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined
+        ? `${mcqSummary.data.accuracyPct}%`
+        : "—";
 
     return {
-      display,
-      avgPct: Math.round(avgPct),
-      trend,
+      essaysCount: versions.length,
+      avgDisplay,
+      bestDisplay,
+      mcqAcc,
+      mcqAttempts: mcqSummary.data?.totalAttempts ?? 0,
     };
-  }, [versions, marks, getVersionMaxMark]);
+  }, [versions, getVersionMaxMark, mcqSummary.data]);
 
-  const aoAverage = (key: "ao1_awarded" | "ao2_awarded" | "ao3_awarded") => {
-    const list = filteredVersions.length ? filteredVersions : versions;
-    const values = list.map((v) => v[key] ?? 0);
-    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-  };
-
-  const currentAoSplit = useMemo(() => {
-    if (activeTariff !== "all" && TARIFF_SPLITS[activeTariff]) {
-      return TARIFF_SPLITS[activeTariff];
-    }
-    return TARIFF_SPLITS[12];
-  }, [activeTariff]);
-
-  // Study Progress & Consistency Index (0 - 100%)
-  // Transparent calculation: average mark weight (60%) + practice volume (30%) + positive improvement trend (10%)
-  const progressIndex = useMemo(() => {
-    if (versions.length === 0) return 0;
-    const avgPercent = Math.min(100, Math.max(0, averageMetrics.avgPct));
-    const volumeScore = Math.min(30, versions.length * 6); // capped at 30% for 5+ essays
-    const consistencyScore = averageMetrics.trend >= 0 ? 10 : 0;
-    return Math.min(100, Math.round(avgPercent * 0.6 + volumeScore + consistencyScore));
-  }, [averageMetrics.avgPct, averageMetrics.trend, versions.length]);
-
-  const progressBadge = useMemo(() => {
-    if (progressIndex >= 80)
-      return {
-        label: "Band 1 Target Track",
-        color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30",
-      };
-    if (progressIndex >= 60)
-      return {
-        label: "Band 2 Target Track",
-        color: "text-blue-500 bg-blue-500/10 border-blue-500/30",
-      };
-    if (progressIndex >= 40)
-      return {
-        label: "Developing Consistency",
-        color: "text-amber-500 bg-amber-500/10 border-amber-500/30",
-      };
-    return { label: "Initial Calibration", color: "text-muted-foreground bg-muted border-border" };
-  }, [progressIndex]);
-
-  // Filtered essays
-  const filteredEssays = useMemo(() => {
-    const list = essays.data ?? [];
-    return list.filter((essay) => {
-      const matchesSearch = essay.question.toLowerCase().includes(essaySearch.toLowerCase());
-      if (!matchesSearch) return false;
-      if (bandFilter === "all") return true;
-      const mark = essay.latest_mark ?? 0;
-      const max = essay.max_mark ?? 12;
-      const pct = max > 0 ? (mark / max) * 100 : 0;
-      if (bandFilter === "band1") return pct >= 75;
-      if (bandFilter === "band2") return pct >= 50 && pct < 75;
-      if (bandFilter === "band3") return pct < 50;
-      return true;
-    });
-  }, [essays.data, essaySearch, bandFilter]);
-
-  const visibleEssays = useMemo(() => {
-    if (showAllEssays || essaySearch.trim().length > 0 || bandFilter !== "all") {
-      return filteredEssays;
-    }
-    return filteredEssays.slice(0, 4);
-  }, [filteredEssays, showAllEssays, essaySearch, bandFilter]);
-
-  // Greeting by hour
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -358,1432 +392,807 @@ export function DashboardPage() {
     return "Good evening";
   }, []);
 
-  const currentTip = CAMBRIDGE_TIPS[tipIndex % CAMBRIDGE_TIPS.length];
+  // Build instant multi-source search results
+  const searchResults: SearchResult[] = useMemo(() => {
+    const q = query.trim();
+    if (!q) return [];
+    const ql = q.toLowerCase();
+    const out: SearchResult[] = [];
+
+    // 1. Direct workspace matches
+    for (const ws of WORKSPACE_DIRECTORY) {
+      const hit =
+        ws.title.toLowerCase().includes(ql) ||
+        ws.subtitle.toLowerCase().includes(ql) ||
+        ws.keywords.some((k) => k.includes(ql) || ql.includes(k));
+      if (hit) {
+        out.push({
+          id: ws.id,
+          group: "Workspaces",
+          title: ws.title,
+          subtitle: ws.subtitle,
+          badge: ws.badge,
+          icon: ws.icon,
+          iconColor: ws.iconColor,
+          onSelect: () => {
+            setSearchFocused(false);
+            navigate({ to: ws.to as any });
+          },
+        });
+      }
+      if (out.length >= 4) break;
+    }
+
+    // 2. Direct prompt launch actions (always helpful when typing a topic or essay question)
+    out.push({
+      id: "act-grade",
+      group: "Launch",
+      title: `Grade "${q.length > 52 ? `${q.slice(0, 52)}…` : q}"`,
+      subtitle: "Open in Essay Grader with this question prefilled",
+      badge: "Essay Grader",
+      icon: PenLine,
+      iconColor: "text-primary",
+      onSelect: () => {
+        setSearchFocused(false);
+        navigate({ to: "/grade", search: { q } as any });
+      },
+    });
+    out.push({
+      id: "act-live",
+      group: "Launch",
+      title: "Practice line-by-line in Live Examiner",
+      subtitle: "Real-time running mark, rubric checklist & next-mark hints",
+      badge: "Live AI",
+      icon: Zap,
+      iconColor: "text-indigo-500",
+      onSelect: () => {
+        setSearchFocused(false);
+        navigate({ to: "/live-examiner" });
+      },
+    });
+
+    // 3. Matching Cambridge 9708 Definitions (top 3)
+    let defCount = 0;
+    for (const def of CAMBRIDGE_CORE_DEFINITIONS) {
+      if (
+        def.term.toLowerCase().includes(ql) ||
+        def.definition_text.toLowerCase().includes(ql) ||
+        def.category.toLowerCase().includes(ql)
+      ) {
+        out.push({
+          id: `def-${def.id}`,
+          group: "Definitions",
+          title: def.term,
+          subtitle: def.definition_text,
+          badge: "CIE Definition",
+          icon: BookText,
+          iconColor: "text-sky-500",
+          onSelect: () => {
+            setSearchFocused(false);
+            navigate({ to: "/definitions", search: { q: def.term } });
+          },
+        });
+        defCount++;
+        if (defCount >= 3) break;
+      }
+    }
+
+    // 4. Matching Interactive Diagrams (top 2)
+    let diagCount = 0;
+    for (const d of DIAGRAMS) {
+      if (
+        d.title.toLowerCase().includes(ql) ||
+        d.topic.toLowerCase().includes(ql) ||
+        d.represents.toLowerCase().includes(ql)
+      ) {
+        out.push({
+          id: `diag-${d.id}`,
+          group: "Diagrams",
+          title: d.title,
+          subtitle: `${d.section} · ${d.topic}`,
+          badge: "CAD Lab",
+          icon: LineChart,
+          iconColor: "text-violet-500",
+          onSelect: () => {
+            setSearchFocused(false);
+            navigate({ to: "/diagram-lab" });
+          },
+        });
+        diagCount++;
+        if (diagCount >= 2) break;
+      }
+    }
+
+    // 5. Matching Past Graded Essays (top 2)
+    let essayCount = 0;
+    for (const e of essayList) {
+      if (e.question.toLowerCase().includes(ql)) {
+        out.push({
+          id: `essay-${e.id}`,
+          group: "Your Essays",
+          title: e.question,
+          subtitle: `Marked ${e.latest_mark ?? "—"}/${e.max_mark ?? 12} · ${new Date(e.updated_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`,
+          badge: `${e.latest_mark ?? "—"}/${e.max_mark ?? 12}`,
+          icon: GraduationCap,
+          iconColor: "text-emerald-500",
+          onSelect: () => {
+            setSearchFocused(false);
+            navigate({ to: "/essay/$essayId", params: { essayId: e.id } });
+          },
+        });
+        essayCount++;
+        if (essayCount >= 2) break;
+      }
+    }
+
+    return out;
+  }, [query, essayList, navigate]);
+
+  useEffect(() => {
+    setSelectedIdx(0);
+  }, [query]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchResults[selectedIdx]) {
+      searchResults[selectedIdx].onSelect();
+      return;
+    }
+    const q = query.trim();
+    if (!q) {
+      searchInputRef.current?.focus();
+      return;
+    }
+    const ql = q.toLowerCase();
+    if (ql.includes("mcq") || ql.includes("paper 1") || ql.includes("paper 3")) {
+      navigate({ to: "/mcq-live" });
+    } else if (ql.includes("live") || ql.includes("coach")) {
+      navigate({ to: "/live-examiner" });
+    } else if (ql.includes("diagram") || ql.includes("graph") || ql.includes("curve")) {
+      navigate({ to: "/diagram-lab" });
+    } else {
+      navigate({ to: "/grade", search: { q } as any });
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!searchResults.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIdx((i) => (i + 1) % searchResults.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIdx((i) => (i - 1 + searchResults.length) % searchResults.length);
+    } else if (e.key === "Escape") {
+      setSearchFocused(false);
+    }
+  };
+
+  const handleChipClick = (chip: (typeof QUICK_SEARCH_CHIPS)[number]) => {
+    if (chip.action === "grade") {
+      navigate({ to: "/grade", search: { q: chip.query, marks: chip.marks } as any });
+    } else if (chip.action === "live") {
+      navigate({ to: "/live-examiner" });
+    } else if (chip.action === "definitions") {
+      navigate({ to: "/definitions", search: { q: chip.query } });
+    } else if (chip.action === "diagram") {
+      navigate({ to: "/diagram-lab" });
+    } else if (chip.action === "mcq") {
+      navigate({ to: "/mcq-live" });
+    }
+  };
 
   if (isTeacherUser && !me.data?.isAdmin) {
     return (
       <EducatorDashboardView
-        userName={userDisplayName}
+        firstName={firstName}
+        greeting={greeting}
         school={me.data?.school ?? (sessionUser?.user_metadata as any)?.school ?? null}
-        tierName={userTierName}
         classrooms={classrooms.data?.classes ?? (Array.isArray(classrooms.data) ? classrooms.data : [])}
         docs={docs.data ?? []}
         anchors={anchors.data ?? []}
-        essays={essays.data ?? []}
+        essays={essayList}
       />
     );
   }
 
+  const recentEssays = essayList.slice(0, 3);
+  const recentMcqs = (mcqSummary.data?.recentAttempts ?? []).slice(0, 3);
+
   return (
-    <>
-      <PageHeader
-        title="Dashboard"
-        description="Cambridge 9708 Economics performance analytics, AO mastery breakdown, and live study progress."
-        action={
-          me.data?.role === "teacher" ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link to="/review">
-                  <ClipboardCheck className="size-3.5 text-primary" /> Review &amp; Diagnostics
-                </Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link to="/classes">
-                  <UsersRound className="size-3.5" /> Manage Classes
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link to="/review">
-                  <ClipboardCheck className="size-3.5 text-primary" /> Diagnostics &amp; Review
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/mcq-live">
-                  <ListChecks className="size-3.5 text-primary" /> MCQ Past Papers
-                </Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link to="/grade">
-                  <PenLine className="size-3.5" /> Mark an essay
-                </Link>
-              </Button>
-            </div>
-          )
-        }
+    <div className="relative min-h-[calc(100dvh-3.5rem)] bg-background">
+      {/* Subtle Ambient Top Halo */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-primary/[0.06] via-primary/[0.02] to-transparent"
       />
 
-      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-5 px-4 py-5 sm:px-6 md:px-8">
-        {/* Top Bento Grid: Hero Command Center (2 cols) + Cambridge Examiner Daily Intel (1 col) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left 2 Cols: Hero Exam Readiness Deck */}
-          <section className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-purple-500/[0.08] via-card to-card p-5 sm:p-6 shadow-xs flex flex-col justify-between">
-            {/* Background Ambient Glow */}
-            <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-primary/10 blur-3xl" />
-
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-              <div className="space-y-2 max-w-xl">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-                    {greeting},{" "}
-                    <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
-                      {userDisplayName.split(" ")[0]}
-                    </span>{" "}
-                    !
-                  </h2>
-                  {isTeacherUser ? (
-                    <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
-                      Authorized Educator
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="border-primary/30 bg-primary/10 text-primary text-[10px] font-mono font-semibold"
-                    >
-                      9708 Candidate
-                    </Badge>
-                  )}
-                  <Badge
-                    variant="outline"
-                    className="border-border/80 bg-muted/40 text-muted-foreground text-[10px] font-mono"
-                  >
-                    May/June 2026 Series
-                  </Badge>
-                </div>
-
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  {versions.length > 0 || (mcqSummary.data?.totalAttempts ?? 0) > 0 ? (
-                    <>
-                      <strong className="text-foreground font-semibold">{versions.length} essay attempt{versions.length === 1 ? "" : "s"}</strong> evaluated across syllabus tariffs ·{" "}
-                      <strong className="text-foreground font-semibold">{mcqSummary.data?.totalAttempts ?? 0} MCQ paper{(mcqSummary.data?.totalAttempts ?? 0) === 1 ? "" : "s"}</strong> completed
-                      {mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined && (
-                        <> with <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{mcqSummary.data.accuracyPct}% accuracy</strong></>
-                      )}.
-                    </>
-                  ) : (
-                    "Welcome to Marginal. Submit your first Cambridge 9708 essay or practice MCQ papers to calibrate your baseline."
-                  )}
-                </p>
-
-                {/* Quick Action Badges */}
-                <div className="pt-2 flex flex-wrap items-center gap-2">
-                  <Button asChild size="sm" className="h-8 text-xs font-semibold shadow-xs">
-                    <Link to="/grade">
-                      <PenLine className="size-3.5 mr-1" /> Mark New Essay
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold bg-background/80 hover:bg-muted">
-                    <Link to="/mcq-live">
-                      <ListChecks className="size-3.5 mr-1 text-primary" /> Past Paper MCQs
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Radial Readiness Indicator Gauge */}
-              <div className="relative z-10 flex sm:flex-col items-center justify-between sm:justify-center gap-3 shrink-0 p-3 sm:p-4 rounded-2xl bg-card/80 border border-border/80 shadow-2xs backdrop-blur-sm w-full sm:w-auto self-stretch sm:self-center">
-                <div className="relative size-20 sm:size-24 shrink-0 flex items-center justify-center">
-                  <svg className="size-full -rotate-90" viewBox="0 0 100 100">
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="42"
-                      fill="transparent"
-                      stroke="currentColor"
-                      strokeWidth="9"
-                      className="text-muted/40"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="42"
-                      fill="transparent"
-                      stroke="currentColor"
-                      strokeWidth="9"
-                      strokeDasharray={264}
-                      strokeDashoffset={264 - (264 * Math.min(100, Math.max(0, progressIndex))) / 100}
-                      strokeLinecap="round"
-                      className="text-primary transition-all duration-1000 ease-out"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-foreground tabular-nums">
-                      {progressIndex}%
-                    </span>
-                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-muted-foreground -mt-0.5">
-                      Readiness
-                    </span>
-                  </div>
-                </div>
-
-                <Badge
-                  variant="outline"
-                  className={cn("text-[10px] font-semibold px-2 py-0.5 text-center shadow-2xs", progressBadge.color)}
-                >
-                  {progressBadge.label}
-                </Badge>
-              </div>
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* ── BAND 1: Search-First Hero & Compact Telemetry Strip ── */}
+        <section className="space-y-4">
+          {/* Calm Header Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+                {greeting},{" "}
+                <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+                  {firstName}
+                </span>
+              </h1>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-mono font-semibold border-border/80 bg-muted/40 text-muted-foreground"
+              >
+                Cambridge 9708
+              </Badge>
             </div>
-          </section>
 
-          {/* Right 1 Col: Cambridge Examiner Daily Intel Card */}
-          <section className="lg:col-span-1 rounded-2xl border border-purple-500/25 bg-gradient-to-br from-purple-500/[0.06] via-card to-card p-5 shadow-xs flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="size-6 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
-                    <Sparkles className="size-3.5" />
-                  </div>
-                  <span className="text-xs font-bold tracking-tight text-foreground">
-                    Examiner Intel
-                  </span>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="text-[9.5px] font-mono font-bold border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 px-1.5 py-0"
+            {/* Compact Single-Line Stats Telemetry Strip (links to /review) */}
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 px-3 py-1.5 rounded-xl border border-border/70 bg-card/70 backdrop-blur-sm text-xs shadow-2xs">
+              <span className="text-muted-foreground">
+                Essays <strong className="font-mono text-foreground ml-0.5">{stats.essaysCount}</strong>
+              </span>
+              <span className="h-3 w-px bg-border/70" />
+              <span className="text-muted-foreground">
+                Avg <strong className="font-mono text-foreground ml-0.5">{stats.avgDisplay}</strong>
+              </span>
+              <span className="h-3 w-px bg-border/70" />
+              <span className="text-muted-foreground">
+                MCQ <strong className="font-mono text-emerald-600 dark:text-emerald-400 ml-0.5">{stats.mcqAcc}</strong>
+              </span>
+              <span className="hidden sm:inline-block h-3 w-px bg-border/70" />
+              <span className="hidden sm:inline text-muted-foreground">
+                Best <strong className="font-mono text-foreground ml-0.5">{stats.bestDisplay}</strong>
+              </span>
+              <span className="h-3 w-px bg-border/70" />
+              <Link
+                to="/review"
+                className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+              >
+                Diagnostics
+                <ArrowUpRight className="size-3" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Search-First Command Bar */}
+          <div ref={searchBoxRef} className="relative">
+            <form onSubmit={handleSearchSubmit}>
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-2xl border bg-card/95 backdrop-blur-md px-3.5 sm:px-4 h-13 sm:h-14 shadow-md transition-all",
+                  searchFocused
+                    ? "border-primary/60 ring-4 ring-primary/10 shadow-lg"
+                    : "border-border/80 hover:border-primary/35",
+                )}
+              >
+                <Search className="size-4.5 sm:size-5 text-primary shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onFocus={() => setSearchFocused(true)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setSearchFocused(true);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={SEARCH_PLACEHOLDERS[placeholderIdx]}
+                  aria-label="Search Marginal Economics tools, definitions, diagrams, or paste an essay question"
+                  className="flex-1 min-w-0 bg-transparent text-sm sm:text-[15px] text-foreground placeholder:text-muted-foreground/75 focus:outline-none"
+                />
+
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      searchInputRef.current?.focus();
+                    }}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                    aria-label="Clear search"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+
+                <Link
+                  to="/grade"
+                  title="Upload handwritten essay photo (Vision OCR)"
+                  aria-label="Upload handwritten essay photo"
+                  className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-muted/40 hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
                 >
-                  {currentTip.ao} Focus
+                  <Camera className="size-3.5 text-primary" />
+                  <span>OCR</span>
+                </Link>
+
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-8.5 sm:h-9 px-3.5 sm:px-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold gap-1.5 cursor-pointer shrink-0 shadow-xs"
+                >
+                  <span>Go</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </div>
+            </form>
+
+            {/* Live Instant Search Results Popover */}
+            {searchFocused && query.trim().length > 0 && (
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 rounded-2xl border border-border/80 bg-popover/98 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="max-h-80 overflow-y-auto p-2 space-y-0.5">
+                  {searchResults.map((item, idx) => {
+                    const Icon = item.icon;
+                    const active = idx === selectedIdx;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onMouseEnter={() => setSelectedIdx(idx)}
+                        onClick={item.onSelect}
+                        className={cn(
+                          "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer",
+                          active ? "bg-primary/10 text-foreground" : "hover:bg-muted/60 text-foreground",
+                        )}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="size-8 rounded-lg bg-muted/60 border border-border/60 flex items-center justify-center shrink-0">
+                            <Icon className={cn("size-4", item.iconColor)} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-semibold truncate">{item.title}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{item.subtitle}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {item.badge && (
+                            <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-border/80">
+                              {item.badge}
+                            </Badge>
+                          )}
+                          <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="px-3.5 py-2 border-t border-border/60 bg-muted/30 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Use ↑↓ arrows and Enter to launch</span>
+                  <span className="font-mono">Esc to close</span>
+                </div>
+              </div>
+            )}
+
+            {/* Single-Row Quick Jump Chips */}
+            <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-medium text-muted-foreground mr-1">Quick jump:</span>
+              {QUICK_SEARCH_CHIPS.map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => handleChipClick(chip)}
+                  className="px-2.5 py-1 rounded-full border border-border/70 bg-card/70 hover:bg-muted/80 hover:border-primary/40 text-[11.5px] font-medium text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── BAND 2: Three Dedicated Core Workspaces (Live Examiner · Essay Grader · MCQ) ── */}
+        <section aria-label="Core Workspaces" className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* SPACE 1: LIVE EXAMINER */}
+          <div className="group relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/[0.09] via-card to-card p-5 shadow-xs hover:border-indigo-500/55 hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-indigo-500/15 blur-2xl" />
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="size-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-500 group-hover:scale-105 transition-transform">
+                  <Zap className="size-5" />
+                </div>
+                <Badge className="bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-indigo-500/30 text-[10px] font-mono font-bold gap-1.5">
+                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  LIVE AI COACH
                 </Badge>
               </div>
 
               <div>
-                <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="size-3.5 text-primary shrink-0" />
-                  {currentTip.title}
+                <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
+                  Live Examiner
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Write line by line with a running mark estimate, live rubric checklist, and instant A* next-mark hints.
                 </p>
-                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                  "{currentTip.tip}"
-                </p>
               </div>
-            </div>
 
-            <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
-              <span className="text-[10px] font-mono text-muted-foreground">
-                Tip {(tipIndex % CAMBRIDGE_TIPS.length) + 1} of {CAMBRIDGE_TIPS.length}
-              </span>
-              <button
-                type="button"
-                onClick={() => setTipIndex((prev) => prev + 1)}
-                className="text-xs font-semibold text-primary hover:text-primary/80 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-primary/20 hover:bg-primary/10 transition-colors cursor-pointer shadow-2xs"
-              >
-                <RefreshCw className="size-3" /> Next Tip
-              </button>
-            </div>
-          </section>
-        </div>
-
-        {/* Cambridge 9708 Flight Readiness Check (Starter Quest) */}
-        {!isTeacherUser && (
-          <DashboardStarterQuest
-            versionsCount={versions.length}
-            mcqAttemptsCount={mcqSummary.data?.totalAttempts ?? 0}
-          />
-        )}
-
-        {/* What would you like to achieve today? Intent Launcher */}
-        {!isTeacherUser && <DashboardGoalLauncher />}
-
-        {/* Educator Workspace Quick Banner */}
-        {isTeacherUser && (
-          <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.06] p-4 text-xs shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="size-9 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
-                  <GraduationCap className="size-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground text-sm">Cambridge 9708 Educator Workspace</h3>
-                  <p className="text-muted-foreground mt-0.5">
-                    Organize Cambridge cohorts, assign essays, ingest mark schemes, and run examiner moderation.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
-                  <Link to="/classes">
-                    <UsersRound className="size-3.5 mr-1 text-purple-500" /> My Classes
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
-                  <Link to="/grade">
-                    <PenLine className="size-3.5 mr-1 text-purple-500" /> Essay Grader
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
-                  <Link to="/knowledge">
-                    <BookOpen className="size-3.5 mr-1 text-purple-500" /> Knowledge Base
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 4 Elevated Stat Cards with Vibrant Micro-Accents */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <InteractiveStat
-            label="Essays marked"
-            value={String(versions.length)}
-            badge={`${essays.data?.length ?? 0} threads`}
-            hint="Total Cambridge submissions"
-            loading={progress.isLoading}
-            icon={PenLine}
-            theme="purple"
-          />
-          <InteractiveStat
-            label="Average mark"
-            value={averageMetrics.display}
-            badge={
-              averageMetrics.trend !== 0
-                ? `${averageMetrics.trend > 0 ? "+" : ""}${averageMetrics.trend.toFixed(1)}% trend`
-                : "Baseline"
-            }
-            hint={
-              versions.length
-                ? `${averageMetrics.avgPct}% Cambridge benchmark`
-                : "Submit to calculate"
-            }
-            loading={progress.isLoading}
-            icon={TrendingUp}
-            theme="blue"
-          />
-          <InteractiveStat
-            label="MCQ Accuracy"
-            value={
-              mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined
-                ? `${mcqSummary.data.accuracyPct}%`
-                : "—"
-            }
-            badge={
-              mcqSummary.data?.totalAttempts
-                ? `${mcqSummary.data.totalAttempts} paper${mcqSummary.data.totalAttempts === 1 ? "" : "s"}`
-                : "Papers 1 & 3"
-            }
-            hint={
-              mcqSummary.data?.totalQuestions
-                ? `${mcqSummary.data.totalCorrect}/${mcqSummary.data.totalQuestions} questions correct`
-                : "Complete a past paper"
-            }
-            loading={mcqSummary.isLoading}
-            icon={ListChecks}
-            theme="emerald"
-          />
-          <InteractiveStat
-            label="Personal best"
-            value={bestAttempt ? `${bestAttempt.mark}/${bestAttempt.maxMark}` : "—"}
-            badge="Top attempt"
-            hint="Highest single awarded mark"
-            loading={progress.isLoading}
-            icon={Trophy}
-            theme="amber"
-          />
-        </div>
-
-        {/* Assessment Objective Mastery Console */}
-        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-6 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-border/70 pb-4">
-            <div className="space-y-1">
-              <h2 className="flex items-center gap-2 text-base font-bold tracking-tight">
-                <div className="size-6 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                  <Award className="size-3.5" />
-                </div>
-                Cambridge Assessment Objective (AO) Mastery
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Authoritative weightings for Cambridge 9708 evaluative essays:{" "}
-                <span className="font-semibold text-foreground">AO1 Knowledge ({currentAoSplit.ao1_marks}m)</span> ·{" "}
-                <span className="font-semibold text-foreground">AO2 Analysis ({currentAoSplit.ao2_marks}m)</span> ·{" "}
-                <span className="font-semibold text-foreground">AO3 Evaluation ({currentAoSplit.ao3_marks}m)</span>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1 sm:gap-1.5 rounded-xl border border-border/80 bg-muted/40 p-1 text-xs overflow-x-auto max-w-full shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setActiveTariff("all")}
-                className={cn(
-                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
-                  activeTariff === "all"
-                    ? "bg-background text-foreground shadow-xs border border-border/60"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                All tariffs
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTariff(12)}
-                className={cn(
-                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
-                  activeTariff === 12
-                    ? "bg-background text-foreground shadow-xs border border-border/60"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                12-mark essays
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTariff(8)}
-                className={cn(
-                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
-                  activeTariff === 8
-                    ? "bg-background text-foreground shadow-xs border border-border/60"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                8-mark
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTariff(20)}
-                className={cn(
-                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
-                  activeTariff === 20
-                    ? "bg-background text-foreground shadow-xs border border-border/60"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                20-mark A2
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <AoCard
-              label="AO1 Knowledge"
-              subtitle="Definitions, concepts & theory"
-              score={aoAverage("ao1_awarded")}
-              maxScore={currentAoSplit.ao1_marks}
-              tone="bg-sky-500"
-              badgeClass="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
-              insight="Accurate definitions and diagrams set the baseline for high marks."
-              targetRatio={0.85}
-              aoKey="ao1"
-            />
-            <AoCard
-              label="AO2 Analysis"
-              subtitle="Explicit chains of economic reasoning"
-              score={aoAverage("ao2_awarded")}
-              maxScore={currentAoSplit.ao2_marks}
-              tone="bg-indigo-500"
-              badgeClass="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
-              insight="Largest mark share. Build step-by-step causal mechanisms without skipping steps."
-              targetRatio={0.75}
-              aoKey="ao2"
-            />
-            <AoCard
-              label="AO3 Evaluation"
-              subtitle="Weighing up, conditions & justified judgement"
-              score={aoAverage("ao3_awarded")}
-              maxScore={currentAoSplit.ao3_marks}
-              tone="bg-amber-500"
-              badgeClass="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-              insight="Decisive differentiator for Band 1. Must be justified with magnitude or elasticity."
-              targetRatio={0.65}
-              aoKey="ao3"
-            />
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] p-3.5 sm:p-4 text-xs">
-            <span className="text-muted-foreground">
-              💡 <strong className="text-foreground">Examiner insight:</strong> Evaluation (AO3) is
-              where over 70% of Cambridge students lose top-band marks. Strengthen judgements with
-              context.
-            </span>
-            <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold bg-background shadow-2xs hover:bg-muted">
-              <Link to="/practice">
-                <Dumbbell className="size-3.5 mr-1 text-primary" /> Train AO Skills
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Interactive Performance Trajectory Graph */}
-        <section className="panel p-3.5 sm:p-5 md:p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-3 sm:pb-4">
-            <div>
-              <h2 className="text-base font-semibold tracking-tight flex items-center gap-2">
-                <TrendingUp className="size-4 text-primary" /> Essay Mark Trajectory
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Chronological marking progression across all submissions with Cambridge Grade Band
-                thresholds.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-emerald-500" /> Top Band (80%+)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-blue-500" /> Upper Band (55%+)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-amber-500" /> Lower Band (35%+)
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5">
-            {marks.length >= 2 ? (
-              <div className="relative">
-                <PerformanceChart
-                  versions={versions}
-                  hoveredPoint={hoveredPoint}
-                  onHoverPoint={setHoveredPoint}
-                />
-              </div>
-            ) : (
-              <div className="relative overflow-hidden rounded-xl border border-dashed border-border bg-muted/20 py-10 px-6 text-center">
-                <Sparkles className="mx-auto size-8 text-primary/60 mb-3" />
-                <h3 className="text-sm font-semibold">Ready to plot your trajectory</h3>
-                <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-                  Submit 2 or more essays to unlock interactive performance charts and historical
-                  grade band tracking.
-                </p>
-                <Button asChild size="sm" className="mt-4">
-                  <Link to="/grade">Submit an essay to begin</Link>
-                </Button>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Quick-Launch Command Center */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
-              <Zap className="size-4 text-primary" /> Cambridge Practice Suites
-            </h2>
-            <span className="text-xs text-muted-foreground">Select a tool to start studying</span>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <QuickActionCard
-              to="/grade"
-              icon={PenLine}
-              title="Grade Essay"
-              badge="Cambridge 9708"
-              description="Authoritative Cambridge marking with AO breakdown, model corrections, and Principal Examiner review."
-            />
-            <QuickActionCard
-              to="/mcq-live"
-              icon={ListChecks}
-              title="MCQ Past Papers"
-              badge="Papers 1 & 3"
-              description="Real Cambridge past papers with interactive jump matrix, timer, and AI mark-scheme explanations."
-            />
-            <QuickActionCard
-              to="/data-response"
-              icon={FileSpreadsheet}
-              title="Data Response Papers"
-              badge="Papers 2 & 4 Section A"
-              description="Authentic case studies, Table 1.1 interpretation, and strict mark scheme grading for Paper 2 & 4 Section A."
-            />
-            <QuickActionCard
-              to="/essay-generator"
-              icon={Wand2}
-              title="Sample Essay Generator"
-              badge="Full-Mark Models"
-              description="Examiner-standard Cambridge model essays with embedded diagrams, AO mark allocations, and evaluative judgements."
-            />
-            <QuickActionCard
-              to="/response-structure"
-              icon={GraduationCap}
-              title="How to Write an Essay"
-              badge="8, 12 & 20 Marks"
-              description="Cambridge class-taught layout for 8m, 12m, and 20m essays with chains of analysis and justified evaluation."
-            />
-            <QuickActionCard
-              to="/definitions"
-              icon={BookText}
-              title="Definitions Hub"
-              badge="120+ Terms"
-              description="Official Cambridge 9708 syllabus definitions, keywords, and flashcards for full AO1 knowledge."
-            />
-            <QuickActionCard
-              to="/practice"
-              icon={Dumbbell}
-              title="AO Skills Coach"
-              badge="Targeted Drills"
-              description="Train individual knowledge points, analytical reasoning chains, and evaluative judgements."
-            />
-            <QuickActionCard
-              to="/question-bank"
-              icon={LibraryBig}
-              title="Question Bank"
-              badge="9708 Past Papers"
-              description="Filter hundreds of past paper essay and MCQ questions, or generate fresh syllabus prompts."
-            />
-            <QuickActionCard
-              to="/diagram-lab"
-              icon={Sliders}
-              title="Diagram CAD Library"
-              badge="19 Interactive Models"
-              description="Interactive Cambridge 9708 vector studio — manipulate curves, taxes, tariffs, monopolies, AD/AS, and export SVGs."
-            />
-            <QuickActionCard
-              to="/examples"
-              icon={Globe2}
-              title="Real-World Examples Bank"
-              badge="AO2 & AO3"
-              description="Curated Cambridge 9708 case studies across micro, macro & trade with A* essay integration templates and evaluation pivots."
-            />
-          </div>
-
-          {/* Conditional Experimental Labs Compartment (Admin Only) */}
-          {Boolean(me.data?.isAdmin) ? (
-            <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/[0.03] p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
-                    Experimental Labs
-                  </Badge>
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Administrator Access
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {["Running Mark", "Rubric Checklist", "Intro · Analysis · Eval"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[10.5px] font-medium px-2 py-0.5 rounded-md bg-muted/60 border border-border/60 text-muted-foreground"
+                  >
+                    {tag}
                   </span>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <QuickActionCard
-                  to="/chat"
-                  icon={MessageSquare}
-                  title="Cambridge Chat Lab"
-                  badge="Voice AI"
-                  description="Interactive conversational economics examiner with 100% syllabus grounding, voiceover studio, and auto-draft essays."
-                />
+                ))}
               </div>
             </div>
-          ) : null}
-        </section>
 
-        {/* Recent Essays Interactive Feed */}
-        <div className="panel overflow-hidden shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-border/80 px-3.5 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-sm font-semibold">Your Recent Essays</h2>
-              <p className="text-xs text-muted-foreground">
-                Review feedback and track improvements on rewrites
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-full sm:w-56">
-                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search questions…"
-                  value={essaySearch}
-                  onChange={(e) => setEssaySearch(e.target.value)}
-                  className="h-8 pl-8 text-xs"
-                />
-              </div>
-
-              <div className="flex items-center gap-1 rounded-md border border-border bg-muted/40 p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setBandFilter("all")}
-                  className={cn(
-                    "rounded px-2 py-1 transition-colors",
-                    bandFilter === "all"
-                      ? "bg-background font-medium shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBandFilter("band1")}
-                  className={cn(
-                    "rounded px-2 py-1 transition-colors",
-                    bandFilter === "band1"
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Band 1
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBandFilter("band2")}
-                  className={cn(
-                    "rounded px-2 py-1 transition-colors",
-                    bandFilter === "band2"
-                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Band 2
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {essays.isLoading ? (
-            <div className="space-y-3 p-5">
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
-            </div>
-          ) : filteredEssays.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <div className="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto mb-3">
-                <GraduationCap className="size-6" />
-              </div>
-              <p className="text-sm font-bold text-foreground">
-                {essaySearch ? "No matching essays found" : "Your Cambridge Portfolio is Ready"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto leading-relaxed">
-                {essaySearch
-                  ? "Try adjusting your search query or clear the filter."
-                  : "You haven't marked an essay yet! Grade your first essay or test our 1-click sample to unlock your Cambridge performance curve."}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-2.5 mt-4">
-                <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold gap-1.5 shadow-xs">
-                  <Link to="/grade" search={{ sample: 12 }}>
-                    <Wand2 className="size-3.5" />
-                    Try 1-Click Sample Essay
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="text-xs">
-                  <Link to="/grade">
-                    <PenLine className="size-3.5 mr-1" />
-                    Write or Upload Essay
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {visibleEssays.map((essay) => {
-                const mark = essay.latest_mark ?? 0;
-                const max = essay.max_mark ?? 12;
-                const pct = max > 0 ? Math.round((mark / max) * 100) : 0;
-                const isTopBand = pct >= 75;
-                const isMidBand = pct >= 50 && pct < 75;
-
-                return (
-                  <li key={essay.id}>
-                    <Link
-                      to="/essay/$essayId"
-                      params={{ essayId: essay.id }}
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-2.5 transition-colors hover:bg-muted/50"
-                    >
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-xs sm:text-sm font-semibold group-hover:text-primary transition-colors">
-                            {essay.question}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <span>
-                            {new Date(essay.updated_at).toLocaleDateString(undefined, {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                          <span>•</span>
-                          <span>Tariff: {essay.max_mark}m</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] px-2 py-0.5 font-semibold",
-                            isTopBand
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : isMidBand
-                                ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                          )}
-                        >
-                          {isTopBand ? "Band 1" : isMidBand ? "Band 2" : "Band 3"} • {pct}%
-                        </Badge>
-                        <span className="text-xs sm:text-sm font-bold tabular-nums">
-                          {essay.latest_mark ?? "—"}
-                          <span className="text-muted-foreground font-normal text-xs">
-                            /{essay.max_mark}
-                          </span>
-                        </span>
-                        <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {/* Expand / Collapse Toggle if more than 4 essays */}
-          {filteredEssays.length > 4 && !essaySearch.trim() && bandFilter === "all" ? (
-            <div className="border-t border-border/70 px-4 py-2 text-center bg-muted/20">
-              <button
-                type="button"
-                onClick={() => setShowAllEssays(!showAllEssays)}
-                className="text-xs font-semibold text-primary hover:underline cursor-pointer inline-flex items-center gap-1"
+            <div className="relative z-10 mt-5 pt-3.5 border-t border-border/50">
+              <Button
+                asChild
+                size="sm"
+                className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1.5 shadow-xs"
               >
-                {showAllEssays ? (
-                  <>
-                    <ChevronUp className="size-3.5" /> Show fewer essays
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="size-3.5" /> View all {filteredEssays.length} essays ({filteredEssays.length - 4} more)
-                  </>
-                )}
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        {/* MCQ Past Papers & Real Scores Feed */}
-        <div className="panel overflow-hidden shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-border/80 px-3.5 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <ListChecks className="size-4 text-primary" />
-                <h2 className="text-sm font-semibold">Cambridge MCQ Scores &amp; Past Papers</h2>
-                {mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined && (
-                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-semibold">
-                    {mcqSummary.data.accuracyPct}% Overall Accuracy
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Authoritative Paper 1 &amp; Paper 3 examination attempts, scored percentages, and revision links
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-                <Link to="/mcq-live">
-                  <ListChecks className="size-3 mr-1 text-primary" /> Practice Past Papers
+                <Link to="/live-examiner">
+                  <Zap className="size-3.5" />
+                  <span>Open Live Examiner</span>
+                  <ArrowRight className="size-3.5 ml-auto" />
                 </Link>
               </Button>
             </div>
           </div>
 
-          {mcqSummary.isLoading ? (
-            <div className="space-y-3 p-5">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : !mcqSummary.data?.recentAttempts || mcqSummary.data.recentAttempts.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <ListChecks className="mx-auto size-9 text-muted-foreground/60 mb-2" />
-              <p className="text-sm font-medium text-foreground">No MCQ papers completed yet</p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                Test your syllabus mastery on real Cambridge 9708 Paper 1 (AS) and Paper 3 (A2) past papers with instant timer, auto-marking, and examiner explanations.
-              </p>
-              <Button asChild size="sm">
-                <Link to="/mcq-live">Start Cambridge MCQ Practice</Link>
-              </Button>
-            </div>
-          ) : (
-            <div>
-              {/* Summary mini metrics strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-b border-border/60 bg-muted/20 p-3 sm:px-5 text-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">MCQ Accuracy</span>
-                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
-                    {mcqSummary.data.accuracyPct !== null ? `${mcqSummary.data.accuracyPct}%` : "—"}
-                  </p>
+          {/* SPACE 2: ESSAY GRADER */}
+          <div className="group relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.09] via-card to-card p-5 shadow-xs hover:border-primary/55 hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-primary/15 blur-2xl" />
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                  <PenLine className="size-5" />
                 </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Questions Answered</span>
-                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
-                    {mcqSummary.data.totalCorrect} / {mcqSummary.data.totalQuestions}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">AS Papers Completed</span>
-                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
-                    {mcqSummary.data.asAttempts}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">A2 Papers Completed</span>
-                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
-                    {mcqSummary.data.a2Attempts}
-                  </p>
-                </div>
+                <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] font-mono font-bold">
+                  90% EXAM ALIGNED
+                </Badge>
               </div>
 
-              {/* List of attempts */}
-              <ul className="divide-y divide-border/60">
-                {mcqSummary.data.recentAttempts.map((attempt) => {
-                  const isTopBand = attempt.percentage >= 80;
-                  const isMidBand = attempt.percentage >= 60 && attempt.percentage < 80;
-                  return (
-                    <li key={attempt.id} className="transition-colors hover:bg-muted/40">
+              <div>
+                <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
+                  Essay Grader
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Full Paper 2 &amp; 4 marking with AO1/AO2/AO3 breakdowns, Handwriting Vision OCR, and model rewrites.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {["Handwriting OCR", "AO1 · AO2 · AO3", "8m / 12m / 20m"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[10.5px] font-medium px-2 py-0.5 rounded-md bg-muted/60 border border-border/60 text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative z-10 mt-5 pt-3.5 border-t border-border/50 flex items-center gap-2">
+              <Button
+                asChild
+                size="sm"
+                className="flex-1 h-9 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold gap-1.5 shadow-xs"
+              >
+                <Link to="/grade">
+                  <PenLine className="size-3.5" />
+                  <span>Mark an Essay</span>
+                  <ArrowRight className="size-3.5 ml-auto" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 px-3 rounded-xl text-xs font-semibold border-border/80 bg-background/80 hover:bg-muted shrink-0"
+                title="Load a 1-click sample essay to test the grader"
+              >
+                <Link to="/grade" search={{ sample: 12 }}>
+                  <Sparkles className="size-3.5 text-primary mr-1" />
+                  Sample
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* SPACE 3: MCQ SUITE & ARENA */}
+          <div className="group relative overflow-hidden rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/[0.08] via-card to-card p-5 shadow-xs hover:border-sky-500/55 hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-sky-500/15 blur-2xl" />
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="size-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-500 group-hover:scale-105 transition-transform">
+                  <ListChecks className="size-5" />
+                </div>
+                <Badge className="bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-500/30 text-[10px] font-mono font-bold">
+                  1,400+ PAST Qs
+                </Badge>
+              </div>
+
+              <div>
+                <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
+                  MCQ Suite &amp; Arena
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Solve Paper 1 &amp; 3 past papers with per-option distractor logic, or race friends live with a 6-digit PIN.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {["Papers 1 & 3", "Distractor Logic", "Live 6-Digit PIN"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[10.5px] font-medium px-2 py-0.5 rounded-md bg-muted/60 border border-border/60 text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative z-10 mt-5 pt-3.5 border-t border-border/50 flex items-center gap-2">
+              <Button
+                asChild
+                size="sm"
+                className="flex-1 h-9 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold gap-1.5 shadow-xs"
+              >
+                <Link to="/mcq-live">
+                  <ListChecks className="size-3.5" />
+                  <span>Past Papers</span>
+                  <ArrowRight className="size-3.5 ml-auto" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 px-3 rounded-xl text-xs font-semibold border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-foreground shrink-0"
+              >
+                <Link to="/quiz">
+                  <Gamepad2 className="size-3.5 text-amber-500 mr-1" />
+                  Arena
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── BAND 3: Compact Recent Activity + Quick Tools Grid (Short & Clean) ── */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* Left (7 cols): Tabbed Recent Activity (max 3 compact rows) */}
+          <div className="lg:col-span-7 rounded-2xl border border-border/80 bg-card/90 shadow-xs overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border/60">
+              <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-0.5 border border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setActivityTab("essays")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                    activityTab === "essays"
+                      ? "bg-background text-foreground shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Recent Essays
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityTab("mcqs")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                    activityTab === "mcqs"
+                      ? "bg-background text-foreground shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Recent MCQs
+                </button>
+              </div>
+
+              <Link
+                to="/review"
+                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+              >
+                Full history
+                <ArrowUpRight className="size-3.5" />
+              </Link>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center">
+              {activityTab === "essays" ? (
+                essays.isLoading ? (
+                  <div className="p-4 space-y-2.5">
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                  </div>
+                ) : recentEssays.length === 0 ? (
+                  <div className="px-5 py-7 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="text-center sm:text-left">
+                      <p className="text-sm font-bold text-foreground">No graded essays yet</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Submit your first script or test a 1-click Cambridge sample to unlock mark tracking.
+                      </p>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold shrink-0">
+                      <Link to="/grade" search={{ sample: 12 }}>
+                        <Wand2 className="size-3.5 text-primary mr-1" /> Try Sample
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border/60">
+                    {recentEssays.map((essay) => {
+                      const mark = essay.latest_mark ?? 0;
+                      const max = essay.max_mark ?? 12;
+                      const pct = max > 0 ? Math.round((mark / max) * 100) : 0;
+                      const bandClass =
+                        pct >= 75
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : pct >= 50
+                            ? "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                            : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+                      return (
+                        <li key={essay.id}>
+                          <Link
+                            to="/essay/$essayId"
+                            params={{ essayId: essay.id }}
+                            className="group flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                                {essay.question}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {new Date(essay.updated_at).toLocaleDateString(undefined, {
+                                  day: "numeric",
+                                  month: "short",
+                                })}{" "}
+                                · {max}m tariff
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="outline" className={cn("text-[10px] font-mono font-bold px-1.5 py-0", bandClass)}>
+                                {pct}%
+                              </Badge>
+                              <span className="text-xs sm:text-sm font-bold font-mono tabular-nums text-foreground">
+                                {essay.latest_mark ?? "—"}/{max}
+                              </span>
+                              <ArrowUpRight className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
+              ) : mcqSummary.isLoading ? (
+                <div className="p-4 space-y-2.5">
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              ) : recentMcqs.length === 0 ? (
+                <div className="px-5 py-7 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-center sm:text-left">
+                    <p className="text-sm font-bold text-foreground">No MCQ papers completed yet</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Practice Paper 1 (AS) or Paper 3 (A Level) with instant distractor explanations.
+                    </p>
+                  </div>
+                  <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold shrink-0">
+                    <Link to="/mcq-live">
+                      <ListChecks className="size-3.5 text-sky-500 mr-1" /> Start Paper
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {recentMcqs.map((attempt) => (
+                    <li key={attempt.id}>
                       <Link
                         to="/mcq-live"
                         search={attempt.paperId ? { paperId: attempt.paperId } : undefined}
-                        className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-3.5 sm:px-5"
+                        className="group flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors"
                       >
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[10px] px-1.5 py-0 font-bold uppercase",
-                                attempt.level === "a2"
-                                  ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                                  : "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-                              )}
-                            >
-                              {attempt.level.toUpperCase()}
-                            </Badge>
-                            <span className="text-xs sm:text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                              {attempt.title}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                            <span>
-                              {new Date(attempt.completedAt).toLocaleDateString(undefined, {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </span>
-                            <span>•</span>
-                            <span>
-                              {attempt.kind === "past_paper"
-                                ? "Cambridge Past Paper"
-                                : "Topic Generator"}
-                            </span>
-                          </div>
+                        <div className="min-w-0 flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 shrink-0"
+                          >
+                            {attempt.level}
+                          </Badge>
+                          <p className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                            {attempt.title}
+                          </p>
                         </div>
-
-                        <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                        <div className="flex items-center gap-2 shrink-0">
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[10px] px-2 py-0.5 font-semibold",
-                              isTopBand
+                              "text-[10px] font-mono font-bold px-1.5 py-0",
+                              attempt.percentage >= 80
                                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : isMidBand
-                                  ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                  : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                                : "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
                             )}
                           >
-                            {isTopBand ? "Band 1 / A*" : isMidBand ? "Band 2 / B" : "Developing"} • {attempt.percentage}%
+                            {attempt.percentage}%
                           </Badge>
-                          <span className="text-xs sm:text-sm font-bold tabular-nums">
-                            {attempt.score}
-                            <span className="text-muted-foreground font-normal text-xs">
-                              /{attempt.total}
-                            </span>
+                          <span className="text-xs sm:text-sm font-bold font-mono tabular-nums text-foreground">
+                            {attempt.score}/{attempt.total}
                           </span>
-                          <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                          <ArrowUpRight className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                       </Link>
                     </li>
-                  );
-                })}
-              </ul>
+                  ))}
+                </ul>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+
+          {/* Right (5 cols): Compact More Tools 2×3 Grid */}
+          <div className="lg:col-span-5 rounded-2xl border border-border/80 bg-card/90 p-3.5 shadow-xs flex flex-col justify-between gap-3">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-xs font-bold text-foreground tracking-tight">More 9708 Tools</span>
+              {Boolean(me.data?.isAdmin) && (
+                <Link
+                  to="/chat"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                >
+                  <MessageSquare className="size-3" /> Chat Lab
+                </Link>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { to: "/data-response", label: "Data Response", tag: "P2 & P4 Sec A", icon: FileSpreadsheet, color: "text-emerald-500" },
+                { to: "/essay-generator", label: "ECR Models", tag: "20/20 Essays", icon: Wand2, color: "text-purple-500" },
+                { to: "/diagram-lab", label: "Diagram Lab", tag: "19 CAD Models", icon: Sliders, color: "text-violet-500" },
+                { to: "/definitions", label: "Definitions", tag: "200+ Terms", icon: BookText, color: "text-sky-500" },
+                { to: "/examples", label: "Examples Bank", tag: "AO2 & AO3", icon: Globe2, color: "text-emerald-500" },
+                { to: "/classes", label: "Classrooms", tag: "Cohorts", icon: UsersRound, color: "text-indigo-500" },
+              ].map((tool) => {
+                const Icon = tool.icon;
+                return (
+                  <Link
+                    key={tool.to}
+                    to={tool.to as any}
+                    className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border/70 bg-background/60 hover:bg-muted/60 hover:border-primary/40 transition-all"
+                  >
+                    <div className="size-8 rounded-lg bg-muted/70 border border-border/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Icon className={cn("size-4", tool.color)} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                        {tool.label}
+                      </p>
+                      <p className="text-[10px] font-mono text-muted-foreground truncate">{tool.tag}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       </div>
-    </>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Subcomponents
+// Streamlined Educator Dashboard (matches the same compact, calm aesthetic)
 // ---------------------------------------------------------------------------
-
-function InteractiveStat({
-  label,
-  value,
-  badge,
-  hint,
-  loading,
-  icon: Icon,
-  theme = "purple",
-}: {
-  label: string;
-  value: string;
-  badge: string;
-  hint: string;
-  loading: boolean;
-  icon: typeof PenLine;
-  theme?: "purple" | "blue" | "emerald" | "amber";
-}) {
-  const themeStyles = {
-    purple: {
-      border: "border-purple-500/20 hover:border-purple-500/40",
-      bg: "bg-gradient-to-br from-purple-500/[0.06] via-card to-card",
-      iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-      badge: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
-    },
-    blue: {
-      border: "border-sky-500/20 hover:border-sky-500/40",
-      bg: "bg-gradient-to-br from-sky-500/[0.06] via-card to-card",
-      iconBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-      badge: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-    },
-    emerald: {
-      border: "border-emerald-500/20 hover:border-emerald-500/40",
-      bg: "bg-gradient-to-br from-emerald-500/[0.06] via-card to-card",
-      iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-      badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-    },
-    amber: {
-      border: "border-amber-500/20 hover:border-amber-500/40",
-      bg: "bg-gradient-to-br from-amber-500/[0.06] via-card to-card",
-      iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-      badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-    },
-  }[theme];
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between group",
-        themeStyles.border,
-        themeStyles.bg,
-      )}
-    >
-      <div className="flex items-center justify-between gap-1.5">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-          {label}
-        </p>
-        <div
-          className={cn(
-            "flex size-7 items-center justify-center rounded-lg border shadow-2xs shrink-0 transition-transform group-hover:scale-105",
-            themeStyles.iconBg,
-          )}
-        >
-          <Icon className="size-3.5" />
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-baseline justify-between gap-2">
-        {loading ? (
-          <Skeleton className="h-8 w-20" />
-        ) : (
-          <p className="text-2xl sm:text-3xl font-black tracking-tight text-foreground tabular-nums font-mono">
-            {value}
-          </p>
-        )}
-        <Badge
-          variant="outline"
-          className={cn(
-            "text-[10px] font-mono font-semibold px-2 py-0.5 truncate shrink-0",
-            themeStyles.badge,
-          )}
-        >
-          {badge}
-        </Badge>
-      </div>
-
-      <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span className="truncate">{hint}</span>
-      </div>
-    </div>
-  );
-}
-
-function AoCard({
-  label,
-  subtitle,
-  score,
-  maxScore,
-  tone,
-  badgeClass,
-  insight,
-  targetRatio,
-  aoKey,
-}: {
-  label: string;
-  subtitle: string;
-  score: number;
-  maxScore: number;
-  tone: string;
-  badgeClass: string;
-  insight: string;
-  targetRatio: number;
-  aoKey: "ao1" | "ao2" | "ao3";
-}) {
-  const percent = maxScore > 0 ? Math.min(100, Math.round((score / maxScore) * 100)) : 0;
-  const targetMark = maxScore * targetRatio;
-
-  const aoMeta = {
-    ao1: {
-      targetBadge: "2 Marks Max",
-      pillBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-      accentBorder: "border-sky-500/25 hover:border-sky-500/45",
-      accentBg: "bg-gradient-to-br from-sky-500/[0.04] via-card to-card",
-      barColor: "bg-sky-500",
-      actionText: "Practise AO1 Knowledge →",
-    },
-    ao2: {
-      targetBadge: "50% Mark Share (6m)",
-      pillBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
-      accentBorder: "border-indigo-500/25 hover:border-indigo-500/45",
-      accentBg: "bg-gradient-to-br from-indigo-500/[0.04] via-card to-card",
-      barColor: "bg-indigo-500",
-      actionText: "Practise AO2 Analysis →",
-    },
-    ao3: {
-      targetBadge: "Band 1 Decider (4m)",
-      pillBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-      accentBorder: "border-amber-500/25 hover:border-amber-500/45",
-      accentBg: "bg-gradient-to-br from-amber-500/[0.04] via-card to-card",
-      barColor: "bg-amber-500",
-      actionText: "Practise AO3 Evaluation →",
-    },
-  }[aoKey];
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between",
-        aoMeta.accentBorder,
-        aoMeta.accentBg,
-      )}
-    >
-      <div className="space-y-3.5">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="text-sm font-bold text-foreground">{label}</h3>
-              <Badge
-                variant="outline"
-                className={cn("text-[9px] font-mono font-bold px-1.5 py-0", aoMeta.pillBg)}
-              >
-                {aoMeta.targetBadge}
-              </Badge>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
-          </div>
-          <Badge
-            variant="outline"
-            className={cn("text-[10.5px] font-mono px-2 py-0.5 font-bold shrink-0 shadow-2xs", badgeClass)}
-          >
-            {score.toFixed(1)} / {maxScore} marks
-          </Badge>
-        </div>
-
-        {/* Visual Progress Gauge */}
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground font-medium">Cambridge Mastery</span>
-            <span className="font-bold text-foreground font-mono tabular-nums">{percent}%</span>
-          </div>
-          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted/60 p-0.5">
-            <div
-              className={cn("h-full rounded-full transition-all duration-700 ease-out", aoMeta.barColor)}
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
-            <span>Level 1 Baseline</span>
-            <span className="text-primary font-semibold">Band 1 Target: {targetMark.toFixed(1)}m</span>
-          </div>
-        </div>
-
-        <p className="text-xs leading-relaxed text-muted-foreground border-t border-border/50 pt-3">
-          {insight}
-        </p>
-      </div>
-
-      <Button
-        asChild
-        variant="ghost"
-        size="sm"
-        className="w-full text-xs font-semibold h-8 mt-3.5 text-primary hover:text-primary hover:bg-primary/10 border border-primary/20 rounded-xl"
-      >
-        <Link to="/practice">{aoMeta.actionText}</Link>
-      </Button>
-    </div>
-  );
-}
-
-function QuickActionCard({
-  to,
-  icon: Icon,
-  title,
-  badge,
-  description,
-}: {
-  to: string;
-  icon: typeof PenLine;
-  title: string;
-  badge: string;
-  description: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group panel p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg flex flex-col justify-between"
-    >
-      <div>
-        <div className="flex items-center justify-between">
-          <div className="rounded-lg bg-primary/10 p-2 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-            <Icon className="size-4" />
-          </div>
-          <Badge
-            variant="outline"
-            className="border-primary/20 text-[10px] font-medium text-primary bg-primary/5"
-          >
-            {badge}
-          </Badge>
-        </div>
-        <h3 className="mt-3.5 text-sm font-semibold group-hover:text-primary transition-colors">
-          {title}
-        </h3>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
-      </div>
-
-      <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between text-xs font-medium text-primary">
-        <span>Launch</span>
-        <ArrowUpRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-      </div>
-    </Link>
-  );
-}
-
-function PerformanceChart({
-  versions,
-  hoveredPoint,
-  onHoverPoint,
-}: {
-  versions: Array<{
-    total_mark?: number | null;
-    created_at: string;
-    essay_id?: string | null;
-    essays?: { max_mark?: number | null; question?: string | null } | { max_mark?: number | null; question?: string | null }[] | null;
-  }>;
-  hoveredPoint: { index: number; mark: number; maxMark?: number; date: string; question: string } | null;
-  onHoverPoint: (
-    pt: { index: number; mark: number; maxMark?: number; date: string; question: string } | null,
-  ) => void;
-}) {
-  const width = 800;
-  const height = 220;
-  const padding = { top: 24, right: 120, bottom: 30, left: 40 };
-
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-
-  const points = useMemo(() => {
-    const list = versions.slice(-15);
-    return list.map((v, i) => {
-      const mark = v.total_mark ?? 0;
-      const essayObj = Array.isArray(v.essays) ? v.essays[0] : v.essays;
-      const maxMark = Number(essayObj?.max_mark) || (mark > 12 ? 20 : 12);
-      const pct = maxMark > 0 ? Math.min(1, Math.max(0, mark / maxMark)) : 0;
-      const x = padding.left + (i / Math.max(1, list.length - 1)) * chartWidth;
-      const y = padding.top + chartHeight - pct * chartHeight;
-      const date = new Date(v.created_at).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
-      const qText = essayObj?.question || `Essay submission #${i + 1}`;
-      return { x, y, mark, maxMark, pct: Math.round(pct * 100), date, question: qText };
-    });
-  }, [versions, chartWidth, chartHeight, padding.left, padding.top]);
-
-  const pathD = useMemo(() => {
-    if (points.length === 0) return "";
-    return points.reduce((acc, curr, idx) => {
-      return idx === 0 ? `M ${curr.x},${curr.y}` : `${acc} L ${curr.x},${curr.y}`;
-    }, "");
-  }, [points]);
-
-  const areaD = useMemo(() => {
-    if (points.length === 0) return "";
-    const first = points[0]!;
-    const last = points[points.length - 1]!;
-    const bottomY = padding.top + chartHeight;
-    return `${pathD} L ${last.x},${bottomY} L ${first.x},${bottomY} Z`;
-  }, [pathD, points, padding.top, chartHeight]);
-
-  return (
-    <div className="w-full overflow-x-auto pb-1">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto overflow-hidden sm:overflow-visible text-muted-foreground min-w-[520px] sm:min-w-0"
-      >
-        <defs>
-          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-
-        {/* Band Reference Lines calibrated to official Cambridge 9708 Level boundaries */}
-        {/* Top Band / Level 4: 80% (Grade A* Standard) */}
-        <line
-          x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 0.8)}
-          x2={padding.left + chartWidth + 6}
-          y2={padding.top + chartHeight * (1 - 0.8)}
-          stroke="currentColor"
-          strokeDasharray="4 4"
-          className="text-emerald-500/40"
-          strokeWidth="1"
-        />
-        <rect
-          x={width - 105}
-          y={padding.top + chartHeight * (1 - 0.8) - 8}
-          width="95"
-          height="16"
-          rx="4"
-          className="fill-background/90 stroke-emerald-500/30"
-          strokeWidth="1"
-        />
-        <text
-          x={width - 57}
-          y={padding.top + chartHeight * (1 - 0.8) + 3.5}
-          textAnchor="middle"
-          className="text-[9.5px] fill-emerald-600 dark:fill-emerald-400 font-semibold select-none"
-        >
-          Top Band (80%+)
-        </text>
-
-        {/* Upper Middle Band / Level 3: 55% (Grade A/B Standard) */}
-        <line
-          x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 0.55)}
-          x2={padding.left + chartWidth + 6}
-          y2={padding.top + chartHeight * (1 - 0.55)}
-          stroke="currentColor"
-          strokeDasharray="4 4"
-          className="text-blue-500/40"
-          strokeWidth="1"
-        />
-        <rect
-          x={width - 105}
-          y={padding.top + chartHeight * (1 - 0.55) - 8}
-          width="95"
-          height="16"
-          rx="4"
-          className="fill-background/90 stroke-blue-500/30"
-          strokeWidth="1"
-        />
-        <text
-          x={width - 57}
-          y={padding.top + chartHeight * (1 - 0.55) + 3.5}
-          textAnchor="middle"
-          className="text-[9.5px] fill-blue-600 dark:fill-blue-400 font-semibold select-none"
-        >
-          Upper Band (55%+)
-        </text>
-
-        {/* Lower Middle Band / Level 2: 35% (Grade C/D Standard) */}
-        <line
-          x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 0.35)}
-          x2={padding.left + chartWidth + 6}
-          y2={padding.top + chartHeight * (1 - 0.35)}
-          stroke="currentColor"
-          strokeDasharray="4 4"
-          className="text-amber-500/40"
-          strokeWidth="1"
-        />
-        <rect
-          x={width - 105}
-          y={padding.top + chartHeight * (1 - 0.35) - 8}
-          width="95"
-          height="16"
-          rx="4"
-          className="fill-background/90 stroke-amber-500/30"
-          strokeWidth="1"
-        />
-        <text
-          x={width - 57}
-          y={padding.top + chartHeight * (1 - 0.35) + 3.5}
-          textAnchor="middle"
-          className="text-[9.5px] fill-amber-600 dark:fill-amber-400 font-semibold select-none"
-        >
-          Lower Band (35%+)
-        </text>
-
-        {/* Area fill */}
-        <path d={areaD} fill="url(#areaGradient)" />
-
-        {/* Trajectory Line */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="#4f46e5"
-          className="stroke-primary"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Data points */}
-        {points.map((pt, idx) => (
-          <g
-            key={idx}
-            className="cursor-pointer"
-            onMouseEnter={() =>
-              onHoverPoint({ index: idx, mark: pt.mark, maxMark: pt.maxMark, date: pt.date, question: pt.question })
-            }
-            onMouseLeave={() => onHoverPoint(null)}
-          >
-            <circle
-              cx={pt.x}
-              cy={pt.y}
-              r={hoveredPoint?.index === idx ? "6" : "4"}
-              className="fill-background stroke-primary transition-all duration-200"
-              strokeWidth="2.5"
-            />
-          </g>
-        ))}
-
-        {/* Tooltip on hover */}
-        {hoveredPoint !== null && points[hoveredPoint.index] ? (
-          <g
-            transform={`translate(${Math.max(50, Math.min(width - 50, points[hoveredPoint.index]?.x ?? 0))}, ${Math.max(35, (points[hoveredPoint.index]?.y ?? 0) - 12)})`}
-          >
-            <rect
-              x="-56"
-              y="-28"
-              width="112"
-              height="26"
-              rx="6"
-              className="fill-popover stroke-border shadow-md"
-              strokeWidth="1"
-            />
-            <text
-              x="0"
-              y="-11"
-              textAnchor="middle"
-              className="text-[11px] font-bold fill-foreground"
-            >
-              {hoveredPoint.mark}/{hoveredPoint.maxMark ?? 12} awarded
-            </text>
-          </g>
-        ) : null}
-      </svg>
-    </div>
-  );
-}
 
 function EducatorDashboardView({
-  userName,
+  firstName,
+  greeting,
   school,
-  tierName,
   classrooms,
   docs,
   anchors,
   essays,
 }: {
-  userName: string;
+  firstName: string;
+  greeting: string;
   school: string | null;
-  tierName: string;
   classrooms: any;
   docs: any[];
   anchors: any[];
@@ -1794,285 +1203,143 @@ function EducatorDashboardView({
     : classrooms?.classes && Array.isArray(classrooms.classes)
       ? classrooms.classes
       : [];
-  const safeDocs = Array.isArray(docs) ? docs : [];
-  const safeAnchors = Array.isArray(anchors) ? anchors : [];
-  const safeEssays = Array.isArray(essays) ? essays : [];
-
-  const readyDocs = safeDocs.filter((d) => d.status === "ready").length;
-  const activeAnchors = safeAnchors.filter((a) => a.active !== false).length;
+  const readyDocs = (Array.isArray(docs) ? docs : []).filter((d) => d.status === "ready").length;
+  const activeAnchors = (Array.isArray(anchors) ? anchors : []).filter((a) => a.active !== false).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader
-        title="Educator Command Center"
-        description="Cambridge 9708 Economics educator workspace, classrooms, mark schemes, and calibrated anchors."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/classes">
-                <UsersRound className="size-3.5 text-primary mr-1.5" /> My Classrooms
-              </Link>
-            </Button>
-            <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Link to="/grade">
-                <PenLine className="size-3.5 mr-1.5" /> Grade Essay
-              </Link>
-            </Button>
-          </div>
-        }
+    <div className="relative min-h-[calc(100dvh-3.5rem)] bg-background">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-purple-500/[0.06] via-transparent to-transparent"
       />
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* Compact Educator Header & Telemetry */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+              {greeting}, <span className="text-primary">{firstName}</span>
+            </h1>
+            <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
+              Cambridge 9708 Educator
+            </Badge>
+            {school && (
+              <Badge variant="outline" className="text-[10px] font-medium">
+                {school}
+              </Badge>
+            )}
+          </div>
 
-      <div className="space-y-4 sm:space-y-6 px-3.5 py-4 sm:px-6 sm:py-6 md:px-8 max-w-7xl mx-auto">
-        {/* Top Educator Status Strip */}
-        <section className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 via-card to-card p-3.5 sm:p-5 shadow-xs relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 relative z-10">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <h2 className="text-lg sm:text-xl font-bold text-foreground">
-                  Welcome back, {userName}!
-                </h2>
-                <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10.5px] font-bold">
-                  Authorized Cambridge 9708 Educator
-                </Badge>
-                {school ? (
-                  <Badge variant="outline" className="border-border text-foreground text-[10.5px] font-medium">
-                    {school}
-                  </Badge>
-                ) : null}
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 px-3 py-1.5 rounded-xl border border-border/70 bg-card/70 text-xs">
+            <span className="text-muted-foreground">
+              Classrooms <strong className="font-mono text-foreground ml-0.5">{classList.length}</strong>
+            </span>
+            <span className="h-3 w-px bg-border/70" />
+            <span className="text-muted-foreground">
+              Essays <strong className="font-mono text-foreground ml-0.5">{essays.length}</strong>
+            </span>
+            <span className="h-3 w-px bg-border/70" />
+            <span className="text-muted-foreground">
+              Mark Schemes <strong className="font-mono text-foreground ml-0.5">{readyDocs}</strong>
+            </span>
+            <span className="h-3 w-px bg-border/70" />
+            <span className="text-muted-foreground">
+              Anchors <strong className="font-mono text-foreground ml-0.5">{activeAnchors}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Dedicated Core Educator Spaces */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.08] via-card to-card p-5 shadow-xs flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="size-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+                <UsersRound className="size-5" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Your academic workspace is active. Manage your classrooms, evaluate candidate essays, ingest mark schemes, and calibrate standard anchors.
+              <h2 className="text-base font-extrabold text-foreground">Marginal Classrooms</h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Manage cohorts, issue Cambridge 9708 essay assignments, and track class AO performance in one hub.
               </p>
             </div>
+            <Button asChild size="sm" className="mt-5 w-full h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">
+              <Link to="/classes">
+                <span>Open Classrooms</span>
+                <ArrowRight className="size-3.5 ml-auto" />
+              </Link>
+            </Button>
+          </div>
 
-            <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-              <Button asChild size="sm" variant="outline" className="border-purple-500/30 hover:bg-purple-500/10 text-xs">
-                <Link to="/classes">
-                  <UsersRound className="size-3.5 mr-1 text-purple-600 dark:text-purple-400" /> My Classrooms
-                </Link>
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] via-card to-card p-5 shadow-xs flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
+                <PenLine className="size-5" />
+              </div>
+              <h2 className="text-base font-extrabold text-foreground">Essay Grader &amp; Live Examiner</h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Evaluate scripts against calibrated 9708 mark schemes or demonstrate live line-by-line marking in class.
+              </p>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <Button asChild size="sm" className="flex-1 h-9 rounded-xl text-xs font-semibold">
+                <Link to="/grade">Grade Essay</Link>
               </Button>
-              <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-xs">
-                <Link to="/grade">
-                  <PenLine className="size-3.5 mr-1" /> Grade Essay
-                </Link>
+              <Button asChild size="sm" variant="outline" className="h-9 px-3 rounded-xl text-xs font-semibold">
+                <Link to="/live-examiner">Live AI</Link>
               </Button>
             </div>
           </div>
-        </section>
 
-        {/* If teacher has no classrooms, guide them to create one */}
-        {classList.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/[0.04] p-5 sm:p-8 text-center">
-            <div className="mx-auto size-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
-              <UsersRound className="size-6" />
+          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/[0.08] via-card to-card p-5 shadow-xs flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="size-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-500">
+                <BookOpen className="size-5" />
+              </div>
+              <h2 className="text-base font-extrabold text-foreground">MCQ Arena &amp; Mark Schemes</h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Host live 6-digit PIN MCQ sprints for your class or manage mark schemes and calibration anchors.
+              </p>
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-foreground">No Classrooms Created Yet</h3>
-            <p className="mt-1.5 text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Create your first Cambridge 9708 classroom to invite students, set homework essays, and view student progress.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-              <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4">
-                <Link to="/classes">
-                  <UsersRound className="size-3.5 mr-1.5" /> Create Your First Classroom
-                </Link>
+            <div className="mt-5 flex gap-2">
+              <Button asChild size="sm" className="flex-1 h-9 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold">
+                <Link to="/quiz">Host Quiz PIN</Link>
               </Button>
-              <Button asChild variant="outline" size="sm" className="text-xs">
-                <Link to="/grade">
-                  <PenLine className="size-3.5 mr-1.5" /> Grade an Essay Now
-                </Link>
+              <Button asChild size="sm" variant="outline" className="h-9 px-3 rounded-xl text-xs font-semibold">
+                <Link to="/knowledge">Knowledge</Link>
               </Button>
             </div>
-          </section>
-        ) : (
-          /* Metric Cards & Active Classrooms when classrooms exist */
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Classrooms</p>
-                  <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                    <UsersRound className="size-4" />
-                  </div>
-                </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classList.length}</p>
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Active classrooms</span>
-                  <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                    Manage <ArrowUpRight className="size-3" />
-                  </Link>
-                </div>
-              </div>
+          </div>
+        </div>
 
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Knowledge Base</p>
-                  <div className="size-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                    <BookOpen className="size-4" />
-                  </div>
-                </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{readyDocs}</p>
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Ingested RAG documents</span>
-                  <Link to="/knowledge" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                    Search &amp; Add <ArrowUpRight className="size-3" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Calibrated Anchors</p>
-                  <div className="size-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <ShieldCheck className="size-4" />
-                  </div>
-                </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{activeAnchors}</p>
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Standardized benchmarks</span>
-                  <Link to="/calibration" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                    Calibrate <ArrowUpRight className="size-3" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Evaluated Essays</p>
-                  <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                    <PenLine className="size-4" />
-                  </div>
-                </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{safeEssays.length}</p>
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Submissions evaluated</span>
-                  <Link to="/grade" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                    Grade <ArrowUpRight className="size-3" />
-                  </Link>
-                </div>
-              </div>
+        {/* Compact Active Classrooms Row */}
+        {classList.length > 0 && (
+          <div className="rounded-2xl border border-border/80 bg-card/90 p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Classrooms</h3>
+              <Link to="/classes" className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+                Manage all <ArrowUpRight className="size-3.5" />
+              </Link>
             </div>
-
-            {/* Enrolled Classrooms Grid */}
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-foreground">Enrolled Classrooms</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Classroom analytics, assignment submissions, and student performance diagnostic gradebooks are accessed directly inside your classrooms.
-                  </p>
-                </div>
-                <Button asChild variant="outline" size="sm" className="text-xs">
-                  <Link to="/classes">
-                    <UsersRound className="size-3.5 mr-1" /> View All Classrooms
-                  </Link>
-                </Button>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {classList.map((cls) => (
-                  <div key={cls.id} className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs hover:border-primary/40 transition-colors">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-bold text-foreground text-sm">{cls.name}</h4>
-                        <p className="text-[11px] text-muted-foreground capitalize mt-0.5">
-                          {cls.level.toUpperCase()} Level Cambridge Economics
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] font-mono font-bold shrink-0">
-                        Code: {cls.join_code}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Student Roster &amp; Grades</span>
-                      <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-1">
-                        Open Classroom &amp; Grades →
-                      </Link>
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {classList.slice(0, 6).map((cls) => (
+                <Link
+                  key={cls.id}
+                  to="/classes"
+                  className="group flex items-center justify-between gap-2 p-3 rounded-xl border border-border/70 bg-background/60 hover:border-primary/40 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-bold text-foreground truncate group-hover:text-primary">
+                      {cls.name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground uppercase">{cls.level} Level</p>
                   </div>
-                ))}
-              </div>
-            </section>
-          </>
+                  <Badge variant="outline" className="text-[10px] font-mono font-bold shrink-0">
+                    {cls.join_code}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
-
-        {/* The 3 Dedicated Core Educator Tools */}
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-base font-bold text-foreground">Core Educator Workspace</h3>
-            <p className="text-xs text-muted-foreground">
-              Essential evaluation and curriculum tools for Cambridge 9708 Economics teachers.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            {/* Tool 1: Essay Grader */}
-            <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-purple-500/50 hover:shadow-md transition-all group">
-              <div className="space-y-3">
-                <div className="size-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-105 transition-transform">
-                  <PenLine className="size-5" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-foreground">Essay Grader</h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Evaluate candidate submissions with Cambridge 9708 mark schemes. Detailed AO1, AO2, and AO3 criteria breakdowns with maximum tariff benchmarking.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/60">
-                <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs w-full">
-                  <Link to="/grade">
-                    <PenLine className="size-3.5 mr-1" /> Launch Grader
-                  </Link>
-                </Button>
-              </div>
-            </div>
-
-            {/* Tool 2: Knowledge Base */}
-            <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-sky-500/50 hover:shadow-md transition-all group">
-              <div className="space-y-3">
-                <div className="size-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20 group-hover:scale-105 transition-transform">
-                  <BookOpen className="size-5" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-foreground">Knowledge Base</h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Search and ingest official Cambridge mark schemes, specimen papers, and school assessments. Grounded citations verify every evaluated criterion.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/60">
-                <Button asChild size="sm" className="bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs w-full">
-                  <Link to="/knowledge">
-                    <BookOpen className="size-3.5 mr-1" /> Open Knowledge Base
-                  </Link>
-                </Button>
-              </div>
-            </div>
-
-            {/* Tool 3: Anchor Calibration */}
-            <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-amber-500/50 hover:shadow-md transition-all group">
-              <div className="space-y-3">
-                <div className="size-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 group-hover:scale-105 transition-transform">
-                  <ShieldCheck className="size-5" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-foreground">Anchor Calibration</h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Lock the evaluation standard across Level 1 to Level 4 bands with verified candidate exemplars and confirmed marks to prevent mark drift.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/60">
-                <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs w-full">
-                  <Link to="/calibration">
-                    <ShieldCheck className="size-3.5 mr-1" /> Calibrate Anchors
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
