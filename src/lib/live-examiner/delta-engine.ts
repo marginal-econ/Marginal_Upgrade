@@ -28,6 +28,17 @@ import type { AoSubLabel, AoTag } from "./types";
 // 1. One-Time Question Rubric Blueprint
 // ============================================================================
 
+export const RecommendedDiagramSchema = z.object({
+  title: z.string(),
+  axes: z.string(),
+  curves: z.array(z.string()).max(6).default([]),
+  shift: z.string().default(""),
+  shadedArea: z.string().default(""),
+  proseLinkCue: z.string().default(""),
+});
+
+export type RecommendedDiagramSpec = z.infer<typeof RecommendedDiagramSchema>;
+
 export const QuestionRubricBlueprintSchema = z.object({
   commandWord: z.string(),
   requiresEvaluation: z.boolean(),
@@ -45,6 +56,8 @@ export const QuestionRubricBlueprintSchema = z.object({
   evaluationAngles: z.array(z.string()).max(4),
   /** Compact syllabus grounding bullets (max ~800 chars total) */
   syllabusFacts: z.array(z.string()).max(6),
+  /** Optional Cambridge 9708 recommended diagram blueprint compiled by NVIDIA 550B Ultra */
+  recommendedDiagram: RecommendedDiagramSchema.optional(),
 });
 
 export type QuestionRubricBlueprint = z.infer<typeof QuestionRubricBlueprintSchema>;
@@ -127,7 +140,15 @@ Return ONLY valid JSON:
 {
   "keyTerms": ["2-3 concise core terms to define for AO1 (max 8 words each)"],
   "analysisMechanisms": ["3-4 distinct causal chains/diagrams for AO2 (max 12 words each)"],
-  "evaluationAngles": ${requiresEval ? '["2-3 key AO3 evaluative tensions/judgements (max 12 words each)"]' : "[]"}
+  "evaluationAngles": ${requiresEval ? '["2-3 key AO3 evaluative tensions/judgements (max 12 words each)"]' : "[]"},
+  "recommendedDiagram": {
+    "title": "Exact Cambridge 9708 diagram name (e.g. Indirect Tax on Demerit Good / AD-AS Cost-Push Inflation)",
+    "axes": "Exact Y-axis vs X-axis labels",
+    "curves": ["Curve 1", "Curve 2", "Shifted curve"],
+    "shift": "Exact shift & equilibrium change (e.g. S shifts left to S1, P1->P2, Q1->Q2)",
+    "shadedArea": "Key welfare/revenue/profit area to shade (or 'None required')",
+    "proseLinkCue": "1 short cue on how to cite the diagram labels in prose"
+  }
 }`;
 }
 
@@ -267,7 +288,7 @@ RULES:
 1. SKIP spelling/punctuation/basic grammar (handled locally). Flag ONLY genuine errors: economics_accuracy, misconception, terminology (ONLY actual wrong terms — never valid Cambridge terms like hot money/ceteris paribus or writing 'government' for monetary policy), analysis (missing link), application (off-topic), reasoning_chain (contradiction), evaluation (unsupported claim). Max 3 issues.
 2. NO SYNONYMS. Valid Cambridge axioms (NEVER flag): demerit=MSB<MPB; merit=MSB>MPB; neg prod=MSC>MPC; profit max=MR=MC; allocative eff=P=MC; 2024-2026 examples valid. "orig"=exact 1-8w substring; "fix"=drop-in replacement.
 3. CLASSIFY every NEW SENTENCE: AO1=definition/concept; AO2=causal chain(cause->shift->P/Q/welfare)/continuation/application; AO3=${ao3_marks > 0 ? "PED/PES/SR-LR/alternatives/trade-offs/judgement" : "NEVER AO3 on non-evaluative Q (use AO2/AO1)"}; NO_CREDIT=off-topic/non-econ/inverted mechanism.
-4. MARK(m) covers WHOLE essay (PRIOR+NEW). Off-topic=0/0/0. Set inv=1 ONLY if core mechanism runs backwards (e.g. tax shifts S right, higher rates cut borrowing cost/depreciate currency); set def_err=1 if a key term is misdefined. Diagram:${blueprint.requiresDiagram ? "REQUIRED(missing caps AO2 L2)" : "optional"}. Ceilings: ao1<=${ao1_marks},ao2<=${ao2_marks},ao3<=${ao3_marks}.
+4. MARK(m) covers WHOLE essay (PRIOR+NEW). Off-topic=0/0/0. Set inv=1 ONLY if core mechanism runs backwards (e.g. tax shifts S right, higher rates cut borrowing cost/depreciate currency); set def_err=1 if a key term is misdefined. Diagram:${blueprint.requiresDiagram ? "REQUIRED(missing caps AO2 L2)" : "optional"}; reward P1/Q1/shift links as AO2 diagram_reference. Ceilings: ao1<=${ao1_marks},ao2<=${ao2_marks},ao3<=${ao3_marks}.
 5. "hits"=0-based RUBRIC indices [0..N] met so far (NOT sentence numbers).
 JSON ONLY ("m" and "hits" FIRST):
 {"m":{"ao1":1,"ao2":2,"ao3":0,"conf":0.8,"inv":0,"def_err":0,"head":"<=8w summary","next":"<=12w next move"},"hits":{"ao1":[0],"ao2":[0],"ao3":[]},"c":[{"i":1,"ao":"AO1|AO2|AO3|NO_CREDIT","s":1,"sub":"definition|chain_link|application|diagram_reference|evaluative_point|judgement|conclusion","r":"<=8w why"}],"iss":[{"i":1,"orig":"exact","fix":"replacement","cat":"economics_accuracy|misconception|terminology|analysis|application|reasoning_chain|evaluation","sev":"low|medium|high","why":"1 short sentence","ev":"syllabus/econ principle","ao_imp":"+1 AO2","conf":0.85}]}`;

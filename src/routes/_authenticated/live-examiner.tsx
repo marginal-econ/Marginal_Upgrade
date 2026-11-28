@@ -2,6 +2,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AlertTriangle,
+  ArrowRight,
   BookOpen,
   Check,
   CheckCircle2,
@@ -19,6 +21,7 @@ import {
   RotateCcw,
   Sparkles,
   Target,
+  Upload,
   Users,
   X,
 } from "lucide-react";
@@ -80,9 +83,10 @@ import { useLiveExaminerCheck } from "@/hooks/use-live-examiner-check";
 import { listApprovedEssayQuestions, listBankTopics } from "@/lib/bank.functions";
 import { generateEssayQuestionAI, generateModelEssay } from "@/lib/essay.functions";
 import type { GeneratedEssay } from "@/lib/essay/generator.server";
-import { describeDiagramImage, listDiagramLibrary } from "@/lib/diagrams.functions";
+import { listDiagramLibrary } from "@/lib/diagrams.functions";
 import { gradeEssaySubmission } from "@/lib/grading.functions";
 import {
+  auditLiveExaminerDiagram,
   getLiveExaminerGuardStatusFn,
   getLiveExaminerSession,
   getMaxOutSuggestions,
@@ -90,6 +94,7 @@ import {
   prepareLiveExaminerContext,
   releaseLiveExaminerSeat,
   saveLiveExaminerSession,
+  type LiveDiagramAudit,
   type MaxOutSuggestion,
   type MaxOutResponse,
 } from "@/lib/live-examiner.functions";
@@ -127,9 +132,67 @@ export const Route = createFileRoute("/_authenticated/live-examiner")({
 const MARKS = [8, 12, 20];
 const AUTOSAVE_DEBOUNCE_MS = 4000;
 
-type AttachedDiagram = { id: string; label: string; tag: string };
+type AttachedDiagram = {
+  id: string;
+  label: string;
+  tag: string;
+  previewUrl?: string;
+  audit?: LiveDiagramAudit;
+  referenceSentence?: string;
+};
 const DIAGRAM_TAG_RE = /\[DIAGRAM:[^\]]*\]/g;
 const DIAGRAM_TITLE_RE = /\[DIAGRAM:\s*([^|]+?)\s*\|/;
+
+/**
+ * Compresses large phone photos / screenshots down to max 1280px JPEG before
+ * sending to NVIDIA Super-VL 120B Vision so uploads are fast and never hit
+ * worker payload limits.
+ */
+async function compressDiagramFile(file: File): Promise<string> {
+  const rawDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Couldn't read that photo — try again."));
+    reader.readAsDataURL(file);
+  });
+
+  if (typeof window === "undefined" || !rawDataUrl.startsWith("data:image/")) {
+    return rawDataUrl;
+  }
+
+  return new Promise<string>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const MAX_DIM = 1280;
+        let { width, height } = img;
+        if (width <= MAX_DIM && height <= MAX_DIM && rawDataUrl.length < 900_000) {
+          resolve(rawDataUrl);
+          return;
+        }
+        const scale = Math.min(1, MAX_DIM / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(rawDataUrl);
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      } catch {
+        resolve(rawDataUrl);
+      }
+    };
+    img.onerror = () => resolve(rawDataUrl);
+    img.src = rawDataUrl;
+  });
+}
 
 /** Splits a saved (possibly multi-tag) diagram_tag string back into
  *  individual attached-diagram entries when resuming a session, so each one
@@ -227,15 +290,36 @@ function LiveExaminerPage() {
   // not persisted with the autosaved session, only used for the next grade.
   const [markSchemeImages, setMarkSchemeImages] = useState<MarkSchemeImage[]>([]);
 
-  const describeDiagram = useServerFn(describeDiagramImage);
+  const [diagramDragActive, setDiagramDragActive] = useState(false);
+
+  const auditDiagram = useServerFn(auditLiveExaminerDiagram);
   const describeDiagramMutation = useMutation({
-    mutationFn: (image: string) => describeDiagram({ data: { image } }),
-    onSuccess: (result) => {
+    mutationFn: (image: string) =>
+      auditDiagram({
+        data: {
+          image,
+          question: question || "Cambridge 9708 Economics essay question",
+          level,
+          maxMark,
+          essayText,
+          tabId,
+        },
+      }).then((audit) => ({ audit, previewUrl: image })),
+    onSuccess: ({ audit, previewUrl }) => {
       setDiagrams((current) => [
         ...current,
-        { id: crypto.randomUUID(), label: "Attached photo", tag: result.tag },
+        {
+          id: crypto.randomUUID(),
+          label: audit.title || "Audited diagram",
+          tag: audit.tag,
+          previewUrl,
+          audit,
+          referenceSentence: audit.proseIntegrationSentence || undefined,
+        },
       ]);
-      toast.success("Diagram read and ready — it'll be considered in your feedback.");
+      toast.success(
+        `Diagram audited (${audit.diagramScore}/4 · ${audit.verdict}) — ready in Live Examiner.`,
+      );
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -248,16 +332,43 @@ function LiveExaminerPage() {
     staleTime: 10 * 60_000,
   });
 
-  function handleDiagramFile(file: File | undefined) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      describeDiagramMutation.mutate(dataUrl);
+  const handleDiagramFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please upload an image file (PNG, JPG, or WebP).");
+        return;
+      }
+      try {
+        const compressed = await compressDiagramFile(file);
+        describeDiagramMutation.mutate(compressed);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't read that photo — try again.");
+      }
+    },
+    [describeDiagramMutation],
+  );
+
+  // Support Ctrl+V / clipboard screenshot paste while the Diagram Studio dialog is open
+  useEffect(() => {
+    if (!diagramDialogOpen) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            event.preventDefault();
+            void handleDiagramFile(file);
+            break;
+          }
+        }
+      }
     };
-    reader.onerror = () => toast.error("Couldn't read that photo — try again.");
-    reader.readAsDataURL(file);
-  }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [diagramDialogOpen, handleDiagramFile]);
 
   function applyLibraryDiagram(id: string) {
     const entry = diagramLibraryQuery.data?.find((item) => item.id === id);
@@ -267,7 +378,12 @@ function LiveExaminerPage() {
       `[DIAGRAM: ${entry.title} | axes: ${entry.yLabel} (y) / ${entry.xLabel} (x) | ` +
       `curves: ${curves} | labels: as per the standard ${entry.title} diagram | ` +
       `accuracy: reference diagram selected from the diagram library by the student — verify it is correctly applied to their written argument]`;
-    setDiagrams((current) => [...current, { id: crypto.randomUUID(), label: entry.title, tag }]);
+    const referenceSentence = `As illustrated in the ${entry.title} diagram (${entry.yLabel} against ${entry.xLabel}), the interaction between ${curves} demonstrates the shift in equilibrium and resulting change in price and quantity.`;
+    setDiagrams((current) => [
+      ...current,
+      { id: crypto.randomUUID(), label: entry.title, tag, referenceSentence },
+    ]);
+    toast.success(`Attached "${entry.title}" — you can also insert a prose reference sentence.`);
   }
 
   function removeDiagram(id: string) {
@@ -328,10 +444,19 @@ function LiveExaminerPage() {
   }
 
   // --- Score Maximizer & Perfection Blueprint: on-demand or post-grade
-  // guidance showing students exactly how to structure, write, and select
-  // arguments to reach a perfect score (full marks). -----------------
+  // guidance powered by NVIDIA 550B Ultra showing exact paragraph rewrites,
+  // diagram-to-prose linkages, AO3 evaluation synthesis, and mark-boost cards.
   const [scoreMaximizerOpen, setScoreMaximizerOpen] = useState(false);
   const maxOutFn = useServerFn(getMaxOutSuggestions);
+  const buildDiagramAuditSummary = () =>
+    diagrams
+      .filter((d) => d.audit)
+      .map((d) => {
+        const a = d.audit!;
+        return `${a.title}: ${a.diagramScore}/4 (${a.verdict}). Axes: ${a.axes.detail}. Curves: ${a.curves.detail}. Shifts: ${a.shiftsAndEquilibria.detail}. Fixes: ${a.fixes.join("; ") || "None"}.`;
+      })
+      .join("\n");
+
   const maxOutMutation = useMutation({
     mutationFn: (overrideInput?: {
       question: string;
@@ -358,12 +483,24 @@ function LiveExaminerPage() {
         missingElements: grading?.missing_elements ?? {},
         actionableFeedback: grading?.actionable_feedback ?? [],
       };
-      return maxOutFn({ data: { ...payload, tabId } });
+      return maxOutFn({
+        data: {
+          ...payload,
+          attachedDiagrams: diagrams.map((d) => d.tag),
+          diagramAuditSummary: buildDiagramAuditSummary(),
+          tabId,
+        },
+      });
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   function handleOpenScoreMaximizer() {
+    const words = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;
+    if (words < 15) {
+      toast.error("Write at least a few sentences (~15+ words) before opening Score Maximizer.");
+      return;
+    }
     setScoreMaximizerOpen(true);
     const grading = gradeMutation.data?.grading;
     maxOutMutation.mutate({
@@ -378,6 +515,57 @@ function LiveExaminerPage() {
       missingElements: grading?.missing_elements ?? {},
       actionableFeedback: grading?.actionable_feedback ?? [],
     });
+  }
+
+  function handleReplaceWeakestParagraph(beforeQuote: string, afterRewrite: string) {
+    const cleanAfter = afterRewrite.replace(/\*\*/g, "").replace(/\*/g, "").trim();
+    if (!cleanAfter) return;
+    const cleanBefore = beforeQuote.replace(/\*\*/g, "").replace(/\*/g, "").trim();
+    let replaced = false;
+
+    setEssayText((current) => {
+      if (cleanBefore.length >= 15) {
+        const directIdx = current.indexOf(cleanBefore);
+        if (directIdx !== -1) {
+          replaced = true;
+          return `${current.slice(0, directIdx)}${cleanAfter}${current.slice(directIdx + cleanBefore.length)}`;
+        }
+        const lowerCurrent = current.toLowerCase();
+        const lowerQuote = cleanBefore.toLowerCase();
+        const ciIdx = lowerCurrent.indexOf(lowerQuote);
+        if (ciIdx !== -1) {
+          replaced = true;
+          return `${current.slice(0, ciIdx)}${cleanAfter}${current.slice(ciIdx + cleanBefore.length)}`;
+        }
+        // Fuzzy match by paragraph word overlap if student edited a few words
+        const paragraphs = current.split(/\n\s*\n/);
+        const quoteWords = new Set(lowerQuote.split(/\W+/).filter((w) => w.length > 3));
+        let bestIdx = -1;
+        let bestScore = 0;
+        paragraphs.forEach((p, idx) => {
+          const pWords = p.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+          const overlap = pWords.filter((w) => quoteWords.has(w)).length;
+          const ratio = quoteWords.size > 0 ? overlap / quoteWords.size : 0;
+          if (ratio > bestScore) {
+            bestScore = ratio;
+            bestIdx = idx;
+          }
+        });
+        if (bestIdx !== -1 && bestScore >= 0.45) {
+          replaced = true;
+          paragraphs[bestIdx] = cleanAfter;
+          return paragraphs.join("\n\n");
+        }
+      }
+      const trimmed = current.trim();
+      return trimmed ? `${trimmed}\n\n${cleanAfter}` : cleanAfter;
+    });
+
+    toast.success(
+      replaced
+        ? "Applied A* paragraph upgrade directly into your draft!"
+        : "Added A* upgraded paragraph to your essay draft.",
+    );
   }
 
   function handleInsertSentence(
@@ -1161,11 +1349,30 @@ function LiveExaminerPage() {
                     </span>
                   ) : null}
                   {diagrams.map((d) => (
-                    <Badge key={d.id} variant="outline" className="gap-1 text-[10px]">
-                      <CheckCircle2 className="size-3 text-emerald-600" /> {d.label}
+                    <Badge
+                      key={d.id}
+                      variant="outline"
+                      className={cn(
+                        "gap-1 text-[10px] cursor-pointer",
+                        d.audit?.verdict === "Exam-Ready"
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          : d.audit?.verdict === "Needs Correction"
+                            ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                            : "",
+                      )}
+                      onClick={() => setDiagramDialogOpen(true)}
+                    >
+                      <CheckCircle2 className="size-3 text-emerald-600" />
+                      <span>{d.label}</span>
+                      {d.audit ? (
+                        <span className="font-mono font-bold">({d.audit.diagramScore}/4)</span>
+                      ) : null}
                       <button
                         type="button"
-                        onClick={() => removeDiagram(d.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeDiagram(d.id);
+                        }}
                         className="ml-0.5 text-muted-foreground hover:text-foreground"
                         aria-label={`Remove ${d.label}`}
                       >
@@ -1396,86 +1603,294 @@ function LiveExaminerPage() {
       </AlertDialog>
 
       <Dialog open={diagramDialogOpen} onOpenChange={setDiagramDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Attach a diagram</DialogTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-emerald-600 text-white hover:bg-emerald-600 text-[10px] font-semibold">
+                <Sparkles className="mr-1 size-3" /> Live Diagram Vision Studio
+              </Badge>
+              <Badge variant="outline" className="text-[10px] font-mono">
+                NVIDIA Super-VL 120B Vision
+              </Badge>
+            </div>
+            <DialogTitle className="mt-1">Attach &amp; Audit Your Cambridge 9708 Diagram</DialogTitle>
             <DialogDescription>
-              Photograph a hand-drawn diagram, or pick one from the library — either way it's
-              considered alongside your writing, exactly like a diagram drawn on a scanned script.
-              Attach as many as your answer refers to.
+              Upload a photo, drag-and-drop, paste a screenshot (Ctrl+V), or pick from the diagram library.
+              Live Examiner audits axes, curves, shifts, shading, and prose linkage — and credits it immediately in your live mark.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {diagrams.length > 0 ? (
-              <ul className="space-y-1.5">
-                {diagrams.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 p-2.5 text-xs"
-                  >
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
-                      {d.label}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 shrink-0"
-                      onClick={() => removeDiagram(d.id)}
-                      aria-label={`Remove ${d.label}`}
-                    >
-                      <X className="size-3.5" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
+            {/* NVIDIA 550B Recommended Diagram Guide for this Question */}
+            {rubricBlueprint?.recommendedDiagram ? (
+              <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-foreground flex items-center gap-1.5">
+                    <Target className="size-3.5 text-primary" />
+                    Recommended Diagram: {rubricBlueprint.recommendedDiagram.title}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                    Examiner Blueprint
+                  </Badge>
+                </div>
+                <div className="grid gap-1.5 sm:grid-cols-2 text-[11px] text-muted-foreground">
+                  <p>
+                    <strong className="text-foreground">Axes:</strong> {rubricBlueprint.recommendedDiagram.axes}
+                  </p>
+                  {rubricBlueprint.recommendedDiagram.curves.length > 0 ? (
+                    <p>
+                      <strong className="text-foreground">Curves:</strong>{" "}
+                      {rubricBlueprint.recommendedDiagram.curves.join(", ")}
+                    </p>
+                  ) : null}
+                  {rubricBlueprint.recommendedDiagram.shift ? (
+                    <p className="sm:col-span-2">
+                      <strong className="text-foreground">Shift &amp; Equilibrium:</strong>{" "}
+                      {rubricBlueprint.recommendedDiagram.shift}
+                    </p>
+                  ) : null}
+                  {rubricBlueprint.recommendedDiagram.shadedArea ? (
+                    <p className="sm:col-span-2">
+                      <strong className="text-foreground">Key Area:</strong>{" "}
+                      {rubricBlueprint.recommendedDiagram.shadedArea}
+                    </p>
+                  ) : null}
+                </div>
+                {rubricBlueprint.recommendedDiagram.proseLinkCue ? (
+                  <p className="text-[11px] text-primary/90 italic">
+                    Prose cue: {rubricBlueprint.recommendedDiagram.proseLinkCue}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
-            <div className="space-y-1.5">
-              <Label>Photo of your diagram</Label>
+            {/* Interactive Upload / Drag-and-Drop / Ctrl+V Zone */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Upload, Drop, or Paste Diagram Image (Ctrl+V)</Label>
               <input
                 ref={diagramFileRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                onChange={(event) => handleDiagramFile(event.target.files?.[0])}
+                onChange={(event) => {
+                  void handleDiagramFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={describeDiagramMutation.isPending}
-                onClick={() => diagramFileRef.current?.click()}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDiagramDragActive(true);
+                }}
+                onDragLeave={() => setDiagramDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDiagramDragActive(false);
+                  const dropped = e.dataTransfer.files?.[0];
+                  void handleDiagramFile(dropped);
+                }}
+                onClick={() => !describeDiagramMutation.isPending && diagramFileRef.current?.click()}
+                className={cn(
+                  "cursor-pointer rounded-xl border-2 border-dashed p-5 text-center transition-all",
+                  diagramDragActive
+                    ? "border-primary bg-primary/10"
+                    : "border-border/80 bg-muted/20 hover:border-primary/50 hover:bg-muted/40",
+                  describeDiagramMutation.isPending && "pointer-events-none opacity-70",
+                )}
               >
                 {describeDiagramMutation.isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" /> Reading your diagram…
-                  </>
+                  <div className="flex flex-col items-center gap-2 py-2">
+                    <Loader2 className="size-6 animate-spin text-primary" />
+                    <p className="text-xs font-semibold text-foreground">
+                      Auditing diagram with NVIDIA Super-VL 120B Vision…
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Checking axes, curve slopes, shift arrows, equilibrium points &amp; shaded areas
+                    </p>
+                  </div>
                 ) : (
-                  <>
-                    <ImagePlus className="size-4" /> Upload a photo
-                  </>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Upload className="size-5" />
+                    </div>
+                    <p className="text-xs font-semibold text-foreground">
+                      Click to upload a diagram photo, drag &amp; drop, or press Ctrl+V to paste
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Hand-drawn notebook sketches, iPad drawings, or past-paper screenshots — auto-compressed for fast AI vision audit
+                    </p>
+                  </div>
                 )}
-              </Button>
+              </div>
               <CompactProgressBar
                 active={describeDiagramMutation.isPending}
                 stages={[
-                  { label: "Inspecting diagram photo", weight: 2 },
-                  { label: "Reading axes, curves, shifts & equilibria", weight: 4 },
+                  { label: "Inspecting axes, curves & shift arrows (NVIDIA Vision)", weight: 3 },
+                  { label: "Scoring Cambridge 9708 accuracy & prose linkage", weight: 4 },
                 ] satisfies ProgressStage[]}
                 totalMs={10_000}
-                title="Reading your diagram…"
+                title="Auditing your diagram…"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Or pick from the diagram library</Label>
+            {/* Attached Diagrams + Live Audit Cards */}
+            {diagrams.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Attached Diagrams ({diagrams.length})
+                </p>
+                {diagrams.map((d) => (
+                  <div
+                    key={d.id}
+                    className="rounded-xl border border-border bg-card p-3.5 space-y-3 shadow-xs"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        {d.previewUrl ? (
+                          <img
+                            src={d.previewUrl}
+                            alt={d.label}
+                            className="size-16 shrink-0 rounded-lg border border-border object-cover bg-white"
+                          />
+                        ) : null}
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-sm font-bold text-foreground truncate">
+                              {d.label}
+                            </span>
+                            {d.audit ? (
+                              <>
+                                <Badge
+                                  className={cn(
+                                    "text-[10px] font-bold",
+                                    d.audit.diagramScore >= 4
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15"
+                                      : d.audit.diagramScore >= 3
+                                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
+                                        : "bg-destructive/15 text-destructive hover:bg-destructive/15",
+                                  )}
+                                >
+                                  {d.audit.diagramScore}/4 · {d.audit.verdict}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px]">
+                                  Prose link: {d.audit.proseLinkStatus}
+                                </Badge>
+                              </>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-emerald-600">
+                                Library Diagram Attached
+                              </Badge>
+                            )}
+                          </div>
+                          {d.audit?.accuracyNote ? (
+                            <p className="text-[11px] text-muted-foreground">{d.audit.accuracyNote}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0"
+                        onClick={() => removeDiagram(d.id)}
+                        aria-label={`Remove ${d.label}`}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* 5-Point Cambridge Vision Audit Grid */}
+                    {d.audit ? (
+                      <div className="grid gap-1.5 sm:grid-cols-2 text-[11px]">
+                        {[
+                          { label: "Axes", item: d.audit.axes },
+                          { label: "Curves", item: d.audit.curves },
+                          { label: "Shifts & Equilibria", item: d.audit.shiftsAndEquilibria },
+                          { label: "Shaded Areas", item: d.audit.shadedAreas },
+                          { label: "Question Fit", item: d.audit.questionRelevance },
+                        ].map((row) => (
+                          <div
+                            key={row.label}
+                            className={cn(
+                              "flex items-start gap-1.5 rounded-lg border p-2",
+                              row.item.ok
+                                ? "border-emerald-500/25 bg-emerald-500/5"
+                                : "border-amber-500/35 bg-amber-500/10",
+                            )}
+                          >
+                            {row.item.ok ? (
+                              <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600 mt-0.5" />
+                            ) : (
+                              <AlertTriangle className="size-3.5 shrink-0 text-amber-600 mt-0.5" />
+                            )}
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground">{row.label}: </span>
+                              <span className="text-muted-foreground">{row.item.detail}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* Pinpoint Fixes */}
+                    {d.audit && d.audit.fixes.length > 0 ? (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                          Quick Fixes for 4/4 Diagram Marks
+                        </p>
+                        <ul className="space-y-1 text-[11px] text-foreground/90">
+                          {d.audit.fixes.map((fix, fIdx) => (
+                            <li key={fIdx} className="flex items-start gap-1.5">
+                              <ChevronRight className="size-3.5 shrink-0 text-amber-600 mt-0.5" />
+                              <span>{fix}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {/* 1-Click Prose Integration Sentence */}
+                    {d.referenceSentence ? (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5 space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                          Ready-to-Insert Diagram Reference (AO2 Linkage)
+                        </p>
+                        <p className="text-xs italic text-foreground leading-relaxed">
+                          "{d.referenceSentence}"
+                        </p>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <CopyButton text={d.referenceSentence} label="Copy" />
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-xs font-semibold gap-1"
+                            onClick={() => {
+                              handleInsertSentence(
+                                d.referenceSentence!,
+                                "ao2",
+                                "Analytical Body (Diagram Link)",
+                                false,
+                              );
+                              setDiagramDialogOpen(false);
+                            }}
+                          >
+                            <Sparkles className="size-3" /> Insert Diagram Link into Essay
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Diagram Library Picker */}
+            <div className="space-y-1.5 pt-1 border-t border-border/60">
+              <Label className="text-xs font-semibold">Or pick a reference diagram from the Cambridge library</Label>
               <Select onValueChange={applyLibraryDiagram}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a diagram…" />
+                  <SelectValue placeholder="Choose a Cambridge 9708 diagram…" />
                 </SelectTrigger>
                 <SelectContent>
                   {(diagramLibraryQuery.data ?? []).map((entry) => (
@@ -1487,8 +1902,8 @@ function LiveExaminerPage() {
               </Select>
             </div>
 
-            <Button type="button" className="w-full" onClick={() => setDiagramDialogOpen(false)}>
-              Done
+            <Button type="button" className="w-full font-semibold" onClick={() => setDiagramDialogOpen(false)}>
+              Done — Return to Live Examiner
             </Button>
           </div>
         </DialogContent>
@@ -1570,11 +1985,19 @@ function LiveExaminerPage() {
         question={question}
         level={level}
         maxMark={maxMark}
+        currentMark={
+          gradeMutation.data?.grading.total_mark ?? predictedMark?.total_mark ?? null
+        }
         data={maxOutMutation.data}
         loading={maxOutMutation.isPending}
         error={maxOutMutation.isError}
         onRetry={handleOpenScoreMaximizer}
         onInsertText={handleInsertSentence}
+        onReplaceParagraph={handleReplaceWeakestParagraph}
+        onOpenDiagramStudio={() => {
+          setScoreMaximizerOpen(false);
+          setDiagramDialogOpen(true);
+        }}
         onShowModelAnswer={() => {
           setScoreMaximizerOpen(false);
           fullAnswerMutation.mutate();
@@ -1695,11 +2118,14 @@ function ScoreMaximizerDialog({
   question,
   level,
   maxMark,
+  currentMark,
   data,
   loading,
   error,
   onRetry,
   onInsertText,
+  onReplaceParagraph,
+  onOpenDiagramStudio,
   onShowModelAnswer,
 }: {
   open: boolean;
@@ -1707,6 +2133,7 @@ function ScoreMaximizerDialog({
   question: string;
   level: "as" | "a2";
   maxMark: number;
+  currentMark: number | null;
   data: MaxOutResponse | undefined;
   loading: boolean;
   error: boolean;
@@ -1717,6 +2144,8 @@ function ScoreMaximizerDialog({
     placementLabel?: string,
     forceEnd?: boolean,
   ) => void;
+  onReplaceParagraph: (beforeQuote: string, afterRewrite: string) => void;
+  onOpenDiagramStudio: () => void;
   onShowModelAnswer: () => void;
 }) {
   return (
@@ -1725,17 +2154,30 @@ function ScoreMaximizerDialog({
         <DialogHeader>
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="bg-amber-500 text-white hover:bg-amber-500 font-semibold">
-              <Sparkles className="mr-1 size-3.5" /> Score Maximizer & Perfection Blueprint
+              <Sparkles className="mr-1 size-3.5" /> Score Maximizer &amp; Perfection Blueprint
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              NVIDIA 550B Frontier
             </Badge>
             <Badge variant="outline">
               {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
             </Badge>
-            <Badge
-              variant="secondary"
-              className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold"
-            >
-              Target: Full {maxMark}/{maxMark} (Band 1)
-            </Badge>
+            {data?.predicted_mark_after !== undefined ? (
+              <Badge
+                variant="secondary"
+                className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold"
+              >
+                {currentMark !== null ? `${currentMark}/${maxMark} → ` : "Projected: "}
+                {data.predicted_mark_after}/{maxMark}
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold"
+              >
+                Target: Full {maxMark}/{maxMark} (Band 1)
+              </Badge>
+            )}
           </div>
           <DialogTitle className="mt-2 text-xl font-bold">
             How to reach a perfect {maxMark}/{maxMark} score
@@ -1749,11 +2191,11 @@ function ScoreMaximizerDialog({
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <Loader2 className="size-8 animate-spin text-amber-500" />
             <p className="font-semibold text-foreground">
-              Analyzing your essay against Cambridge Level 5 criteria…
+              NVIDIA 550B Principal Examiner is building your A* Upgrade Blueprint…
             </p>
             <p className="max-w-md text-xs text-muted-foreground">
-              Identifying missing causal chains, evaluative trade-offs, strategic argument options,
-              exact essay placement, and exemplar phrasing.
+              Pinpointing your weakest paragraph for an A* Before/After rewrite, checking diagram-to-prose
+              linkage, synthesizing AO3 evaluation, and ranking your highest-value mark gains.
             </p>
           </div>
         ) : error ? (
@@ -1790,6 +2232,189 @@ function ScoreMaximizerDialog({
                 ) : null}
               </div>
             </div>
+
+            {/* 1. Weakest Paragraph -> A* Before/After Rewrite */}
+            {data.weakest_paragraph_upgrade ? (
+              <div className="rounded-xl border border-emerald-500/40 bg-card p-4 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="size-4 text-emerald-500" />
+                    <h4 className="text-sm font-bold text-foreground">
+                      Weakest Paragraph → A* Rewrite ({data.weakest_paragraph_upgrade.paragraph_label})
+                    </h4>
+                  </div>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 text-[10px] font-bold">
+                    {data.weakest_paragraph_upgrade.mark_gain}
+                  </Badge>
+                </div>
+                {data.weakest_paragraph_upgrade.why_it_caps_mark ? (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <strong className="text-foreground">Why this caps your band:</strong>{" "}
+                    {data.weakest_paragraph_upgrade.why_it_caps_mark}
+                  </p>
+                ) : null}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {data.weakest_paragraph_upgrade.before_quote ? (
+                    <div className="rounded-lg border border-destructive/25 bg-destructive/5 p-3 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-destructive">
+                        Your Current Draft
+                      </span>
+                      <p className="text-xs leading-relaxed text-foreground/85">
+                        "{data.weakest_paragraph_upgrade.before_quote}"
+                      </p>
+                    </div>
+                  ) : null}
+                  <div
+                    className={cn(
+                      "rounded-lg border border-emerald-500/35 bg-emerald-500/5 p-3 space-y-1",
+                      !data.weakest_paragraph_upgrade.before_quote && "md:col-span-2",
+                    )}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Top-Band Cambridge 9708 A* Upgrade
+                    </span>
+                    <p className="text-xs leading-relaxed text-foreground">
+                      {data.weakest_paragraph_upgrade.after_rewrite}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <CopyButton text={data.weakest_paragraph_upgrade.after_rewrite} label="Copy Rewrite" />
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => {
+                      onReplaceParagraph(
+                        data.weakest_paragraph_upgrade!.before_quote,
+                        data.weakest_paragraph_upgrade!.after_rewrite,
+                      );
+                      onOpenChange(false);
+                    }}
+                  >
+                    <ArrowRight className="size-3.5" /> Apply A* Rewrite to Draft
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* 2. Diagram-to-Prose Bridge Upgrade */}
+            {data.diagram_upgrade ? (
+              <div className="rounded-xl border border-blue-500/35 bg-blue-500/[0.04] p-4 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ImagePlus className="size-4 text-blue-600 dark:text-blue-400" />
+                    <h4 className="text-sm font-bold text-foreground">
+                      Diagram Blueprint: {data.diagram_upgrade.diagram_title}
+                    </h4>
+                  </div>
+                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 hover:bg-blue-500/15 text-[10px] font-bold">
+                    {data.diagram_upgrade.mark_gain}
+                  </Badge>
+                </div>
+                {data.diagram_upgrade.what_to_draw ? (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <strong className="text-foreground">What to draw / verify:</strong>{" "}
+                    {data.diagram_upgrade.what_to_draw}
+                  </p>
+                ) : null}
+                {data.diagram_upgrade.labels_to_include.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                      Must-have labels:
+                    </span>
+                    {data.diagram_upgrade.labels_to_include.map((lbl, lIdx) => (
+                      <Badge key={lIdx} variant="outline" className="text-[10px] font-mono bg-background">
+                        {lbl}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {data.diagram_upgrade.text_integration_sentence ? (
+                  <div className="rounded-lg border border-blue-500/25 bg-background/80 p-3 space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                      Diagram-to-Prose Linkage Sentence
+                    </span>
+                    <p className="text-xs italic leading-relaxed text-foreground">
+                      "{data.diagram_upgrade.text_integration_sentence}"
+                    </p>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={onOpenDiagramStudio}
+                      >
+                        <ImagePlus className="size-3" /> Open Diagram Studio
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 text-xs font-semibold gap-1"
+                        onClick={() => {
+                          onInsertText(
+                            data.diagram_upgrade!.text_integration_sentence,
+                            "ao2",
+                            "Body (Diagram Integration)",
+                            false,
+                          );
+                          onOpenChange(false);
+                        }}
+                      >
+                        Insert Diagram Link
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* 3. AO3 A* Evaluation Synthesis Booster */}
+            {data.evaluation_booster ? (
+              <div className="rounded-xl border border-purple-500/35 bg-purple-500/[0.04] p-4 shadow-xs space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="size-4 text-purple-600 dark:text-purple-400" />
+                    <h4 className="text-sm font-bold text-foreground">
+                      AO3 Evaluation Booster: {data.evaluation_booster.angle_title || "Decisive Cambridge Synthesis"}
+                    </h4>
+                  </div>
+                  <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-[10px] font-bold">
+                    {data.evaluation_booster.mark_gain}
+                  </Badge>
+                </div>
+                {data.evaluation_booster.why_examiners_reward_it ? (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {data.evaluation_booster.why_examiners_reward_it}
+                  </p>
+                ) : null}
+                <div className="rounded-lg border border-purple-500/25 bg-background/80 p-3 space-y-2">
+                  <p className="text-xs leading-relaxed text-foreground italic">
+                    "{data.evaluation_booster.ready_paragraph}"
+                  </p>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <CopyButton text={data.evaluation_booster.ready_paragraph} label="Copy Evaluation" />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs font-semibold gap-1"
+                      onClick={() => {
+                        onInsertText(
+                          data.evaluation_booster!.ready_paragraph,
+                          "ao3",
+                          "Evaluative Conclusion",
+                          true,
+                        );
+                        onOpenChange(false);
+                      }}
+                    >
+                      Insert Evaluation Paragraph
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {/* Individual Upgrade Suggestions */}
             <div className="space-y-4">

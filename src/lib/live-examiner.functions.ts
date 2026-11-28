@@ -242,17 +242,18 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
     });
 
     try {
-      const { chat } = await import("./ai.server");
-      const { MODEL_LIVE_CANDIDATE } = await import("./examiner/config");
+      const { callLiveExaminerNvidia } = await import("./live-examiner/nvidia-engine.server");
       const { extractFirstJsonObject } = await import("./examiner/json");
 
+      // NVIDIA 550B Ultra Principal Examiner compiles the Cambridge 9708 Rubric & Diagram Blueprint
       const bpRes = await timeoutFallback(
-        chat({
-          model: MODEL_LIVE_CANDIDATE,
-          feature: "live_examiner_blueprint",
+        callLiveExaminerNvidia({
+          family: "nvidia_ultra_550b",
+          feature: "live_examiner_blueprint_nvidia",
           userId: context.userId,
           temperature: 0,
-          maxCompletionTokens: 280,
+          maxCompletionTokens: 520,
+          timeoutMs: 8500,
           json: true,
           messages: [
             {
@@ -264,11 +265,11 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
                 contextBlock,
               }),
             },
-            { role: "user", content: "Compile the Cambridge 9708 rubric blueprint JSON now." },
+            { role: "user", content: "Compile the Cambridge 9708 rubric & diagram blueprint JSON now." },
           ],
         }),
         null,
-        3500,
+        9000,
       );
 
       if (bpRes?.text) {
@@ -283,7 +284,28 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
           ? parsed.evaluationAngles.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 3)
           : [];
 
-        if (keyTerms.length > 0 || analysisMechanisms.length > 0) {
+        const rawDiag =
+          parsed.recommendedDiagram && typeof parsed.recommendedDiagram === "object"
+            ? (parsed.recommendedDiagram as Record<string, unknown>)
+            : null;
+        const recommendedDiagram =
+          rawDiag && typeof rawDiag.title === "string" && rawDiag.title.trim().length > 2
+            ? {
+                title: stripAsterisks(rawDiag.title.trim()),
+                axes: stripAsterisks(String(rawDiag.axes ?? "Price / Cost (Y) vs Quantity (X)").trim()),
+                curves: Array.isArray(rawDiag.curves)
+                  ? rawDiag.curves
+                      .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+                      .map((c) => stripAsterisks(c.trim()))
+                      .slice(0, 6)
+                  : [],
+                shift: stripAsterisks(String(rawDiag.shift ?? "").trim()),
+                shadedArea: stripAsterisks(String(rawDiag.shadedArea ?? "").trim()),
+                proseLinkCue: stripAsterisks(String(rawDiag.proseLinkCue ?? "").trim()),
+              }
+            : undefined;
+
+        if (keyTerms.length > 0 || analysisMechanisms.length > 0 || recommendedDiagram) {
           blueprint = {
             ...blueprint,
             keyTerms: keyTerms.length > 0 ? keyTerms : blueprint.keyTerms,
@@ -291,6 +313,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
             evaluationAngles: blueprint.requiresEvaluation
               ? (evaluationAngles.length > 0 ? evaluationAngles : blueprint.evaluationAngles)
               : [],
+            ...(recommendedDiagram ? { recommendedDiagram } : {}),
           };
         }
       }
@@ -1082,13 +1105,15 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         precedingContext,
       });
 
-      const dynamicMaxTokens = Math.min(1400, 380 + dirtyPayloads.length * 50);
-      const deltaResult = await chat({
-        model: MODEL_LIVE_CANDIDATE,
-        feature: "live_examiner_check",
+      const dynamicMaxTokens = Math.min(1500, 420 + dirtyPayloads.length * 55);
+      const { callLiveExaminerNvidia } = await import("./live-examiner/nvidia-engine.server");
+      const deltaResult = await callLiveExaminerNvidia({
+        family: "nvidia_super_vl_120b",
+        feature: "live_examiner_check_nvidia",
         userId: context.userId,
         temperature: 0,
         maxCompletionTokens: dynamicMaxTokens,
+        timeoutMs: 13000,
         json: true,
         messages: [
           { role: "system", content: systemPrompt },
@@ -1630,10 +1655,23 @@ const MaxOutInput = z.object({
   weaknesses: z.array(z.string()).max(20).default([]),
   missingElements: MaxOutMissingElements,
   actionableFeedback: z.array(z.string()).max(20).default([]),
+  attachedDiagrams: z.array(z.string().max(1500)).max(8).optional().default([]),
+  diagramAuditSummary: z.string().max(4000).optional().default(""),
   tabId: z.string().trim().min(1).max(120).optional().default("default"),
 });
 
-const AoTargetSchema = z.enum(["ao1", "ao2", "ao3", "structure"]);
+const AoTargetSchema = z
+  .preprocess(
+    (v) => {
+      const s = String(v ?? "").toLowerCase().trim();
+      if (s === "ao1" || s === "ao2" || s === "ao3" || s === "structure") return s;
+      if (s.includes("1") || s.includes("know")) return "ao1";
+      if (s.includes("3") || s.includes("eval")) return "ao3";
+      if (s.includes("2") || s.includes("anal") || s.includes("diag")) return "ao2";
+      return "structure";
+    },
+    z.enum(["ao1", "ao2", "ao3", "structure"]),
+  );
 
 const StrategicOptionSchema = z.object({
   label: z.string().optional(),
@@ -1643,9 +1681,9 @@ const StrategicOptionSchema = z.object({
 
 const MaxOutSuggestionSchema = z.object({
   target_ao: AoTargetSchema,
-  title: z.string().min(1).max(80),
-  suggestion: z.string().min(1).max(600),
-  mark_uplift: z.string().max(40),
+  title: z.string().min(1).max(120),
+  suggestion: z.string().min(1).max(800),
+  mark_uplift: z.string().max(60).default("+2 marks"),
   placement: z.string().optional(),
   placement_rationale: z.string().optional(),
   how_to_write: z.array(z.string()).optional(),
@@ -1653,10 +1691,44 @@ const MaxOutSuggestionSchema = z.object({
   model_phrasing: z.string().optional(),
 });
 
+const WeakestParagraphUpgradeSchema = z
+  .object({
+    paragraph_label: z.string().max(120).default("Weakest Paragraph"),
+    before_quote: z.string().max(1200).default(""),
+    why_it_caps_mark: z.string().max(500).default(""),
+    after_rewrite: z.string().max(1800).default(""),
+    mark_gain: z.string().max(60).default("+2 to +3 marks"),
+  })
+  .optional();
+
+const DiagramUpgradeSchema = z
+  .object({
+    needed: z.boolean().default(true),
+    diagram_title: z.string().max(160).default(""),
+    what_to_draw: z.string().max(600).default(""),
+    labels_to_include: z.array(z.string().max(80)).max(8).default([]),
+    text_integration_sentence: z.string().max(800).default(""),
+    mark_gain: z.string().max(60).default("+2 marks (AO2)"),
+  })
+  .optional();
+
+const EvaluationBoosterSchema = z
+  .object({
+    angle_title: z.string().max(140).default(""),
+    why_examiners_reward_it: z.string().max(500).default(""),
+    ready_paragraph: z.string().max(1400).default(""),
+    mark_gain: z.string().max(60).default("+2 to +3 marks (AO3)"),
+  })
+  .optional();
+
 export const MaxOutResponseSchema = z.object({
-  headline: z.string().max(160),
+  headline: z.string().max(240),
   target_band: z.string().optional(),
   perfection_summary: z.string().optional(),
+  predicted_mark_after: z.coerce.number().min(0).max(30).optional(),
+  weakest_paragraph_upgrade: WeakestParagraphUpgradeSchema,
+  diagram_upgrade: DiagramUpgradeSchema,
+  evaluation_booster: EvaluationBoosterSchema,
   suggestions: z.array(MaxOutSuggestionSchema).max(6),
 });
 
@@ -1669,7 +1741,8 @@ function buildMaxOutSystemPrompt(
   maxMark: number,
   contextBlock: string,
 ): string {
-  return `You are a Principal Cambridge 9708 Economics Examiner creating a high-impact "Score Maximizer Blueprint" to elevate an already-written student essay to full marks (${maxMark}/${maxMark}).
+  const isEvaluative = maxMark >= 12 || /\b(assess|evaluate|discuss|extent|whether|justify)\b/i.test(question);
+  return `You are a Principal Cambridge 9708 Economics Examiner creating a high-impact "A* Score Maximizer & Perfection Blueprint" to elevate an already-written student essay to full marks (${maxMark}/${maxMark}).
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
@@ -1677,31 +1750,48 @@ SYLLABUS MATERIAL RETRIEVED FOR THIS QUESTION:
 ${contextBlock || "None retrieved — ground all advice strictly in official Cambridge 9708 standards."}
 
 INSTRUCTIONS FOR THE SCORE MAXIMIZER BLUEPRINT:
-1. Every suggestion must be CONCRETE, SURGICAL, and SPECIFIC to what THIS student actually wrote. Reference the student's existing paragraphs, arguments, or missing links directly.
-2. Provide at most 4 high-impact upgrades ordered by mark value (biggest mark gain first).
-3. For each upgrade, specify:
-   - "target_ao": "ao1" | "ao2" | "ao3" | "structure"
-   - "title": crisp 4-8 word title (e.g. "Complete the PED Tax-Incidence Chain")
-   - "suggestion": 2-3 sentences explaining the exact gap in the student's script and why fixing it unlocks marks.
-   - "mark_uplift": e.g. "+2 marks (AO2)"
-   - "placement": exact paragraph/section where this belongs (e.g. "Paragraph 1 (Introduction & Core Definitions)", "Paragraph 2 (Analytical Body — Transmission Chain)", "Final Paragraph (Evaluative Synthesis & Judgement)").
-   - "placement_rationale": 1 sentence explaining why this structural placement maximizes examiner clarity.
-   - "how_to_write": array of 2-3 step-by-step instructions on how to construct this point.
-   - "strategic_options": array of 2 distinct economic angles the student can choose from, each with "label", "description", and "sentence_starter".
-   - "model_phrasing": a complete, ready-to-insert Cambridge 9708 Top-Band sentence or short paragraph (25-55 words) that the student can insert directly into their essay.
+1. Every upgrade must be CONCRETE, SURGICAL, and SPECIFIC to what THIS student actually wrote. Reference the student's actual paragraphs, arguments, and attached diagrams directly.
+2. Provide at most 4 high-impact upgrades in "suggestions" ordered by mark value (biggest mark gain first).
+3. ALSO provide:
+   - "predicted_mark_after": integer mark (up to ${maxMark}) the essay will reach after applying these upgrades.
+   - "weakest_paragraph_upgrade": identify the SINGLE weakest paragraph in the student's essay (copy an exact verbatim snippet in "before_quote" from the student's draft so the editor can locate and upgrade it), explain in "why_it_caps_mark" why it limits their Cambridge Level, and write a complete, authentic Top-Band Cambridge 9708 rewrite in "after_rewrite" (55-110 words) with full causal chains and diagram/context integration.
+   - "diagram_upgrade": specify the highest-value Cambridge 9708 diagram for this question (or exact fix if they already attached one), exact axes/curves/shift/shaded area in "what_to_draw", exact short labels in "labels_to_include" (e.g. ["P1->P2", "Q1->Q2", "S->S1", "DWL triangle"]), and a ready-to-insert 1-2 sentence diagram-to-prose linkage in "text_integration_sentence".
+   - "evaluation_booster": ${isEvaluative ? 'provide a decisive Cambridge 9708 AO3 evaluative synthesis paragraph in "ready_paragraph" (55-95 words) weighing elasticity (PED/PES), time lags (SR vs LR), magnitude, or ceteris paribus limitations and ending with a justified judgement.' : 'omit or set angle_title to "" since this is a non-evaluative Explain question.'}
 4. NO ASTERISKS: Return ONLY clean plain text with ZERO asterisks (* or **). Never use rule labels or code identifiers.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
 {
-  "headline": "<one short sentence on the single biggest thing standing between this draft and full marks>",
+  "headline": "<one crisp sentence on the single biggest thing standing between this draft and full marks>",
   "target_band": "Top Band (Level 4 — Full Marks Trajectory)",
   "perfection_summary": "<1-2 sentences summarising how these targeted upgrades elevate the essay to full marks>",
+  "predicted_mark_after": ${Math.max(1, maxMark - 1)},
+  "weakest_paragraph_upgrade": {
+    "paragraph_label": "<e.g. Paragraph 2 — Analytical Body>",
+    "before_quote": "<verbatim paragraph or 1-2 sentences copied directly from the student essay>",
+    "why_it_caps_mark": "<1-2 crisp sentences explaining why this caps the mark>",
+    "after_rewrite": "<complete top-band Cambridge 9708 rewritten paragraph ready to replace the weak paragraph>",
+    "mark_gain": "+3 marks"
+  },
+  "diagram_upgrade": {
+    "needed": true,
+    "diagram_title": "<Exact Cambridge 9708 diagram title>",
+    "what_to_draw": "<Axes, curves, shift direction, equilibrium move, and shaded area>",
+    "labels_to_include": ["P1 -> P2", "Q1 -> Q2", "Shift arrow", "Shaded area"],
+    "text_integration_sentence": "<1-2 ready-to-insert sentences explicitly referencing the diagram labels>",
+    "mark_gain": "+2 marks (AO2)"
+  },
+  "evaluation_booster": {
+    "angle_title": "<e.g. Elasticity & Short-Run vs Long-Run Time Lag Synthesis>",
+    "why_examiners_reward_it": "<1 sentence on why Cambridge examiners award Top-Band AO3 for this>",
+    "ready_paragraph": "<55-95 word Cambridge 9708 AO3 synthesis paragraph tailored to this student's thesis>",
+    "mark_gain": "+3 marks (AO3)"
+  },
   "suggestions": [
     {
       "target_ao": "<ao1 | ao2 | ao3 | structure>",
       "title": "<max 8 words>",
       "suggestion": "<2-3 sentences specific to this essay>",
-      "mark_uplift": "<short estimate, e.g. '+2 marks'>",
+      "mark_uplift": "<short estimate, e.g. '+2 marks (AO2)'>",
       "placement": "<exact paragraph placement>",
       "placement_rationale": "<1 sentence why it belongs there>",
       "how_to_write": ["<step 1>", "<step 2>"],
@@ -1731,14 +1821,23 @@ function buildMaxOutUserPrompt(
   weaknesses: string[],
   missingElements: z.infer<typeof MaxOutMissingElements>,
   actionableFeedback: string[],
+  attachedDiagrams: string[] = [],
+  diagramAuditSummary = "",
 ): string {
   const missingLines = (Object.entries(missingElements) as [string, string[] | undefined][])
     .filter(([, items]) => (items ?? []).length > 0)
     .map(([key, items]) => `- ${key}: ${(items ?? []).join("; ")}`)
     .join("\n");
 
-  return `CURRENT MARK: ${totalMark}/${maxMark} (${band || "band not set"})
+  const diagramBlock =
+    attachedDiagrams.length > 0 || diagramAuditSummary
+      ? `\nATTACHED STUDENT DIAGRAMS & VISION AUDIT:\n${
+          attachedDiagrams.length > 0 ? attachedDiagrams.map((d) => `- ${d}`).join("\n") : ""
+        }${diagramAuditSummary ? `\n${diagramAuditSummary}` : ""}\n`
+      : "\nATTACHED STUDENT DIAGRAMS: None attached yet.\n";
 
+  return `CURRENT MARK: ${totalMark}/${maxMark} (${band || "band not set"})
+${diagramBlock}
 WHAT THE EXAMINER ALREADY FLAGGED AS COSTING MARKS:
 ${weaknesses.length > 0 ? weaknesses.map((w) => `- ${w}`).join("\n") : "- (none flagged)"}
 
@@ -1754,60 +1853,103 @@ ${essayText}`;
 
 /**
  * Triggered from the "Grade now" result or on-demand Score Maximizer once a
- * student has written a draft.
+ * student has written a draft. Powered by NVIDIA 550B Ultra Principal Examiner.
  */
 export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
   .handler(async ({ data, context }) => {
     await assertLiveExaminerSessionAllowed(data.question, context, data.tabId, true);
-    const { chat } = await import("./ai.server");
-    const { MODEL_GRADING, TEMPERATURE_TUTOR } = await import("./examiner/config");
+    const { callLiveExaminerNvidia } = await import("./live-examiner/nvidia-engine.server");
+    const { TEMPERATURE_TUTOR } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");
 
-    const result = await chat({
-      model: MODEL_GRADING,
-      feature: "live_examiner_maximise",
-      userId: context.userId,
-      temperature: TEMPERATURE_TUTOR,
-      json: true,
-      maxCompletionTokens: 2400,
-      messages: [
-        {
-          role: "system",
-          content: buildMaxOutSystemPrompt(
-            data.question,
-            data.level,
-            data.maxMark,
-            compactSyllabusContext(data.contextBlock) || data.contextBlock,
-          ),
-        },
-        {
-          role: "user",
-          content: buildMaxOutUserPrompt(
-            data.essayText,
-            data.totalMark,
-            data.maxMark,
-            data.band,
-            data.weaknesses,
-            data.missingElements,
-            data.actionableFeedback,
-          ),
-        },
-      ],
-    });
+    const systemPrompt = buildMaxOutSystemPrompt(
+      data.question,
+      data.level,
+      data.maxMark,
+      compactSyllabusContext(data.contextBlock) || data.contextBlock,
+    );
+    const userPrompt = buildMaxOutUserPrompt(
+      data.essayText,
+      data.totalMark,
+      data.maxMark,
+      data.band,
+      data.weaknesses,
+      data.missingElements,
+      data.actionableFeedback,
+      data.attachedDiagrams,
+      data.diagramAuditSummary,
+    );
 
-    const parsed = MaxOutResponseSchema.safeParse(extractFirstJsonObject(result.text));
-    if (!parsed.success) {
-      throw new Error("Couldn't generate suggestions just now — try again.");
+    const runPass = async (family: "nvidia_ultra_550b" | "nvidia_super_vl_120b") => {
+      const result = await callLiveExaminerNvidia({
+        family,
+        feature: "live_examiner_maximise_nvidia",
+        userId: context.userId,
+        temperature: TEMPERATURE_TUTOR,
+        json: true,
+        maxCompletionTokens: 3200,
+        timeoutMs: 24000,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+      return MaxOutResponseSchema.safeParse(extractFirstJsonObject(result.text));
+    };
+
+    let parsed = await runPass("nvidia_ultra_550b").catch(() => null);
+    if (!parsed || !parsed.success) {
+      parsed = await runPass("nvidia_super_vl_120b").catch(() => null);
     }
+
+    if (!parsed || !parsed.success) {
+      throw new Error("Couldn't generate Score Maximizer suggestions just now — please try again.");
+    }
+
+    const d = parsed.data;
+    const boundedPredictedAfter =
+      typeof d.predicted_mark_after === "number"
+        ? Math.min(data.maxMark, Math.max(Math.round(data.totalMark) + 1, Math.round(d.predicted_mark_after)))
+        : Math.min(data.maxMark, Math.max(Math.round(data.totalMark) + 2, Math.round(data.maxMark * 0.9)));
+
     return cleanStars({
-      headline: stripAsterisks(parsed.data.headline),
-      target_band: parsed.data.target_band ? stripAsterisks(parsed.data.target_band) : undefined,
-      perfection_summary: parsed.data.perfection_summary
-        ? stripAsterisks(parsed.data.perfection_summary)
-        : undefined,
-      suggestions: parsed.data.suggestions.map((s) => ({
+      headline: stripAsterisks(d.headline),
+      target_band: d.target_band ? stripAsterisks(d.target_band) : undefined,
+      perfection_summary: d.perfection_summary ? stripAsterisks(d.perfection_summary) : undefined,
+      predicted_mark_after: boundedPredictedAfter,
+      weakest_paragraph_upgrade:
+        d.weakest_paragraph_upgrade && d.weakest_paragraph_upgrade.after_rewrite.trim().length > 20
+          ? {
+              paragraph_label: stripAsterisks(d.weakest_paragraph_upgrade.paragraph_label),
+              before_quote: stripAsterisks(d.weakest_paragraph_upgrade.before_quote),
+              why_it_caps_mark: stripAsterisks(d.weakest_paragraph_upgrade.why_it_caps_mark),
+              after_rewrite: stripAsterisks(d.weakest_paragraph_upgrade.after_rewrite),
+              mark_gain: stripAsterisks(d.weakest_paragraph_upgrade.mark_gain),
+            }
+          : undefined,
+      diagram_upgrade:
+        d.diagram_upgrade && d.diagram_upgrade.diagram_title.trim().length > 2
+          ? {
+              needed: d.diagram_upgrade.needed,
+              diagram_title: stripAsterisks(d.diagram_upgrade.diagram_title),
+              what_to_draw: stripAsterisks(d.diagram_upgrade.what_to_draw),
+              labels_to_include: d.diagram_upgrade.labels_to_include.map((l) => stripAsterisks(l)),
+              text_integration_sentence: stripAsterisks(d.diagram_upgrade.text_integration_sentence),
+              mark_gain: stripAsterisks(d.diagram_upgrade.mark_gain),
+            }
+          : undefined,
+      evaluation_booster:
+        d.evaluation_booster && d.evaluation_booster.ready_paragraph.trim().length > 20
+          ? {
+              angle_title: stripAsterisks(d.evaluation_booster.angle_title),
+              why_examiners_reward_it: stripAsterisks(d.evaluation_booster.why_examiners_reward_it),
+              ready_paragraph: stripAsterisks(d.evaluation_booster.ready_paragraph),
+              mark_gain: stripAsterisks(d.evaluation_booster.mark_gain),
+            }
+          : undefined,
+      suggestions: d.suggestions.map((s) => ({
         ...s,
         title: stripAsterisks(s.title),
         suggestion: cleanSuggestion(stripAsterisks(s.suggestion)),
@@ -1823,4 +1965,185 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
         model_phrasing: s.model_phrasing ? stripAsterisks(s.model_phrasing) : undefined,
       })),
     });
+  });
+
+// ---------------------------------------------------------------------------
+// 6. Live Diagram Vision Auditor — powered by NVIDIA Super-VL 120B Vision
+//    Inspects a student's hand-drawn or pasted economics diagram photo against
+//    their exact Cambridge 9708 question & live draft, returning a 0-4 score,
+//    5-point checklist, pinpoint fixes, ready-to-insert prose reference, and
+//    the rich [DIAGRAM: ...] tag injected into every Live Examiner check.
+// ---------------------------------------------------------------------------
+
+const AuditDiagramInput = z.object({
+  image: z.string().startsWith("data:image/", "Please upload or paste a valid diagram image."),
+  question: z.string().trim().min(5).max(2000),
+  level: z.enum(["as", "a2"]).default("a2"),
+  maxMark: z.coerce.number().int().positive().max(30).default(12),
+  essayText: z.string().max(40_000).optional().default(""),
+  tabId: z.string().trim().min(1).max(120).optional().default("default"),
+});
+
+const DiagramCheckItemSchema = z.object({
+  ok: z.boolean().default(true),
+  detail: z.string().max(260).default(""),
+});
+
+export const LiveDiagramAuditSchema = z.object({
+  title: z.string().min(1).max(140).default("Economics Diagram"),
+  diagramScore: z.coerce.number().int().min(0).max(4).default(3),
+  verdict: z
+    .preprocess(
+      (v) => {
+        const s = String(v ?? "").toLowerCase();
+        if (s.includes("ready") || s.includes("excellent") || s.includes("full")) return "Exam-Ready";
+        if (s.includes("correct") || s.includes("error") || s.includes("wrong")) return "Needs Correction";
+        return "Minor Labels Missing";
+      },
+      z.enum(["Exam-Ready", "Minor Labels Missing", "Needs Correction"]),
+    )
+    .default("Minor Labels Missing"),
+  axes: DiagramCheckItemSchema.default({ ok: true, detail: "Axes detected." }),
+  curves: DiagramCheckItemSchema.default({ ok: true, detail: "Curves detected." }),
+  shiftsAndEquilibria: DiagramCheckItemSchema.default({ ok: true, detail: "Equilibria checked." }),
+  shadedAreas: DiagramCheckItemSchema.default({ ok: true, detail: "Shaded areas checked." }),
+  questionRelevance: DiagramCheckItemSchema.default({ ok: true, detail: "Relevant to question." }),
+  proseLinkStatus: z
+    .preprocess(
+      (v) => {
+        const s = String(v ?? "").toLowerCase();
+        if (s.includes("link") && !s.includes("un") && !s.includes("miss")) return "linked";
+        if (s.includes("part")) return "partial";
+        return "missing";
+      },
+      z.enum(["linked", "partial", "missing"]),
+    )
+    .default("missing"),
+  fixes: z.array(z.string().max(260)).max(5).default([]),
+  proseIntegrationSentence: z.string().max(600).default(""),
+  axesSummary: z.string().max(160).default("Price / Cost (Y) vs Quantity (X)"),
+  curvesSummary: z.string().max(220).default("Demand & Supply curves"),
+  labelsSummary: z.string().max(240).default("Standard equilibrium labels"),
+  accuracyNote: z.string().max(260).default("Audited via NVIDIA Super-VL 120B Vision"),
+});
+
+export type LiveDiagramAudit = z.infer<typeof LiveDiagramAuditSchema> & {
+  tag: string;
+  modelUsed: string;
+};
+
+export const auditLiveExaminerDiagram = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => AuditDiagramInput.parse(input))
+  .handler(async ({ data, context }): Promise<LiveDiagramAudit> => {
+    assertAuthenticatedUserId(context);
+    const { callLiveExaminerNvidia } = await import("./live-examiner/nvidia-engine.server");
+    const { extractFirstJsonObject } = await import("./examiner/json");
+
+    const systemPrompt = `You are a Principal Cambridge International AS & A Level Economics (9708) Examiner inspecting a student's hand-drawn or uploaded economics diagram.
+Be exact, encouraging, and strictly honest about ONLY what is visibly drawn in the image. Never invent labels that are not visible. Return plain text with ZERO asterisks (* or **).
+
+Evaluate the diagram specifically for this Cambridge 9708 exam question:
+QUESTION (${data.level.toUpperCase()}, ${data.maxMark} marks): ${data.question}
+
+Respond ONLY with a single valid JSON object (no markdown fences):
+{
+  "title": "<Exact Cambridge diagram name shown in the image>",
+  "diagramScore": <integer 0 to 4: 4=Exam-Ready all labels/axes/shifts/areas clear; 3=Good with 1 minor label missing; 2=Partially correct or shift/axis issue; 1=Major economic error; 0=Not an economics diagram / illegible>,
+  "verdict": "<Exam-Ready | Minor Labels Missing | Needs Correction>",
+  "axes": { "ok": <true|false>, "detail": "<What is drawn on Y and X axes, or what is missing>" },
+  "curves": { "ok": <true|false>, "detail": "<Curves drawn, slopes, and labels visible>" },
+  "shiftsAndEquilibria": { "ok": <true|false>, "detail": "<Shift arrows, P1->P2, Q1->Q2, E1->E2 coordinates>" },
+  "shadedAreas": { "ok": <true|false>, "detail": "<DWL, abnormal profit, consumer/producer surplus, or 'Not required'>" },
+  "questionRelevance": { "ok": <true|false>, "detail": "<Does this diagram directly answer the exam question?>" },
+  "proseLinkStatus": "<linked | partial | missing — whether the student's current essay draft references these diagram labels>",
+  "fixes": ["<Up to 3 short, specific fixes to earn 4/4 — empty array if Exam-Ready>"],
+  "proseIntegrationSentence": "<A complete, ready-to-insert Cambridge 9708 sentence referencing the exact labels visible on this diagram (e.g. 'As shown in the diagram, the leftward shift of supply from S to S1 raises equilibrium price from P1 to P2 and reduces output from Q1 to Q2...')>",
+  "axesSummary": "<short Y / X axes summary>",
+  "curvesSummary": "<short curves & shifts summary>",
+  "labelsSummary": "<short equilibrium & area labels visible>",
+  "accuracyNote": "<1 short examiner sentence summarizing diagram accuracy>"
+}`;
+
+    const draftSnippet = data.essayText.trim()
+      ? `\n\nSTUDENT'S CURRENT ESSAY DRAFT (check whether they reference this diagram in prose):\n${data.essayText.slice(0, 3500)}`
+      : "\n\nSTUDENT'S CURRENT ESSAY DRAFT: (empty so far — set proseLinkStatus to 'missing').";
+
+    const res = await callLiveExaminerNvidia({
+      family: "nvidia_super_vl_120b",
+      feature: "live_examiner_diagram_audit_nvidia",
+      userId: context.userId,
+      temperature: 0,
+      maxCompletionTokens: 1400,
+      timeoutMs: 22000,
+      json: true,
+      imageDataUrls: [data.image],
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Audit this Cambridge 9708 economics diagram photo for the question above and output ONLY the JSON object.${draftSnippet}`,
+        },
+      ],
+    });
+
+    let rawObj: unknown = {};
+    try {
+      rawObj = extractFirstJsonObject(res.text);
+    } catch {
+      rawObj = {};
+    }
+
+    const parsed = LiveDiagramAuditSchema.safeParse(rawObj);
+    const audit = parsed.success ? parsed.data : LiveDiagramAuditSchema.parse({});
+
+    const cleanTitle = stripAsterisks(audit.title).replace(/[|\[\]]/g, "").trim() || "Economics Diagram";
+    const cleanAxes = stripAsterisks(audit.axesSummary).replace(/[|\[\]]/g, "").trim();
+    const cleanCurves = stripAsterisks(audit.curvesSummary).replace(/[|\[\]]/g, "").trim();
+    const cleanLabels = stripAsterisks(audit.labelsSummary).replace(/[|\[\]]/g, "").trim();
+    const cleanAccuracy = stripAsterisks(
+      `${audit.verdict} (${audit.diagramScore}/4) — ${audit.accuracyNote}`,
+    )
+      .replace(/[|\[\]]/g, "")
+      .trim();
+
+    const tag = `[DIAGRAM: ${cleanTitle} | axes: ${cleanAxes} | curves: ${cleanCurves} | labels: ${cleanLabels} | accuracy: ${cleanAccuracy}]`;
+
+    // Best-effort usage telemetry
+    try {
+      await context.supabase.from("ai_usage_log").insert({
+        user_id: context.userId,
+        feature: "live_examiner_diagram_audit",
+        model: res.model,
+        ok: true,
+      });
+    } catch {
+      // Non-fatal
+    }
+
+    return {
+      title: cleanTitle,
+      diagramScore: audit.diagramScore,
+      verdict: audit.verdict,
+      axes: { ok: audit.axes.ok, detail: stripAsterisks(audit.axes.detail) },
+      curves: { ok: audit.curves.ok, detail: stripAsterisks(audit.curves.detail) },
+      shiftsAndEquilibria: {
+        ok: audit.shiftsAndEquilibria.ok,
+        detail: stripAsterisks(audit.shiftsAndEquilibria.detail),
+      },
+      shadedAreas: { ok: audit.shadedAreas.ok, detail: stripAsterisks(audit.shadedAreas.detail) },
+      questionRelevance: {
+        ok: audit.questionRelevance.ok,
+        detail: stripAsterisks(audit.questionRelevance.detail),
+      },
+      proseLinkStatus: audit.proseLinkStatus,
+      fixes: audit.fixes.map((f) => stripAsterisks(f)).filter(Boolean),
+      proseIntegrationSentence: stripAsterisks(audit.proseIntegrationSentence),
+      axesSummary: cleanAxes,
+      curvesSummary: cleanCurves,
+      labelsSummary: cleanLabels,
+      accuracyNote: cleanAccuracy,
+      tag,
+      modelUsed: res.model,
+    };
   });
