@@ -109,10 +109,9 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       ? (preparedEssayText.includes(combinedDiagramRef) ? preparedEssayText : `${preparedEssayText}\n\n${combinedDiagramRef}`)
       : preparedEssayText;
 
-    const isBudgetTier =
-      !sub.isAdmin &&
-      !sub.isTeacher &&
-      (sub.tier === "free" || sub.tier === "foundation" || sub.tier === "scholar_plus");
+    // Full V8 Frontier pipeline active for all users (no paywall / no V8-Lite downgrade)
+    const engineMode = "v8_frontier" as const;
+    const isBudgetTier = false;
 
     let outcome;
     try {
@@ -124,6 +123,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
         essayType: data.essayType,
         auditPass: data.auditPass,
         markSchemeImageDataUrls: data.markSchemeImageDataUrls,
+        engineMode,
         isBudgetTier,
         userId,
         skipSyllabusPreflight: true,
@@ -423,4 +423,89 @@ export const syncLiveEssayDraft = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
+  });
+
+const UpgradeParagraphInput = z.object({
+  question: z.string().trim().min(5).max(2000),
+  essayText: z.string().trim().min(40).max(20000),
+  maxMark: z.coerce.number().int().min(4).max(30),
+  currentMark: z.coerce.number().int().min(0).max(30),
+  weaknesses: z.array(z.string()).max(10).default([]),
+  missingEvaluation: z.array(z.string()).max(10).default([]),
+});
+
+/**
+ * V8 Frontier Feature: 1-Click "Upgrade My Weakest Paragraph to A*" Before/After Diff.
+ * Powered by NVIDIA 550B Ultra (0% Gemini), open to all users in Full Frontier mode.
+ */
+export const upgradeWeakestParagraph = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => UpgradeParagraphInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+
+    const { callOrthogonalFamily } = await import("./examiner/multi-family-pool.server");
+    const { extractFirstJsonObject } = await import("./examiner/json");
+    const { cleanStars } = await import("./utils");
+
+    const systemPrompt = [
+      "You are a Cambridge International AS & A Level Economics (9708) Principal Examiner.",
+      `A candidate scored ${data.currentMark}/${data.maxMark} on the exam question below.`,
+      "Identify their SINGLE weakest substantive paragraph (usually underdeveloped AO2 chain or weak/generic AO3 evaluation) and rewrite THAT EXACT PARAGRAPH into an A* Level 3 / Level 2 Evaluation version using their own argument as the base.",
+      "Rules:",
+      "- Quote their original weakest paragraph verbatim in `weakestParagraph`.",
+      "- Keep the rewrite realistic to timed Cambridge exam length (90–145 words), adding explicit causal transmission steps, elasticity/time-lag/magnitude nuance, and a justified judgement.",
+      "- NEVER use asterisks (* or **) anywhere.",
+      'Return ONLY valid JSON: { "weakestParagraph": string, "upgradedParagraph": string, "addedTechniques": string[], "markGainRationale": string }',
+    ].join("\n");
+
+    const userPrompt = [
+      `Exam Question (${data.maxMark} marks): ${data.question}`,
+      data.weaknesses.length ? `Identified Weaknesses: ${data.weaknesses.slice(0, 4).join(" | ")}` : "",
+      data.missingEvaluation.length
+        ? `Missing Evaluation Points: ${data.missingEvaluation.slice(0, 3).join(" | ")}`
+        : "",
+      `Student Essay:\n"""\n${data.essayText.slice(0, 8000)}\n"""`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const res = await callOrthogonalFamily({
+      family: "nvidia_ultra_550b",
+      feature: "v8_frontier_paragraph_upgrade",
+      userId,
+      temperature: 0.2,
+      json: true,
+      maxCompletionTokens: 1100,
+      timeoutMs: 18000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const parsed = extractFirstJsonObject(res.text) as Record<string, unknown> | null;
+    if (!parsed || typeof parsed.upgradedParagraph !== "string") {
+      throw new Error("Could not generate A* paragraph upgrade right now — please retry.");
+    }
+
+    const paragraphs = data.essayText
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 30);
+
+    return cleanStars({
+      weakestParagraph:
+        typeof parsed.weakestParagraph === "string" && parsed.weakestParagraph.trim()
+          ? parsed.weakestParagraph.trim()
+          : paragraphs[paragraphs.length - 1] || data.essayText.slice(0, 350),
+      upgradedParagraph: parsed.upgradedParagraph.trim(),
+      addedTechniques: Array.isArray(parsed.addedTechniques)
+        ? parsed.addedTechniques.filter((x): x is string => typeof x === "string").slice(0, 5)
+        : ["Developed AO2 causal chain", "Evaluative weighing & justified judgement"],
+      markGainRationale:
+        typeof parsed.markGainRationale === "string"
+          ? parsed.markGainRationale.trim()
+          : "Upgrades descriptive points into developed Cambridge AO2 chains and justified AO3 evaluation.",
+    });
   });

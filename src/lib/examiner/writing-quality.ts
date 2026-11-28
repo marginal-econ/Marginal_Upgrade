@@ -102,7 +102,7 @@ export function analyzeEssayQuality(
     }
   }
 
-  // Detect AI-generated formatting artifacts
+  // Detect AI-generated formatting artifacts early so clean long pasted/OCR scripts without \n\n aren't falsely crushed
   const boldingMatches = rawText.match(/\*\*[^*]+\*\*/g) || [];
   const boldingCount = boldingMatches.length;
 
@@ -116,6 +116,19 @@ export function analyzeEssayQuality(
     boldingCount >= 4 ||
     (boldingCount >= 2 && latexCount >= 1) ||
     (boldingCount >= 3 && words < 400);
+
+  // If a genuine clean essay (>= 360 words, zero AI artifacts) lost line breaks during OCR/PDF copy-paste,
+  // recognise distinct analytical/evaluative section transitions rather than falsely capping a Top-Band script at 7/12.
+  if (paragraphCount <= 1 && !hasAiArtifacts && words >= 360) {
+    const sectionTransitionHits = (
+      rawText.match(
+        /(?:^|[.!?]\s+)(?:firstly|secondly|thirdly|finally|however|moreover|furthermore|in addition|on the other hand|conversely|in conclusion|to conclude|overall|alternatively|\[diagram:)/gi,
+      ) || []
+    ).length;
+    if (sectionTransitionHits >= 2) {
+      paragraphCount = Math.min(6, sectionTransitionHits + 1);
+    }
+  }
 
   const qualityIssues: string[] = [];
 

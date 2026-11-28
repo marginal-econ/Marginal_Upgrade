@@ -668,6 +668,11 @@ async function chatViaProvider(
         } else if (!/^(openai|deepseek|anthropic)\//i.test(m)) {
           delete modelBody.reasoning;
         }
+      } else if (config.provider === "nvidia" && m.startsWith("nvidia/nemotron")) {
+        // Direct NVIDIA NIM uses chat_template_kwargs.enable_thinking to prevent hidden reasoning from exhausting max_tokens.
+        if (options.reasoningEffort === "none" || !options.reasoningEffort) {
+          modelBody.chat_template_kwargs = { enable_thinking: false };
+        }
       }
       let had429OnFreePool = false;
 
@@ -1602,6 +1607,8 @@ async function visionChatViaOpenAiCompatible(
   };
   if (config.provider === "openrouter" && effectiveVisionModel.startsWith("nvidia/nemotron")) {
     body.reasoning = { effort: "none" };
+  } else if (config.provider === "nvidia" && effectiveVisionModel.startsWith("nvidia/nemotron")) {
+    body.chat_template_kwargs = { enable_thinking: false };
   }
   if (options.maxCompletionTokens) {
     if (config.provider === "openai" || /^(gpt-5|o1|o3|o4)/i.test(effectiveVisionModel)) {
@@ -1827,10 +1834,159 @@ async function visionChatViaGoogle(
   throw lastErr || new Error("Google Gemini Vision failed to process the image.");
 }
 
+const NVIDIA_VISION_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+const NVIDIA_VISION_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
+
+function parseEnvList(name: string): string[] {
+  const raw = readEnv(name) || "";
+  return raw
+    .split(/[\n,;]+/)
+    .map((k) => k.trim())
+    .filter((k) => k.length >= 10);
+}
+
+export async function resolveNvidiaVisionKeys(): Promise<string[]> {
+  const keys: string[] = [
+    ...parseEnvList("NVIDIA_API_KEYS"),
+    ...parseEnvList("NVIDIA_API_KEY"),
+    ...parseEnvList("NVAPI_KEY"),
+  ];
+  try {
+    const { supabaseAdmin } = await import("../integrations/backend/client.server");
+    const { data: rows } = await supabaseAdmin
+      .from("ai_provider_keys")
+      .select("api_key, purpose, is_active")
+      .eq("provider", "nvidia");
+    if (rows && rows.length > 0) {
+      for (const row of rows) {
+        if (!row.api_key) continue;
+        const cfg = normaliseConfig({
+          provider: "nvidia",
+          api_key: row.api_key,
+          base_url: "https://integrate.api.nvidia.com/v1",
+          model: NVIDIA_VISION_MODEL,
+          label: "NVIDIA NIM",
+        });
+        keys.push(...buildOrderedKeyPool(cfg).allOrderedKeys);
+      }
+    }
+  } catch {
+    // Continue with env keys
+  }
+  return Array.from(new Set(keys.filter((k) => k.startsWith("nvapi-") && k.length >= 20)));
+}
+
+/**
+ * Direct multimodal vision call to NVIDIA NIM (`nvidia/nemotron-3.5-super-vl-120b-a12b`).
+ * Supports high-detail image inspection with `enable_thinking: false` for fast, non-truncated output.
+ */
+export async function visionChatViaNvidia(options: {
+  model?: string;
+  systemPrompt: string;
+  prompt: string;
+  imageDataUrls: string[];
+  maxCompletionTokens?: number;
+  temperature?: number;
+  json?: boolean;
+  enableThinking?: boolean;
+  timeoutMs?: number;
+  keys?: string[];
+}): Promise<Omit<ChatResult, "latencyMs">> {
+  const keys = options.keys && options.keys.length > 0 ? options.keys : await resolveNvidiaVisionKeys();
+  if (keys.length === 0) {
+    throw new AiGatewayError("No NVIDIA NIM API key configured for direct vision.", 500);
+  }
+
+  const effectiveModel =
+    options.model && options.model.startsWith("nvidia/") ? options.model : NVIDIA_VISION_MODEL;
+  const preparedImages = await Promise.all(
+    options.imageDataUrls.map(async (input) => {
+      if (input.startsWith("data:")) return input.trim();
+      const { mimeType, data } = await prepareVisionImageData(input);
+      return `data:${mimeType};base64,${data}`;
+    }),
+  );
+
+  const body: Record<string, unknown> = {
+    model: effectiveModel,
+    temperature: options.temperature ?? 0.1,
+    max_tokens: options.maxCompletionTokens ?? 4096,
+    ...(options.enableThinking ? {} : { chat_template_kwargs: { enable_thinking: false } }),
+    ...(options.json ? { response_format: { type: "json_object" } } : {}),
+    messages: [
+      ...(options.systemPrompt ? [{ role: "system", content: options.systemPrompt }] : []),
+      {
+        role: "user",
+        content: [
+          { type: "text", text: options.prompt },
+          ...preparedImages.map((url) => ({
+            type: "image_url" as const,
+            image_url: { url },
+          })),
+        ],
+      },
+    ],
+  };
+
+  let lastErr: unknown = null;
+  for (let kIdx = 0; kIdx < keys.length; kIdx++) {
+    const currentKey = keys[kIdx]!;
+    try {
+      const response = await fetch(NVIDIA_VISION_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(options.timeoutMs ?? 35_000),
+      });
+
+      if (response.ok) {
+        markKeyHealthy(currentKey);
+        const data = (await response.json()) as {
+          choices?: { message?: { content?: string } }[];
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
+        const text = (data.choices?.[0]?.message?.content ?? "")
+          .replace(/<think>[\s\S]*?<\/think>/gi, "")
+          .trim();
+        if (text.length > 0) {
+          return {
+            text,
+            model: effectiveModel,
+            promptTokens: data.usage?.prompt_tokens ?? null,
+            completionTokens: data.usage?.completion_tokens ?? null,
+          };
+        }
+        lastErr = new Error("NVIDIA NIM Vision returned empty content.");
+        continue;
+      }
+
+      const detail = await response.text().catch(() => "");
+      lastErr = new AiGatewayError(
+        `NVIDIA NIM Vision (${effectiveModel}) returned ${response.status}: ${detail.slice(0, 260)}`,
+        response.status,
+      );
+      if (response.status === 429 || response.status >= 500 || response.status === 401 || response.status === 403) {
+        markKeyRateLimited(currentKey, response.status === 429 ? 15_000 : 300_000);
+        if (kIdx + 1 < keys.length) continue;
+      }
+      throw lastErr;
+    } catch (err: any) {
+      lastErr = err;
+      if (kIdx + 1 < keys.length) continue;
+    }
+  }
+
+  throw lastErr instanceof Error ? lastErr : new Error("NVIDIA NIM Vision failed to process the image.");
+}
+
 /**
  * Multimodal read of one or more page images (scans/photos of handwriting,
- * or photographed/scanned past-paper pages for MCQ/essay bank extraction).
- * Vision is strictly routed through Google Gemini.
+ * diagrams, mark schemes, or photographed/scanned past-paper pages).
+ * Routed strictly through NVIDIA NIM Super VL 120B (with non-Gemini OpenRouter fallback).
+ * Google Gemini keys are NOT used for vision.
  */
 export async function visionChat(options: {
   model: string;
@@ -1840,6 +1996,10 @@ export async function visionChat(options: {
   maxCompletionTokens?: number;
   /** Bypass the stored override, same convention as chat(). */
   overrideProvider?: ProviderConfig | null;
+  /** Retained for backwards compatibility; vision always routes via NVIDIA NIM first (no Gemini). */
+  preferProvider?: "google" | "nvidia";
+  /** Opt-in to Nemotron thinking trace for deep multimodal visual auditing. */
+  enableThinking?: boolean;
   userId?: string | null;
   feature?: string;
 }): Promise<ChatResult> {
@@ -1848,7 +2008,7 @@ export async function visionChat(options: {
   let callError: Error | null = null;
 
   try {
-    // 1. Explicit non-Google override (e.g. OpenRouter / Anthropic / OpenAI vision test)
+    // 1. Explicit non-Google override (e.g. NVIDIA / OpenRouter / Anthropic / OpenAI vision test)
     if (options.overrideProvider && !isGeminiProvider(options.overrideProvider.provider)) {
       const provResult =
         options.overrideProvider.provider === "anthropic"
@@ -1858,75 +2018,29 @@ export async function visionChat(options: {
       return result;
     }
 
-    // Collect all available Google Gemini vision keys
-    const googleKeys: string[] = [];
-
-    // 1b. Explicit override if Google provider
-    if (options.overrideProvider && isGeminiProvider(options.overrideProvider.provider)) {
-      const { allOrderedKeys } = buildOrderedKeyPool(options.overrideProvider);
-      googleKeys.push(...allOrderedKeys);
-    }
-
-    // 2. Active Vision Provider
+    // 2. Primary: Direct NVIDIA NIM Super VL 120B (fast, reliable, zero Gemini usage)
+    let nvidiaErr: Error | null = null;
     try {
-      const visionProv = await getActiveVisionProvider();
-      if (visionProv && isGeminiProvider(visionProv.provider)) {
-        const { allOrderedKeys } = buildOrderedKeyPool(visionProv);
-        googleKeys.push(...allOrderedKeys);
-      }
-    } catch {
-      // Continue
-    }
-
-    // 3. Database: look for any saved Google keys
-    try {
-      const { supabaseAdmin } = await import("../integrations/backend/client.server");
-      const { data: dbKeys } = await supabaseAdmin
-        .from("ai_provider_keys")
-        .select("api_key, purpose, is_active")
-        .eq("provider", "google");
-      if (dbKeys && dbKeys.length > 0) {
-        const sorted = [...dbKeys].sort((a, b) => {
-          if (a.purpose === "vision" && b.purpose !== "vision") return -1;
-          if (b.purpose === "vision" && a.purpose !== "vision") return 1;
-          if (a.is_active && !b.is_active) return -1;
-          if (b.is_active && !a.is_active) return 1;
-          return 0;
+      const nvKeys = await resolveNvidiaVisionKeys();
+      if (nvKeys.length > 0) {
+        const nvRes = await visionChatViaNvidia({
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          prompt: options.prompt,
+          imageDataUrls: options.imageDataUrls,
+          maxCompletionTokens: options.maxCompletionTokens,
+          enableThinking: options.enableThinking,
+          keys: nvKeys,
         });
-        for (const row of sorted) {
-          const cfg = normaliseConfig({
-            provider: "google",
-            api_key: row.api_key,
-            base_url: null,
-            model: "gemini-3-flash-preview",
-            label: "Google",
-          });
-          const { allOrderedKeys } = buildOrderedKeyPool(cfg);
-          googleKeys.push(...allOrderedKeys);
-        }
-      }
-    } catch {
-      // Continue
-    }
-
-    // 4. Environment variables
-    const envKey = readEnv("GOOGLE_AI_API_KEY") || readEnv("GEMINI_API_KEY") || readEnv("GOOGLE_API_KEY");
-    if (envKey) googleKeys.push(envKey.trim());
-
-    const uniqueGoogleKeys = Array.from(new Set(googleKeys.filter((k) => k && k.length > 5)));
-    let googleErr: Error | null = null;
-    if (uniqueGoogleKeys.length > 0) {
-      try {
-        const provResult = await visionChatViaGoogle(uniqueGoogleKeys, options);
-        result = { ...provResult, latencyMs: Date.now() - started };
+        result = { ...nvRes, latencyMs: Date.now() - started };
         return result;
-      } catch (err: any) {
-        googleErr = err instanceof Error ? err : new Error(String(err));
-        console.warn("[visionChat] Google Gemini Vision failed, checking OpenRouter vision fallback:", googleErr.message);
       }
+    } catch (nvErr: any) {
+      nvidiaErr = nvErr instanceof Error ? nvErr : new Error(String(nvErr));
+      console.warn("[visionChat] Direct NVIDIA NIM Vision failed, checking OpenRouter Nemotron fallback:", nvidiaErr.message);
     }
 
-    // 5. Fallback: OpenRouter vision-capable free pool (e.g. nvidia/nemotron-3.5-super-vl:free)
+    // 3. Fallback: OpenRouter non-Gemini vision pool (nvidia/nemotron-3.5-super-vl:free)
     try {
       const { supabaseAdmin } = await import("../integrations/backend/client.server");
       const { data: orRows } = await supabaseAdmin
@@ -1950,10 +2064,20 @@ export async function visionChat(options: {
       console.warn("[visionChat] OpenRouter vision fallback failed:", orErr);
     }
 
-    if (googleErr) throw googleErr;
+    // 4. Optional Google Gemini fallback if explicitly requested or NVIDIA/OpenRouter unavailable
+    if (options.preferProvider === "google") {
+      const envKey = readEnv("GOOGLE_AI_API_KEY") || readEnv("GEMINI_API_KEY") || readEnv("GOOGLE_API_KEY");
+      if (envKey) {
+        const provResult = await visionChatViaGoogle([envKey.trim()], options);
+        result = { ...provResult, latencyMs: Date.now() - started };
+        return result;
+      }
+    }
+
+    if (nvidiaErr) throw nvidiaErr;
 
     throw new AiGatewayError(
-      "No Google Gemini or OpenRouter vision API key is configured for vision/handwriting. Add one under Admin → AI Providers with purpose 'Vision' and mark it active.",
+      "No NVIDIA NIM or OpenRouter vision API key is configured for vision/handwriting. Configure NVIDIA_API_KEYS or add an NVIDIA provider under Admin → AI Providers.",
       500,
     );
   } catch (err: any) {
@@ -1963,7 +2087,7 @@ export async function visionChat(options: {
     try {
       const { supabaseAdmin } = await import("../integrations/backend/client.server");
       const latencyMs = Date.now() - started;
-      const model = result?.model || options.model || "models/gemini-3-flash-preview";
+      const model = result?.model || options.model || "nvidia/nemotron-3.5-super-vl-120b-a12b";
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: options.userId ?? null,
         feature: options.feature ?? "vision_chat",

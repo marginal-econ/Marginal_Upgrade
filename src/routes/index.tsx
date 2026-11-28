@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Minimize2,
   PenLine,
+  Play,
   RotateCcw,
   Scan,
   School,
@@ -36,7 +37,6 @@ import {
   Trophy,
   Wand2,
   Zap,
-  PlayCircle,
 } from "lucide-react";
 import { PlatformTourVideoModal } from "@/components/app/platform-tour-video";
 import { toast } from "sonner";
@@ -272,6 +272,22 @@ const TOOLS = [
     href: "/grade",
   },
   {
+    icon: Zap,
+    tile: "bg-indigo-600",
+    badge: "Live AI",
+    title: "Live Socratic Examiner",
+    body: "Real-time sentence coaching, Diagram Vision Studio checks, and A* Score Maximizer while you draft.",
+    href: "/live-examiner",
+  },
+  {
+    icon: MessageCircle,
+    tile: "bg-emerald-600",
+    badge: "NVIDIA AI",
+    title: "Marginal EconGPT Tutor",
+    body: "Cambridge 9708 AI tutor grounded in official syllabus notes with live interactive economic graphs.",
+    href: "/chat",
+  },
+  {
     icon: ListChecks,
     tile: "bg-ao1",
     badge: "Exam Simulation",
@@ -459,7 +475,7 @@ function Index() {
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="relative mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between gap-2.5 lg:gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 py-2 sm:py-2.5">
+        <div className="relative mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between gap-2 lg:gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5">
           <Link to="/" className="shrink-0">
             <Wordmark />
           </Link>
@@ -467,15 +483,14 @@ function Index() {
           <SiteNavLinks />
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <SiteNavMobile />
             <ThemeToggle />
 
-            {/* ONE button at the corner linking to Marginalite (Cambridge IGCSE) */}
+            {/* ONE button at the corner linking to Marginalite (Cambridge IGCSE); available in mobile drawer below sm */}
             <a
               href="https://lite.marginal-econ.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-2 sm:px-2.5 py-1.5 text-xs font-bold text-foreground hover:bg-purple-500/20 hover:border-purple-500/60 transition-all shadow-xs hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+              className="hidden sm:inline-flex group items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-2.5 py-1.5 text-xs font-bold text-foreground hover:bg-purple-500/20 hover:border-purple-500/60 transition-all shadow-2xs hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
               title="Marginalite | Cambridge IGCSE Economics (0455) Platform"
             >
               <img
@@ -493,7 +508,7 @@ function Index() {
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
-              className="hidden min-[500px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              className="hidden min-[540px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
               title="Official Cambridge 9708 Teacher & Department Registration"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
@@ -515,6 +530,7 @@ function Index() {
                 <span className="min-[380px]:hidden">Get Started</span>
               </Link>
             </Magnetic>
+            <SiteNavMobile />
           </div>
         </div>
       </header>
@@ -539,11 +555,11 @@ function Index() {
         </Drift>
         <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
-        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-8 lg:gap-10 xl:gap-14 px-4 py-8 sm:px-6 sm:py-10 md:px-10 md:py-12 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-7 lg:gap-10 xl:gap-14 px-4 py-5 sm:px-6 sm:py-7 md:px-10 md:py-8 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
           <div>
             <Reveal>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/30 bg-primary/10 text-primary font-semibold">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/30 bg-primary/10 text-primary font-semibold text-[11px] sm:text-xs">
                   <span className="relative flex size-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                     <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
@@ -553,7 +569,7 @@ function Index() {
                 </span>
                 <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs">
                   <GraduationCap className="size-3 text-purple-500" />
-                  Both AS &amp; A Level (Papers 1, 2, 3 &amp; 4)
+                  Both AS &amp; A Level (Papers 1–4)
                 </span>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -564,7 +580,7 @@ function Index() {
                   href="https://lite.marginal-econ.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-purple-500/15 border border-purple-500/40 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs hover:bg-purple-500/25 hover:border-purple-500/60 transition-all cursor-pointer"
+                  className="hidden sm:inline-flex rounded-full bg-purple-500/15 border border-purple-500/40 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-purple-700 dark:text-purple-300 items-center gap-1.5 shadow-2xs hover:bg-purple-500/25 hover:border-purple-500/60 transition-all cursor-pointer"
                   title="Visit Marginalite - Cambridge IGCSE Economics (0455)"
                 >
                   <img src="/marginal-m-icon-clean.png" alt="Marginalite" className="size-3 shrink-0 object-contain" />
@@ -574,21 +590,21 @@ function Index() {
             </Reveal>
 
             <Reveal delay={60}>
-              <h1 className="mt-5 text-2xl min-[380px]:text-3xl sm:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] leading-[1.1] font-extrabold tracking-tight break-words">
+              <h1 className="mt-3 text-2xl min-[380px]:text-3xl sm:text-4xl md:text-[3rem] lg:text-[3.2rem] xl:text-[3.6rem] leading-[1.08] font-extrabold tracking-tight break-words">
                 Marginal AI —{" "}
-                <span className="relative inline-block mt-1 sm:mt-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md max-w-full">
+                <span className="relative inline-block mt-1 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-xl bg-purple-950/90 dark:bg-purple-950/75 border border-purple-500/45 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.22)] backdrop-blur-md max-w-full">
                   <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight break-words">
                     The Cambridge AS &amp; A Level Platform
                   </span>
                 </span>
               </h1>
-              <h2 className="mt-3 text-base sm:text-xl md:text-2xl font-semibold text-primary">
+              <h2 className="mt-2 text-base sm:text-lg md:text-xl font-semibold text-primary">
                 Engineered for Both Cambridge AS &amp; A Level Economics (9708)
               </h2>
             </Reveal>
 
             <Reveal delay={85}>
-              <div className="mt-3.5 flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="flex text-amber-500 text-xs tracking-wider font-bold" aria-hidden="true">
                   ★★★★★
                 </div>
@@ -599,14 +615,14 @@ function Index() {
             </Reveal>
 
             <Reveal delay={110}>
-              <p className="mt-4 max-w-2xl text-base sm:text-lg leading-relaxed text-pretty text-muted-foreground dark:text-foreground/90">
+              <p className="mt-2.5 max-w-xl text-sm sm:text-base leading-relaxed text-pretty text-muted-foreground dark:text-foreground/90">
                 {settings.heroDescription}
               </p>
             </Reveal>
 
             {/* Live Cambridge Metric Highlights */}
             <Reveal delay={150}>
-              <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-xl">
+              <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-xl">
                 <div className="rounded-xl border border-emerald-500/30 bg-card/80 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
                   <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight block">89.6%</span>
                   <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Examiner Match</span>
@@ -628,7 +644,7 @@ function Index() {
 
             {/* AS & A Level Syllabus Scope Breakdown */}
             <Reveal delay={165}>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-xl">
+              <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-xl">
                 <div className="rounded-xl border border-border/80 bg-card/60 p-2.5 backdrop-blur-xs flex items-start gap-2.5 text-left">
                   <span className="rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 font-mono text-[10px] font-black px-1.5 py-0.5 shrink-0 mt-0.5">
                     AS LEVEL
@@ -654,70 +670,77 @@ function Index() {
               </div>
             </Reveal>
 
-            {/* Direct candidate conversion actions */}
+            {/* Direct candidate conversion actions — balanced 3-button row + sleek Tour pill */}
             <Reveal delay={180}>
-              <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2"
-                >
-                  <Link to="/auth">
-                    <span>Grade Essays Free</span>
-                    <ArrowRight className="size-4 shrink-0" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
-                >
-                  <Link to="/mcq-live">
-                    <ListChecks className="size-4 text-primary shrink-0" />
-                    <span>Practice MCQs</span>
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="h-12 px-4 text-sm font-semibold border-2 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-foreground gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
-                >
-                  <Link to="/quiz">
-                    <Gamepad2 className="size-4 text-amber-500 shrink-0" />
-                    <span>Live Quiz (PIN)</span>
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  onClick={() => setTourVideoOpen(true)}
-                  className="h-12 px-4 text-sm font-semibold border-2 border-primary/35 bg-primary/8 hover:bg-primary/15 text-primary gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
-                >
-                  <PlayCircle className="size-4 shrink-0" />
-                  <span>Watch 2:23 Tour</span>
-                </Button>
+              <div className="mt-4 max-w-xl space-y-2.5">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2.5">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="col-span-2 sm:col-span-1 h-11 px-5 sm:px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl"
+                  >
+                    <Link to="/auth">
+                      <span>Grade Essays Free</span>
+                      <ArrowRight className="size-4 shrink-0" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-11 px-4 sm:px-5 text-xs sm:text-sm font-semibold border-2 border-border bg-card/85 hover:bg-muted gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center rounded-xl"
+                  >
+                    <Link to="/mcq-live">
+                      <ListChecks className="size-4 text-primary shrink-0" />
+                      <span>Practice MCQs</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-11 px-4 text-xs sm:text-sm font-semibold border-2 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-foreground gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center rounded-xl"
+                  >
+                    <Link to="/quiz">
+                      <Gamepad2 className="size-4 text-amber-500 shrink-0" />
+                      <span>Live Quiz (PIN)</span>
+                    </Link>
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setTourVideoOpen(true)}
+                    className="group inline-flex items-center gap-2.5 rounded-full border border-primary/30 bg-card/90 hover:bg-primary/10 hover:border-primary/60 pl-1.5 pr-3.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:shadow-sm transition-all cursor-pointer backdrop-blur-xs"
+                  >
+                    <span className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs transition-transform group-hover:scale-105">
+                      <Play className="size-3 fill-current ml-0.5" />
+                    </span>
+                    <span>Watch Platform Tour</span>
+                    <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
+                      2:23
+                    </span>
+                  </button>
+
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                      <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> No credit card required
+                    </span>
+                    <span aria-hidden="true">•</span>
+                    <span>Free instant access</span>
+                    <span aria-hidden="true">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setShareOpen(true)}
+                      className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      <Share2 className="size-3 shrink-0" /> Share
+                    </button>
+                  </div>
+                </div>
               </div>
               <PlatformTourVideoModal open={tourVideoOpen} onOpenChange={setTourVideoOpen} />
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                  <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> No credit card required
-                </span>
-                <span>•</span>
-                <span>Free instant access</span>
-                <span>•</span>
-                <span>Grounded in Cambridge 9708</span>
-                <span>•</span>
-                <button
-                  type="button"
-                  onClick={() => setShareOpen(true)}
-                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
-                >
-                  <Share2 className="size-3 shrink-0" /> Share
-                </button>
-              </div>
             </Reveal>
 
             {invitedBy ? (
@@ -762,7 +785,7 @@ function Index() {
             <SectionHeading
               eyebrow="Cambridge 9708 Capabilities"
               title="What Marginal Provides"
-              lead="Eleven specialized features engineered exclusively for Cambridge AS & A Level Economics (9708)."
+              lead="Twelve specialized features engineered exclusively for Cambridge AS & A Level Economics (9708) — plus Marginalite for IGCSE."
             />
           </Reveal>
 
@@ -825,7 +848,7 @@ function Index() {
                       href={tool.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="pop pop-press group flex h-full flex-1 flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-sky-500/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline"
+                      className="pop pop-press group flex h-full flex-1 flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline"
                     >
                       {cardContent}
                     </a>
@@ -1279,7 +1302,7 @@ function Wordmark({ muted = false }: { muted?: boolean }) {
         <span className="text-[10px] font-mono font-bold tracking-tight px-1.5 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
           AI
         </span>
-        <span className="hidden min-[440px]:inline-flex text-[9.5px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground border border-border/60">
+        <span className="hidden min-[440px]:inline-flex lg:hidden xl:inline-flex text-[9.5px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground border border-border/60">
           AS &amp; A Level
         </span>
       </span>
@@ -1546,25 +1569,30 @@ function TrialHome({
               </form>
 
               {/* CTA Action Row */}
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Link
-                  to={isAuthenticated ? "/grade" : "/auth"}
-                  className="rounded-xs bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 text-sm font-semibold shadow-hard inline-flex items-center gap-2 cursor-pointer transition-all"
-                >
-                  <span>Start practicing</span>
-                  <ArrowRight className="size-4" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setTourVideoOpen(true)}
-                  className="rounded-xs border-2 border-primary/40 bg-primary/10 hover:bg-primary/15 text-primary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-all"
-                >
-                  <PlayCircle className="size-4 shrink-0" />
-                  <span>Watch 2:23 Tour</span>
-                </button>
-                <span className="text-xs text-muted-foreground font-mono">
+              <div className="space-y-3 pt-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    to={isAuthenticated ? "/grade" : "/auth"}
+                    className="h-10 rounded-xs bg-blue-600 hover:bg-blue-700 text-white px-5 text-sm font-semibold shadow-hard inline-flex items-center gap-2 cursor-pointer transition-all"
+                  >
+                    <span>Start practicing</span>
+                    <ArrowRight className="size-4" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setTourVideoOpen(true)}
+                    className="h-10 rounded-xs border border-border bg-card hover:bg-muted text-foreground px-4 text-sm font-semibold shadow-hard inline-flex items-center gap-2 cursor-pointer transition-all"
+                  >
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Play className="size-2.5 fill-current ml-0.5" />
+                    </span>
+                    <span>Watch Platform Tour</span>
+                    <span className="font-mono text-[11px] text-primary font-bold">2:23</span>
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground font-mono">
                   Free. No account needed to explore.
-                </span>
+                </p>
               </div>
               <PlatformTourVideoModal open={tourVideoOpen} onOpenChange={setTourVideoOpen} />
             </div>
@@ -2479,7 +2507,7 @@ function TrialHome({
                   </Link>
                 </li>
                 <li>
-                  <Link to="/teachers" className="hover:text-foreground transition-colors">
+                  <Link to="/teacher-auth" className="hover:text-foreground transition-colors">
                     For Teachers &amp; Schools
                   </Link>
                 </li>

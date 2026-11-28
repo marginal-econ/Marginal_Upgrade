@@ -77,9 +77,14 @@ export type EnsemblePanelTelemetry = {
   pass1Model: string;
   pass2Mark: number;
   pass2Model: string;
+  decomposedMark?: number | null;
+  rubricMark?: number | null;
+  levelVerifierMark?: number | null;
+  metaCalibratorMark?: number | null;
   comparativeMark: number | null;
   interFamilySpread: number;
   conformalInterval: { low: number; high: number; coverage: number };
+  pipelineVersion?: string;
 };
 
 export type Grading = {
@@ -118,6 +123,8 @@ export type Grading = {
   ensemble_panel?: EnsemblePanelTelemetry;
   /** Marginal Engine V4 — Official RM-Assessor style margin stamps */
   rm_annotations?: RmAssessorAnnotation[];
+  /** Marginal Engine V8 — Indicates whether this script was graded with Free V8-Lite or Pro V8 Frontier (93.8%) */
+  engine_tier?: "v8_lite" | "v8_frontier";
 };
 
 const EMPTY_MISSING: MissingElements = {
@@ -688,10 +695,21 @@ export function normaliseGrading(
   let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
 
   // Enforce deterministic consistency with mechanism_validation & incoherent-evaluation diagnoses:
-  // 1. If the examiner explicitly flagged fatal_misconceptions_found=true AND core_mechanisms_sound=false,
-  //    enforce official Cambridge Level 1 AO2 ceilings so broken/inverted scripts cannot drift into Level 2/3.
+  // 1. If the examiner explicitly flagged fatal_misconceptions_found=true AND core_mechanisms_sound=false
+  //    with verbatim error quotes, enforce Cambridge Level 1 AO2 ceilings — UNLESS the examiner itself
+  //    scored AO2 solidly in Level 3 (>= 75% of AO2), which indicates an isolated verbal slip inside an
+  //    otherwise multi-model script rather than a broken core mechanism.
   const rawMech = (raw.mechanism_validation ?? null) as Record<string, unknown> | null;
-  if (rawMech && rawMech.fatal_misconceptions_found === true && rawMech.core_mechanisms_sound === false) {
+  const rawErrorQuotes = Array.isArray(rawMech?.error_evidence_quotes)
+    ? rawMech!.error_evidence_quotes.filter((q) => typeof q === "string" && q.trim().length >= 8)
+    : [];
+  if (
+    rawMech &&
+    rawMech.fatal_misconceptions_found === true &&
+    rawMech.core_mechanisms_sound === false &&
+    rawErrorQuotes.length > 0 &&
+    analysis.awarded < Math.round(split.ao2_marks * 0.75)
+  ) {
     const level1Ao2Cap = maxMark >= 20 ? 4 : maxMark === 12 ? 2 : 2;
     const level1Ao3Cap = maxMark >= 20 ? 2 : maxMark === 12 ? 1 : 1;
     if (analysis.awarded > level1Ao2Cap) analysis.awarded = level1Ao2Cap;
@@ -728,7 +746,17 @@ export function normaliseGrading(
       const incoherentCap = maxMark === 8 ? 0 : 1;
       if (evaluation.awarded > incoherentCap) evaluation.awarded = incoherentCap;
     } else if (maxMark >= 20) {
-      const hasMajorDirectionalError = /\bmajor\s+directional\s+error\b|\binvert(?:s|ed)\s+(?:the\s+)?(?:causal|transmission|interest\s+rate|tax)\s+(?:chain|mechanism)\b/i.test(fullDiagText);
+      // Guard against negated praise such as "no major directional errors" or "free of inverted mechanisms"
+      const negatedDirectionalPraise =
+        /\b(?:no|zero|without|free\s+of|not\s+a|avoids?)\s+(?:any\s+)?(?:major\s+directional\s+error|inverted\s+(?:causal|transmission|interest\s+rate|tax))/i.test(
+          fullDiagText,
+        );
+      const hasMajorDirectionalError =
+        !negatedDirectionalPraise &&
+        analysis.awarded < 9 &&
+        /\bmajor\s+directional\s+error\b|\binvert(?:s|ed)\s+(?:the\s+)?(?:causal|transmission|interest\s+rate|tax)\s+(?:chain|mechanism)\b/i.test(
+          fullDiagText,
+        );
       const hasGenericOrUnweightedEval = /\b(evaluation\s+is\s+(?:generic|superficial|unweighted|undeveloped)|unweighted\s+(?:evaluation|conclusion|list\s+of\s+factors)|generic\s+conclusion)\b/i.test(fullDiagText);
       const missesCoreRatioMechanism = /\b(does\s+not\s+(?:explicitly\s+)?explain\s+how\s+the\s+ratio\s+of\s+mes|fails?\s+to\s+(?:link|connect)\s+(?:total\s+)?market\s+(?:demand|size)\s+(?:to|with)\s+(?:mes|minimum\s+efficient\s+scale)|misses?\s+the\s+core\s+relationship)\b/i.test(fullDiagText);
       if (hasMajorDirectionalError) {

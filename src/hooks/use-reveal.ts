@@ -20,6 +20,14 @@ export function useReveal<T extends HTMLElement>(options?: { rootMargin?: string
       return;
     }
 
+    // Immediately reveal elements already in the initial viewport so above-the-fold
+    // hero copy and CTA buttons never stall on bottom-inset IntersectionObserver margins.
+    const rect = element.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      const raf = window.requestAnimationFrame(reveal);
+      return () => window.cancelAnimationFrame(raf);
+    }
+
     // Cross-browser safety net: guarantees content becomes visible after 1.2s
     // even if Safari / WebKit or mobile low-power mode delays or drops IO callbacks.
     const timer = window.setTimeout(reveal, 1200);

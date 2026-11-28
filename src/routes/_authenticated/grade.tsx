@@ -43,7 +43,6 @@ import {
   ArrowUp,
   ArrowDown,
   Check,
-  MessageSquare,
   Lightbulb,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -54,9 +53,9 @@ import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
 import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
-import { MarkBreakdown } from "@/components/app/mark-breakdown";
-import { Pass4ReviewWorkspace } from "@/components/app/pass4-review-workspace";
-import { generatePass4Comments, parseParagraphBlocks } from "@/lib/pass4-comments";
+import { GradedReviewWorkspace } from "@/components/app/graded-review-workspace";
+import { V8ModerationTheatre } from "@/components/examiner/v8-frontier-desk";
+import { parseParagraphBlocks } from "@/lib/essay-paragraphs";
 import { DiagramCheckDialog } from "@/components/app/diagram-check-dialog";
 import { SampleEssayBanner } from "@/components/app/sample-essay-banner";
 import { InSituTour, type TourStep } from "@/components/app/in-situ-tour";
@@ -91,8 +90,8 @@ import { checkWritingQuality } from "@/lib/writing-check.functions";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
-import { cn, cleanMathDollarSigns, autoParagraphText, stripStars } from "@/lib/utils";
-import { stripScoreFractionsFromText, type Grading } from "@/lib/examiner/types";
+import { cn, cleanMathDollarSigns, autoParagraphText } from "@/lib/utils";
+import type { Grading } from "@/lib/examiner/types";
 import { isEvaluativeQuestion } from "@/lib/examiner/config";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
@@ -526,34 +525,16 @@ function GradePage() {
   const [placementPickerDiagram, setPlacementPickerDiagram] = useState<{ id: string; title: string } | null>(null);
   const [diagramSearch, setDiagramSearch] = useState("");
   const [diagramFilterSection, setDiagramFilterSection] = useState<"all" | "Microeconomics" | "Macroeconomics" | "custom">("all");
-  const [activeViewTab, setActiveViewTab] = useState<"editor" | "report">("editor");
-  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [isEditingAfterGrade, setIsEditingAfterGrade] = useState(false);
   const [isDocDragging, setIsDocDragging] = useState(false);
   const [ocrDrawerOpen, setOcrDrawerOpen] = useState(false);
   const [markSchemeDrawerOpen, setMarkSchemeDrawerOpen] = useState(false);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   const [proofreadDrawerOpen, setProofreadDrawerOpen] = useState(false);
-  const [detailedBreakdownOpen, setDetailedBreakdownOpen] = useState(false);
   const [essayFont, setEssayFont] = useState<"serif" | "sans">("serif");
 
   const essayInputRef = useRef<HTMLTextAreaElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
-
-  // Lock background scroll & support Escape key when the Diagnostic Report popup is open
-  useEffect(() => {
-    if (!detailedBreakdownOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDetailedBreakdownOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [detailedBreakdownOpen]);
 
   // Auto-launch guided spotlight tour for first-time visitors
   useEffect(() => {
@@ -601,13 +582,7 @@ function GradePage() {
     return extractDiagramReferences(essayText);
   }, [essayText]);
 
-  // Pass 4: Decode diagram integration & compare report with candidate script
-  const pass4Comments = useMemo(() => {
-    if (!result?.grading) return [];
-    return generatePass4Comments(essayText, question, result.grading, inTextDiagrams.matches);
-  }, [essayText, question, result?.grading, inTextDiagrams.matches]);
-
-  // Unified syllabus paragraph blocks (ensuring identical indices between manuscript & comments)
+  // Unified syllabus paragraph blocks for clean script rendering & diagram slots
   const paragraphBlocks = useMemo(() => {
     if (!essayText.trim()) return [];
     return parseParagraphBlocks(essayText, inTextDiagrams.matches);
@@ -1050,10 +1025,7 @@ function GradePage() {
     },
     onSuccess: (data) => {
       setResult({ grading: data.grading as Grading, essayId: data.essayId });
-      setDetailedBreakdownOpen(false);
-      setActiveViewTab("report");
       setIsEditingAfterGrade(false);
-      setActiveCommentId(null);
       queryClient.invalidateQueries({ queryKey: ["essays"] });
       queryClient.invalidateQueries({ queryKey: ["review-essays"] });
       queryClient.invalidateQueries({ queryKey: ["review-panel"] });
@@ -1170,7 +1142,7 @@ function GradePage() {
         targetId: "tour-submit",
         title: "6. Run Cambridge Examiner!",
         description:
-          "Hit 'Mark Essay' to trigger our 4-pass Cambridge pipeline. You'll receive official AO marks, band descriptors, and Google-Docs-style comment pins directly on your exact sentences!",
+          "Hit 'Grade Essay' to run our Cambridge examiner pipeline. You'll receive official AO marks, band descriptors, and a full side-by-side Examiner Report alongside your essay!",
         badge: "Dual AI Examiner",
         actionHint: "Click to start evaluation when ready.",
       },
@@ -1380,28 +1352,60 @@ function GradePage() {
           {/* Main Google Docs Studio Canvas */}
           <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-3.5 sm:px-6 md:px-8 py-5 min-w-0">
             {mutation.isPending ? (
-              <div className="max-w-3xl mx-auto py-12">
+              <div className="max-w-3xl mx-auto py-8 space-y-5">
+                <V8ModerationTheatre maxMark={Number(maxMark)} />
                 <GradingProgress
                   active
                   stages={[
                     { label: "Referring Cambridge 9708 Knowledge Base & Mark Schemes", weight: 3 },
-                    { label: "Dual-Examiner Parallel Evaluation (Pass 1 Error Check & Pass 2 Holistic)", weight: 5 },
+                    { label: "V8 Frontier Orthogonal Panel (Error Audit, Holistic, AO3 & Level Verifier)", weight: 5 },
                     { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Application · AO3 Evaluation", weight: 4 },
                     { label: "Evaluating policy trade-offs, multi-perspective weighing & examples", weight: 3 },
                     { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 3 },
                   ]}
-                  totalMs={25_000}
+                  totalMs={22_000}
                 />
               </div>
-            ) : (
-              <div
-                className={cn(
-                  "mx-auto w-full min-w-0",
-                  result && !isEditingAfterGrade
-                    ? "max-w-6xl xl:max-w-[1280px] space-y-5"
-                    : "max-w-5xl 2xl:max-w-6xl space-y-8",
+            ) : result && !isEditingAfterGrade ? (
+              <div ref={resultRef} className="mx-auto w-full min-w-0 max-w-7xl 2xl:max-w-[1520px] space-y-5">
+                <GradedReviewWorkspace
+                  grading={result.grading}
+                  question={question}
+                  essayText={essayText}
+                  essayId={result.essayId}
+                  paragraphBlocks={paragraphBlocks}
+                  essayFont={essayFont}
+                  onChangeEssayFont={setEssayFont}
+                  onEditScript={() => setIsEditingAfterGrade(true)}
+                  onOpenSavedThread={(id) => navigate({ to: "/essay/$essayId", params: { essayId: id } })}
+                  diagramMatches={inTextDiagrams.matches}
+                  attachedDiagrams={diagrams}
+                  onInspectDiagram={(entry) => setPreviewDiagram(entry)}
+                />
+
+                {/* Teacher Direct Grading Action (always accessible when graded in classroom mode) */}
+                {isDirectGradingMode && (
+                  <div className="rounded-2xl border border-purple-500/40 bg-purple-950/40 p-4 sm:p-5 space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-purple-300 text-sm">Teacher Classroom Sync</span>
+                      <Badge className="bg-purple-600 text-white text-[10px]">Ready to Submit</Badge>
+                    </div>
+                    <p className="text-xs text-purple-200">
+                      Sync this official examiner grade ({result.grading.total_mark}/{maxMark}) and diagnostic report directly back to the student.
+                    </p>
+                    <Button
+                      size="sm"
+                      disabled={isReturningGrade}
+                      onClick={handleReturnToClassroom}
+                      className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs py-2.5 shadow-md cursor-pointer"
+                    >
+                      {isReturningGrade ? "Returning Grade..." : "Save & Return to Student"}
+                    </Button>
+                  </div>
                 )}
-              >
+              </div>
+            ) : (
+              <div className="mx-auto w-full min-w-0 max-w-5xl 2xl:max-w-6xl space-y-8">
                 {/* Compact Score Banner ONLY while editing a previously graded script */}
                 {result && isEditingAfterGrade && (
                   <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-background p-4 shadow-sm animate-in fade-in duration-200">
@@ -1423,7 +1427,7 @@ function GradePage() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Edit your script below, then hit Re-Grade or return to Pass 4 feedback.
+                            Edit your script below, then hit Re-Grade or return to your Examiner Report.
                           </p>
                         </div>
                       </div>
@@ -1432,20 +1436,11 @@ function GradePage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setDetailedBreakdownOpen(true)}
-                          className="text-xs font-semibold rounded-xl gap-1.5 cursor-pointer"
-                        >
-                          <FileText className="size-3.5 text-muted-foreground" />
-                          <span>View Report</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
                           onClick={() => setIsEditingAfterGrade(false)}
                           className="text-xs font-semibold rounded-xl gap-1.5 cursor-pointer"
                         >
-                          <MessageSquare className="size-3.5 text-primary" />
-                          <span>Back to Pass 4 ({pass4Comments.length})</span>
+                          <FileText className="size-3.5 text-primary" />
+                          <span>Back to Report</span>
                         </Button>
                         <Button
                           size="sm"
@@ -1463,14 +1458,11 @@ function GradePage() {
                 <div
                   ref={resultRef}
                   className={cn(
-                    "relative rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md transition-all w-full min-w-0 max-w-full",
-                    result && !isEditingAfterGrade
-                      ? "p-4 sm:p-6 space-y-4 overflow-visible"
-                      : "p-5 sm:p-8 lg:p-10 space-y-6 min-h-[850px] overflow-hidden",
+                    "relative rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md transition-all w-full min-w-0 max-w-full p-5 sm:p-8 lg:p-10 space-y-6 min-h-[850px] overflow-hidden",
                     isDocDragging && "ring-2 ring-primary border-primary shadow-xl shadow-primary/20",
                   )}
                 >
-                  {/* Drafting-only Letterhead, Quick-Start, Question Editor & Diagram Studio (hidden during Pass 4 review to keep page concise) */}
+                  {/* Drafting-only Letterhead, Quick-Start, Question Editor & Diagram Studio */}
                   {(!result || isEditingAfterGrade) && (
                     <>
                   {/* Cambridge International Examination Letterhead */}
@@ -1837,8 +1829,8 @@ function GradePage() {
                               onClick={() => setIsEditingAfterGrade(false)}
                               className="h-7 px-2.5 rounded-lg text-xs font-medium gap-1.5 cursor-pointer hover:bg-muted"
                             >
-                              <MessageSquare className="size-3 text-primary" />
-                              <span>View Pass 4 Comments ({pass4Comments.length})</span>
+                              <FileText className="size-3 text-primary" />
+                              <span>Back to Report</span>
                             </Button>
                           )}
 
@@ -1897,140 +1889,8 @@ function GradePage() {
                       </div>
                     )}
 
-                    {/* Unified Compact Graded Verdict Header (Single source of truth when reviewing Pass 4) */}
-                    {result && !isEditingAfterGrade && (
-                      <div
-                        id="candidate-report-header"
-                        className="rounded-2xl border border-primary/25 bg-primary/[0.03] dark:bg-primary/[0.06] px-4 py-3.5 sm:px-5 sm:py-4 space-y-3 animate-in fade-in"
-                      >
-                        {/* Row 1: Score + Band + AO Pills + Actions */}
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <div className="px-3 py-1 rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-xs inline-flex items-baseline gap-1">
-                              <span>{result.grading.total_mark}</span>
-                              <span className="text-[11px] font-semibold opacity-80">/ {result.grading.max_mark}</span>
-                            </div>
-                            <Badge variant="outline" className="border-primary/35 bg-primary/10 text-primary font-semibold text-xs">
-                              {result.grading.band}
-                            </Badge>
-                            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono">
-                              <span className="px-2 py-0.5 rounded-md bg-background/80 border border-border/70 text-foreground">
-                                <span className="text-muted-foreground">AO1</span>{" "}
-                                <strong>{result.grading.ao_breakdown?.knowledge?.awarded ?? 0}/{result.grading.ao_breakdown?.knowledge?.out_of ?? 2}</strong>
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md bg-background/80 border border-border/70 text-foreground">
-                                <span className="text-muted-foreground">AO2</span>{" "}
-                                <strong>{result.grading.ao_breakdown?.analysis?.awarded ?? 0}/{result.grading.ao_breakdown?.analysis?.out_of ?? 6}</strong>
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md bg-background/80 border border-border/70 text-foreground">
-                                <span className="text-muted-foreground">AO3</span>{" "}
-                                <strong>
-                                  {(result.grading.ao_breakdown?.evaluation?.out_of ?? 4) === 0
-                                    ? "N/A"
-                                    : `${result.grading.ao_breakdown?.evaluation?.awarded ?? 0}/${result.grading.ao_breakdown?.evaluation?.out_of ?? 4}`}
-                                </strong>
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* Font Toggle */}
-                            <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/70 p-0.5 text-[10.5px]">
-                              <button
-                                type="button"
-                                onClick={() => setEssayFont("serif")}
-                                className={cn(
-                                  "px-2 py-0.5 rounded-md transition-all cursor-pointer",
-                                  essayFont === "serif"
-                                    ? "bg-muted text-foreground font-serif font-bold"
-                                    : "text-muted-foreground hover:text-foreground font-serif",
-                                )}
-                              >
-                                Serif
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEssayFont("sans")}
-                                className={cn(
-                                  "px-2 py-0.5 rounded-md transition-all cursor-pointer",
-                                  essayFont === "sans"
-                                    ? "bg-muted text-foreground font-sans font-bold"
-                                    : "text-muted-foreground hover:text-foreground font-sans",
-                                )}
-                              >
-                                Sans
-                              </button>
-                            </div>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setIsEditingAfterGrade(true)}
-                              className="h-7 px-2.5 rounded-lg text-xs font-medium gap-1 cursor-pointer bg-background/80 hover:bg-muted"
-                            >
-                              <PenLine className="size-3 text-muted-foreground" />
-                              <span>Edit</span>
-                            </Button>
-
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => setDetailedBreakdownOpen(true)}
-                              className="h-7 px-3 rounded-lg text-xs font-semibold gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
-                            >
-                              <FileText className="size-3" />
-                              <span>View Report</span>
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Mobile AO Pills */}
-                        <div className="flex sm:hidden items-center gap-1.5 text-[11px] font-mono flex-wrap">
-                          <span className="px-2 py-0.5 rounded-md bg-background/80 border border-border/70">
-                            AO1 {result.grading.ao_breakdown?.knowledge?.awarded ?? 0}/{result.grading.ao_breakdown?.knowledge?.out_of ?? 2}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-background/80 border border-border/70">
-                            AO2 {result.grading.ao_breakdown?.analysis?.awarded ?? 0}/{result.grading.ao_breakdown?.analysis?.out_of ?? 6}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-background/80 border border-border/70">
-                            AO3 {(result.grading.ao_breakdown?.evaluation?.out_of ?? 4) === 0
-                              ? "N/A"
-                              : `${result.grading.ao_breakdown?.evaluation?.awarded ?? 0}/${result.grading.ao_breakdown?.evaluation?.out_of ?? 4}`}
-                          </span>
-                        </div>
-
-                        {/* Compact Question + One-Line Examiner Verdict */}
-                        <div className="pt-2 border-t border-border/50 space-y-1">
-                          {question.trim() && (
-                            <p className="text-xs text-foreground/90 font-medium leading-snug line-clamp-2">
-                              <span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground mr-1.5">Question:</span>
-                              {question.trim()}
-                            </p>
-                          )}
-                          {(result.grading.examiner_summary || (result.grading as any).overall_comment) && (
-                            <p className="text-xs text-muted-foreground italic leading-relaxed">
-                              "{stripScoreFractionsFromText(stripStars(result.grading.examiner_summary || (result.grading as any).overall_comment || ""))}"
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Single Integrated Manuscript Mode: Interactive Pass 4 Review when graded, Pure Writing Surface when drafting */}
-                    {result && !isEditingAfterGrade ? (
-                      <Pass4ReviewWorkspace
-                        paragraphBlocks={paragraphBlocks}
-                        comments={pass4Comments}
-                        activeCommentId={activeCommentId}
-                        onSelectComment={setActiveCommentId}
-                        essayFont={essayFont}
-                        isFullMarks={(result.grading.total_mark ?? 0) >= (result.grading.max_mark ?? 12)}
-                        diagramMatches={inTextDiagrams.matches}
-                        onInspectDiagram={(entry) => setPreviewDiagram(entry)}
-                      />
-                    ) : (
-                      <div
+                    {/* Essay Writing Surface */}
+                    <div
                         id="tour-essay"
                         onClick={(e) => {
                           if (e.target === e.currentTarget && essayInputRef.current) {
@@ -2150,11 +2010,10 @@ function GradePage() {
                         }}
                         />
                       </div>
-                    )}
                   </div>
 
-                  {/* Visual Embedded Diagram Figure Cards in Candidate Script (shown while drafting/editing; in Pass 4 review diagrams are inline with 1-click Inspect) */}
-                  {inTextDiagrams.matches.length > 0 && (!result || isEditingAfterGrade) && (
+                  {/* Visual Embedded Diagram Figure Cards in Candidate Script */}
+                  {inTextDiagrams.matches.length > 0 && (
                     <div className="space-y-4 pt-4 border-t border-border/60">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-xs text-foreground flex items-center gap-1.5 uppercase tracking-wider">
@@ -2331,27 +2190,6 @@ function GradePage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Teacher Direct Grading Action (always accessible when graded in classroom mode) */}
-                {result && isDirectGradingMode && (
-                  <div className="rounded-2xl border border-purple-500/40 bg-purple-950/40 p-4 sm:p-5 space-y-3 shadow-lg">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-purple-300 text-sm">Teacher Classroom Sync</span>
-                      <Badge className="bg-purple-600 text-white text-[10px]">Ready to Submit</Badge>
-                    </div>
-                    <p className="text-xs text-purple-200">
-                      Sync this official examiner grade ({result.grading.total_mark}/{maxMark}) and diagnostic report directly back to the student.
-                    </p>
-                    <Button
-                      size="sm"
-                      disabled={isReturningGrade}
-                      onClick={handleReturnToClassroom}
-                      className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs py-2.5 shadow-md cursor-pointer"
-                    >
-                      {isReturningGrade ? "Returning Grade..." : "Save & Return to Student"}
-                    </Button>
-                  </div>
-                )}
 
               </div>
             )}
@@ -2817,57 +2655,6 @@ function GradePage() {
                   >
                     <Plus className="size-3.5" /> Insert into Script Again
                   </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Scrollable Minimalist Diagnostic Report Popup Modal */}
-          {detailedBreakdownOpen && result && (
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Cambridge 9708 Diagnostic Report"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setDetailedBreakdownOpen(false);
-              }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 backdrop-blur-sm p-3 sm:p-6 animate-in fade-in duration-150"
-            >
-              <div className="w-full max-w-4xl max-h-[88vh] flex flex-col bg-card border border-border/80 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
-                {/* Sticky Minimalist Header */}
-                <div className="shrink-0 flex items-center justify-between gap-3 px-5 sm:px-7 py-3.5 border-b border-border/60 bg-card">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
-                    <div className="px-2.5 py-0.5 rounded-lg bg-primary text-primary-foreground font-black text-xs inline-flex items-baseline gap-0.5 shrink-0">
-                      <span>{result.grading.total_mark}</span>
-                      <span className="text-[10px] font-semibold opacity-80">/{result.grading.max_mark}</span>
-                    </div>
-                    <h3 className="font-bold text-sm sm:text-base text-foreground truncate">
-                      Diagnostic Report
-                    </h3>
-                    <Badge variant="outline" className="border-primary/35 bg-primary/10 text-primary font-semibold text-[11px] shrink-0">
-                      {result.grading.band}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="hidden sm:inline text-[11px] font-mono text-muted-foreground/70">
-                      Esc
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDetailedBreakdownOpen(false)}
-                      className="size-8 rounded-lg hover:bg-muted cursor-pointer"
-                      aria-label="Close diagnostic report"
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Independently Scrollable Report Body */}
-                <div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7 py-5">
-                  <MarkBreakdown grading={result.grading} question={question} />
                 </div>
               </div>
             </div>

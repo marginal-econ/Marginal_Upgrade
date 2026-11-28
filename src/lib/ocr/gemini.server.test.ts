@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBlankOrUnread } from "./gemini.server";
+import { isBlankOrUnread, needsMultimodalCorrection } from "./gemini.server";
 
 describe("Handwriting OCR Validation & Blank Filter", () => {
   it("detects empty or null transcriptions as blank/unread", () => {
@@ -47,5 +47,14 @@ describe("Handwriting OCR Validation & Blank Filter", () => {
       "[DIAGRAM: Demand and Supply with specific subsidy | axes: Price / Quantity | curves: S1 shifts down to S2 | labels: P1, P2, Q1, Q2]\n\n" +
       "As shown in the diagram, consumer surplus increases from area A to area A+B.";
     expect(isBlankOrUnread(answerWithDiagram)).toBe(false);
+    expect(needsMultimodalCorrection(answerWithDiagram)).toBe(true);
+  });
+
+  it("triggers Dual-VLM multimodal correction on [?] tokens, diagrams, and economics OCR garbles, but skips clean long prose", () => {
+    expect(needsMultimodalCorrection("Fiscal policy raises [?] and shifts AD right across the whole economy in the short run, leading to higher output and employment over time.")).toBe(true);
+    expect(needsMultimodalCorrection("Because LR4S is vertical at full employment, an increase in aggregate demand only causes demand-pull inflation with no real output expansion.")).toBe(true);
+    const cleanLongEssay =
+      "Monetary policy involves the central bank adjusting base interest rates or money supply to control inflation and influence aggregate demand. When interest rates increase, borrowing costs rise for households and firms, discouraging consumption and investment and shifting AD to the left from AD1 to AD2.";
+    expect(needsMultimodalCorrection(cleanLongEssay)).toBe(false);
   });
 });

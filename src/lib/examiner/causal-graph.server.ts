@@ -41,7 +41,7 @@ const CAMBRIDGE_ECONOMIC_LAWS: EconomicLawRule[] = [
     law: "Higher interest rates increase the cost of borrowing and reduce C & I",
     severity: "fatal",
     violationPattern:
-      /\b(?:higher|increas(?:e|es|ed|ing)|rais(?:e|es|ed|ing)|rise\s+in)\s+interest\s+rates?\b[^.!?]{0,90}\b(?:borrowing\s+(?:becomes?|is)\s+cheaper|cheaper\s+(?:to\s+borrow|borrowing|loans?)|cost\s+of\s+borrowing\s+(?:falls?|decreases?|drops?)|encourages?\s+(?:more\s+)?(?:borrowing|consumption|investment)|shifts?\s+(?:aggregate\s+demand|ad)\s+to\s+the\s+right)\b/i,
+      /\b(?:higher|increas(?:e|es|ed|ing)|rais(?:e|es|ed|ing)|rise\s+in)\s+(?:the\s+)?interest\s+rates?\b[^.!?]{0,110}\b(?:borrowing\s+(?:becomes?|is)\s+cheaper|cheaper\s+(?:to\s+borrow|borrowing|loans?)|cost\s+of\s+borrowing\s+(?:falls?|decreases?|drops?)|(?:decreas|reduc|lower)(?:e|es|ed|ing)\s+(?:the\s+)?cost\s+of\s+borrowing|(?:encourages?|incentivis(?:e|es|ing)|incentiviz(?:e|es|ing))\s+(?:more\s+)?(?:borrowing|spending|consumption|investment)|shifts?\s+(?:aggregate\s+demand|ad)\s+to\s+the\s+right)\b/i,
     guardPattern: /\b(not|unless|even\s+if|despite|however|lower\s+interest|cut(?:ting)?\s+interest)\b/i,
     explanation:
       "Inverted monetary transmission: higher interest rates raise the cost of borrowing and discourage C and I, shifting AD left (not right).",
@@ -51,7 +51,7 @@ const CAMBRIDGE_ECONOMIC_LAWS: EconomicLawRule[] = [
     law: "Higher domestic interest rates attract hot-money inflows and appreciate the exchange rate",
     severity: "fatal",
     violationPattern:
-      /\b(?:higher|increas(?:e|es|ed|ing)|rais(?:e|es|ed|ing)|rise\s+in)\s+interest\s+rates?\b[^.!?]{0,90}\b(?:exchange\s+rate\s+(?:to\s+)?depreciates?|currency\s+(?:to\s+)?depreciates?|weaker\s+(?:currency|exchange\s+rate)|hot\s+money\s+(?:outflows?|leaves?))\b/i,
+      /\b(?:higher|increas(?:e|es|ed|ing)|rais(?:e|es|ed|ing)|rise\s+in)\s+(?:the\s+)?interest\s+rates?\b[^.!?]{0,95}\b(?:exchange\s+rate\s+(?:to\s+)?depreciates?|currency\s+(?:to\s+)?depreciates?|weaker\s+(?:currency|exchange\s+rate)|hot\s+money\s+(?:outflows?|leaves?))\b/i,
     guardPattern: /\b(lower\s+interest|cut\s+interest|reduces?\s+interest|unless|despite)\b/i,
     explanation:
       "Inverted exchange-rate channel: higher domestic interest rates attract hot-money inflows and appreciate the currency (making exports dearer and imports cheaper).",
@@ -229,49 +229,90 @@ const CAMBRIDGE_ECONOMIC_LAWS: EconomicLawRule[] = [
     explanation:
       "AO1 classification error: education and healthcare are rivalrous and excludable merit goods, not non-rival/non-excludable public goods.",
   },
+  {
+    id: "CONSUMER_SURPLUS_DEF_ERROR",
+    law: "Consumer surplus is the difference between maximum price consumers are willing to pay and the actual market price paid",
+    severity: "moderate",
+    violationPattern:
+      /\bconsumer\s+surplus\b[^.!?]{0,85}\b(?:willing\s+to\s+(?:accept|supply|sell)|minimum\s+price\s+(?:producers?|firms?))\b/i,
+    guardPattern: /\b(producer\s+surplus|not\s+willing\s+to\s+accept)\b/i,
+    explanation:
+      "AO1 definition slip: consumer surplus is the difference between the maximum price consumers are willing to PAY and the market price (not willing to accept/supply, which is producer surplus).",
+  },
+  {
+    id: "FISCAL_SPENDING_AD_INVERTED",
+    law: "Higher government spending or lower taxes shift Aggregate Demand right; higher taxes or lower government spending shift AD left",
+    severity: "fatal",
+    violationPattern:
+      /\b(?:(?:higher|increas(?:e|es|ed|ing)|expansionary)\s+(?:government\s+spending|fiscal\s+policy)\b[^.!?]{0,85}\bshifts?\s+(?:aggregate\s+demand|ad)\s+(?:to\s+the\s+)?left\b|(?:higher|increas(?:e|es|ed|ing))\s+(?:income\s+|direct\s+)?tax(?:es|ation)\b[^.!?]{0,85}\bshifts?\s+(?:aggregate\s+demand|ad)\s+(?:to\s+the\s+)?right\b)/i,
+    guardPattern: /\b(not\s+shift|unless|crowding\s+out|cut(?:ting)?\s+tax|reduc(?:e|ing)\s+tax|contractionary|lower\s+government\s+spending)\b/i,
+    explanation:
+      "Inverted fiscal transmission: higher government spending / lower taxes expand AD (shift right), while higher direct taxes / lower spending contract AD (shift left).",
+  },
+  {
+    id: "INFLATION_DEMAND_PULL_INVERTED",
+    law: "Demand-pull inflation is caused by a rightward shift of Aggregate Demand (AD), not a leftward shift",
+    severity: "moderate",
+    violationPattern:
+      /\bdemand[- ]pull\s+inflation\b[^.!?]{0,85}\b(?:shifts?\s+(?:aggregate\s+demand|ad)\s+(?:to\s+the\s+)?left|fall\s+in\s+(?:aggregate\s+demand|ad)|leftward\s+shift\s+of\s+(?:aggregate\s+demand|ad))\b/i,
+    guardPattern: /\b(reduc(?:e|es|ing)|control|curb|lower|combat|solve|prevent|not\s+caused)\b/i,
+    explanation:
+      "Inflation mechanism slip: demand-pull inflation arises from excess AD shifting RIGHT (AD1 to AD2), not a leftward fall in AD.",
+  },
+  {
+    id: "INFLATION_COST_PUSH_INVERTED",
+    law: "Cost-push inflation is caused by higher production costs shifting SRAS left (upwards), not right",
+    severity: "moderate",
+    violationPattern:
+      /\bcost[- ]push\s+inflation\b[^.!?]{0,85}\b(?:shifts?\s+(?:sras|short[- ]run\s+aggregate\s+supply|as)\s+(?:to\s+the\s+)?right|rightward\s+shift\s+(?:in|of)\s+(?:sras|as))\b/i,
+    guardPattern: /\b(reduc(?:e|es|ing)|control|curb|lower|combat|solve|prevent|not\s+caused)\b/i,
+    explanation:
+      "Inflation mechanism slip: cost-push inflation is caused by rising input costs shifting SRAS LEFT (upwards), not right.",
+  },
 ];
 
-// Causal transmission node patterns
+// Causal transmission node patterns (broad Cambridge AS + A-Level Paper 2 & Paper 4 vocabulary)
 const TRIGGER_RE =
-  /\b(tax|subsidy|subsidies|interest\s+rate|tariff|quota|minimum\s+price|maximum\s+price|depreciation|appreciation|devaluation|fiscal|monetary|supply[- ]side|regulation|privatisation|deregulation|monopoly|oligopoly|education|training|spending|inflation|recession|externalit(?:y|ies)|information\s+failure)\b/i;
+  /\b(tax(?:es|ation)?|regressive|progressive|subsid(?:y|ies|is\w*)|interest\s+rate|tariff|quota|minimum\s+price|maximum\s+price|depreciat\w+|appreciat\w+|devaluat\w+|fiscal|monetary|supply[- ]side|regulation|privatisation|deregulation|monopol\w+|oligopol\w+|collus\w+|cartel|game\s+theory|pay[- ]?off|direct\s+provision|education|training|spending|inflation|recession|downturn|negative\s+economic\s+growth|externalit(?:y|ies)|information\s+failure|unemployment|wage|productivity|investment|competition|price\s+war|electric\s+vehicle|merit\s+good|demerit\s+good|ped|yed|pes|inheritance|transfer\s+payment)\b/i;
 const CONNECTOR_RE =
-  /\b(because|therefore|leads?\s+to|results?\s+in|causes?|causing|consequently|thus|hence|as\s+a\s+result|which\s+means|in\s+turn|thereby|inducing|forcing|encouraging|discouraging)\b/i;
+  /\b(because|therefore|leads?\s+to|results?\s+in|causes?|causing|consequently|thus|hence|as\s+a\s+result|which\s+means|in\s+turn|thereby|inducing|forcing|encouraging|discouraging|meaning\s+that|so\s+that|this\s+(?:means|reduces|increases|raises|lowers|shifts|creates|leads))\b/i;
 const MECHANISM_RE =
-  /\b(cost(?:s)?\s+of\s+production|marginal\s+cost|average\s+cost|unit\s+cost|profit(?:ability|\s+margin)|incentive|borrowing\s+cost|disposable\s+income|purchasing\s+power|hot\s+money|price\s+elasticity|ped|pes|spare\s+capacity|multiplier|productivity|msc|msb|mpc|mpb|mr\s*=\s*mc|mc\s*=\s*mr|barrier(?:s)?\s+to\s+entry|sunk\s+cost)\b/i;
+  /\b(cost(?:s)?\s+of\s+production|marginal\s+(?:cost|benefit|revenue|utility)|average\s+cost|unit\s+cost|profit(?:ability|\s+margin)?|incentive|borrowing\s+cost|disposable\s+income|purchasing\s+power|hot\s+money|price\s+elasticity|income\s+elasticity|ped|pes|yed|elastic|inelastic|normal\s+good|inferior\s+good|luxury|necessit(?:y|ies)|spare\s+capacity|multiplier|productivity|msc|msb|mpc|mpb|mr\s*=\s*mc|mc\s*=\s*mr|barrier(?:s)?\s+to\s+entry|sunk\s+cost|dominant\s+strategy|nash\s+equilibrium|interdependen\w+|kinked\s+demand|undercut\w*|cheat\w*|competitiveness|export\s+price|import\s+price|real\s+(?:income|wage)|consumption|investment|aggregate\s+demand|welfare\s+loss|save|savings|asset|lower\s+price|higher\s+price|proportion\s+of\s+income)\b/i;
 const OUTCOME_RE =
-  /\b(shift(?:s|ing)?\s+(?:the\s+)?(?:supply|demand|ad|as|sras|lras)|aggregate\s+demand|aggregate\s+supply|equilibrium\s+(?:price|quantity|output)|price\s+level|real\s+gdp|economic\s+growth|unemployment|current\s+account|balance\s+of\s+payments|consumer\s+surplus|producer\s+surplus|deadweight\s+loss|allocative\s+efficiency|productive\s+efficiency|dynamic\s+efficiency|welfare\s+loss|supernormal\s+profit)\b/i;
+  /\b(shift(?:s|ing)?\s+(?:the\s+)?(?:supply|demand|ad|as|sras|lras)|aggregate\s+demand|aggregate\s+supply|equilibrium\s+(?:price|quantity|output)|price\s+level|real\s+(?:gdp|output)|economic\s+growth|unemployment|current\s+account|balance\s+of\s+payments|consumer\s+surplus|producer\s+surplus|deadweight\s+loss|allocative\s+efficienc\w*|productive\s+efficienc\w*|dynamic\s+efficienc\w*|welfare\s+(?:loss|gain)|supernormal\s+profit|market\s+failure|socially\s+optimum|social\s+efficiency|inflation|living\s+standard|collusion|price\s+stability|total\s+revenue|revenue|inequality|income\s+distribution|wealth\s+distribution|gini|stock|shortage|surplus)\b/i;
 const DEFINITION_RE =
-  /\b(?:is\s+defined\s+as|refers?\s+to|is\s+(?:a|an)\s+(?:economic\s+)?(?:system|good|policy|tax|subsidy|market|situation|measure|rate|record)|is\s+the\s+(?:sustained|responsiveness|difference|situation|ability|process|value|total|cost\s+of\s+the\s+next\s+best|price\s+of\s+one\s+currency))\b/i;
+  /\b(?:is\s+defined\s+as|can\s+be\s+defined\s+as|refers?\s+to|is\s+(?:a|an)\s+(?:economic\s+)?(?:system|good|policy|tax|subsidy|market|situation|measure|rate|record|agreement)|is\s+the\s+(?:sustained|persistent|responsiveness|degree\s+of\s+responsiveness|difference|situation|ability|process|value|total|fixed\s+amount|flow\s+of\s+money|cost\s+of\s+the\s+next\s+best|price\s+of\s+one\s+currency))\b/i;
 
+// Avoid false diagram detection from conceptual terms like "Lorenz curve", "J-curve", "Phillips curve"
 const DIAGRAM_MENTION_RE =
-  /\b(diagram|graph|figure|curve|axis|axes|pay[- ]?off\s+matrix|\[diagram)\b/i;
+  /\b(diagram|graph|figure|pay[- ]?off\s+matrix|\[diagram|as\s+shown\s+(?:above|below)|x[- ]axis|y[- ]axis|vertical\s+axis|horizontal\s+axis)\b/i;
 const DIAGRAM_LABEL_RE =
   /\b(P[0-3]|Q[0-3]|Y[0-3]|E[0-3]|S[0-3]|D[0-3]|Pe|Pmax|Pmin|Pb|Ps|Pm|Qe|Qs|Qd|Qm|AD[0-3]|AS[0-3]|SRAS[0-3]?|LRAS[0-3]?|MC[0-2]?|MR[0-2]?|AC[0-2]?|ATC[0-2]?|AR[0-2]?|MSC|MSB|MPC|MPB|DWL|area\s+[A-Z]{2,5}|triangle\s+[A-Z]{2,4}|from\s+[PQY][0-2e]\s+to\s+[PQY][1-3sd])\b/g;
 
 const AO3_CRITERIA: Array<{ name: string; re: RegExp }> = [
   {
     name: "Time Horizon / Lags (SR vs LR)",
-    re: /\b(short[- ]run|long[- ]run|time\s+lag|j[- ]curve|initially|over\s+time|years\s+to\s+take\s+effect)\b/i,
+    re: /\b(short[- ]run|long[- ]run|time\s+lag|j[- ]curve|initially|over\s+time|years\s+to\s+take\s+effect|in\s+the\s+future)\b/i,
   },
   {
     name: "Elasticity Dependency (PED/PES/Marshall-Lerner)",
-    re: /\b(depends?\s+on\s+(?:the\s+)?(?:ped|pes|elasticity)|marshall[- ]lerner|price\s+inelastic|price\s+elastic|degree\s+of\s+elasticity)\b/i,
+    re: /\b(depends?\s+(?:on|upon)\s+(?:the\s+)?(?:ped|pes|elasticity)|marshall[- ]lerner|price\s+inelastic|price\s+elastic|degree\s+of\s+elasticity|elasticity\s+of)\b/i,
   },
   {
     name: "Magnitude / Scale / State of Economy",
-    re: /\b(magnitude|scale\s+of|size\s+of\s+the|spare\s+capacity|full\s+employment|vertical\s+lras|state\s+of\s+the\s+economy|confidence\s+is\s+low)\b/i,
+    re: /\b(magnitude|scale\s+of|size\s+of\s+the|rate\s+of|spare\s+capacity|full\s+employment|vertical\s+lras|state\s+of\s+the\s+economy|confidence\s+is\s+low|depends?\s+(?:on|upon)\s+(?:how|the\s+extent|whether))\b/i,
   },
   {
-    name: "Opportunity Cost / Trade-Off / Side Effects",
-    re: /\b(opportunity\s+cost|trade[- ]?off|conflict(?:ing)?\s+(?:macroeconomic\s+)?objective|government\s+failure|unintended\s+consequence|black\s+market|regressive|fiscal\s+deficit|crowding\s+out|retaliation)\b/i,
+    name: "Opportunity Cost / Trade-Off / Side Effects / Gov Failure",
+    re: /\b(opportunity\s+cost|trade[- ]?off|conflict(?:ing)?\s+(?:macroeconomic\s+)?objective|government\s+failure|imperfect\s+information|unintended\s+consequence|black\s+market|regressive|fiscal\s+deficit|budget\s+deficit|crowding\s+out|retaliation|incentive\s+to\s+cheat|break\s+the\s+agreement)\b/i,
   },
   {
-    name: "Alternative Policy / Comparative Weighing",
-    re: /\b(alternative(?:ly|\s+policy)|more\s+effective\s+than|combined\s+with|complemented\s+by|rather\s+than|compared\s+(?:to|with)|in\s+contrast\s+to)\b/i,
+    name: "Alternative Policy / Counter-Argument / Comparative Weighing",
+    re: /\b(alternative(?:ly|\s+policy)|more\s+effective\s+than|combined\s+with|complemented\s+by|rather\s+than|compared\s+(?:to|with)|in\s+contrast\s+to|on\s+the\s+other\s+hand|however,\s+(?:in\s+reality|there\s+are|this\s+may|firms\s+may)|limitation(?:s)?\s+of)\b/i,
   },
   {
     name: "Prioritised Concluding Judgement",
-    re: /\b(on\s+balance|ultimately|most\s+(?:decisive|important|effective)\s+factor|overall,?\s+(?:therefore|it\s+is|the\s+effectiveness)|to\s+a\s+(?:large|limited|greater|lesser)\s+extent|weighing\s+(?:up|both))\b/i,
+    re: /\b(on\s+balance|ultimately|most\s+(?:decisive|important|effective)\s+factor|in\s+conclusion|to\s+conclude|overall,?\s+(?:therefore|it\s+is|the\s+effectiveness|whether)|to\s+a\s+(?:large|limited|greater|lesser)\s+extent|weighing\s+(?:up|both))\b/i,
   },
 ];
 
@@ -352,11 +393,12 @@ export function runNeuroSymbolicAudit(essayText: string, _question?: string): Ne
       }
     }
 
-    // 2. Measure causal chain topology in this sentence
-    const hasTrigger = TRIGGER_RE.test(sentence);
-    const hasConnector = CONNECTOR_RE.test(sentence);
-    const hasMechanism = MECHANISM_RE.test(sentence);
-    const hasOutcome = OUTCOME_RE.test(sentence);
+    // 2. Measure causal chain topology in this sentence (or 2-sentence continuation window)
+    const chainSpan = isContinuation ? twoSentenceWindow : sentence;
+    const hasTrigger = TRIGGER_RE.test(chainSpan);
+    const hasConnector = CONNECTOR_RE.test(chainSpan);
+    const hasMechanism = MECHANISM_RE.test(chainSpan);
+    const hasOutcome = OUTCOME_RE.test(chainSpan);
 
     const stages = [hasTrigger, hasMechanism, hasOutcome].filter(Boolean).length;
     if (hasConnector && stages >= 2) {
@@ -390,10 +432,47 @@ export function runNeuroSymbolicAudit(essayText: string, _question?: string): Ne
     }
   }
 
-  // 4. Diagram-to-Text Integration Audit
+  // 4. Diagram-to-Text Integration Audit + Multimodal Visual Diagram Accuracy Ingestion
   const diagramPresent = DIAGRAM_MENTION_RE.test(essayText || "");
-  const labelMatches = Array.from(new Set((essayText || "").match(DIAGRAM_LABEL_RE) ?? []));
-  const diagramLabelsIntegrated = labelMatches.length >= 2;
+  // Strip [DIAGRAM: ...] tags before scanning for integrated prose coordinates so labels inside
+  // OCR/VLM tags themselves are NOT falsely counted as prose integration!
+  const proseWithoutDiagramTags = (essayText || "").replace(/\[DIAGRAM:[\s\S]*?\]/gi, " ");
+  const diagramTagMatches = (essayText || "").match(/\[DIAGRAM:[^\]]+\]/gi) ?? [];
+  const tagExplicitlyUnreferenced = diagramTagMatches.some((tag) =>
+    /\b(?:not\s+(?:explicitly\s+)?referenced\s+in\s+(?:the\s+)?(?:prose|text)|unreferenced\s+in\s+(?:the\s+)?(?:prose|text))\b/i.test(
+      tag,
+    ),
+  );
+  const labelMatches = Array.from(new Set(proseWithoutDiagramTags.match(DIAGRAM_LABEL_RE) ?? []));
+  const diagramLabelsIntegrated = !tagExplicitlyUnreferenced && labelMatches.length >= 2;
+
+  // Inspect any Dual-VLM [DIAGRAM: ... | accuracy: ...] tags for explicit visual shift/axis errors
+  for (const tag of diagramTagMatches) {
+    const accMatch = /\baccuracy\s*:\s*([^|\]]+)/i.exec(tag);
+    if (!accMatch) continue;
+    const accNote = accMatch[1]!.trim();
+    const hasVisualDirectionalOrAxisError =
+      /\b(inverted|wrong\s+(?:shift|direction|curve)|incorrect\s+(?:shift|direction|curve)|shifts?\s+(?:in\s+the\s+)?wrong\s+direction|opposite\s+direction|right(?:ward)?\s+(?:shift\s+)?(?:instead\s+of|rather\s+than)\s+left|left(?:ward)?\s+(?:shift\s+)?(?:instead\s+of|rather\s+than)\s+right|swapped\s+axes|axes\s+swapped|mislabel(?:led|ed)\s+axes|backwards?)\b/i.test(
+        accNote,
+      ) && !/\b(?:no\s+(?:errors?|mistakes?|issues?)|diagram\s+correctly\s+shows)\b/i.test(accNote);
+    if (hasVisualDirectionalOrAxisError && !seenRuleIds.has("DIAGRAM_VISUAL_ERROR")) {
+      seenRuleIds.add("DIAGRAM_VISUAL_ERROR");
+      const quote = truncateQuote(tag, 150);
+      violations.push({
+        ruleId: "DIAGRAM_VISUAL_ERROR",
+        law: "Hand-drawn or attached economic diagrams must have accurately labelled axes and economically valid curve shift directions",
+        quote,
+        explanation: `Multimodal visual diagram check flagged an error: ${accNote}`,
+        severity: "moderate",
+      });
+      rmAnnotations.push({
+        code: "X",
+        label: "Diagram Visual Error",
+        quote,
+        rationale: `Visual inspection noted: ${accNote}`,
+      });
+    }
+  }
 
   // 5. Contextual AO3 Evaluative Depth Classifier
   const ao3CriteriaMatched: string[] = [];
@@ -450,16 +529,20 @@ export function runNeuroSymbolicAudit(essayText: string, _question?: string): Ne
 export function formatNeuroSymbolicDirective(dossier: NeuroSymbolicDossier): string {
   const lines: string[] = [
     "NEURO-SYMBOLIC CAUSAL-GRAPH AUDIT (DETERMINISTIC PRE-CHECK):",
-    `- Complete Multi-Step Causal Chains Detected: ${dossier.causalChainsDetected} (avg depth ${dossier.avgChainDepth}/3.0)`,
+    dossier.causalChainsDetected >= 2
+      ? `- Keyword-Detected Causal Links: ${dossier.causalChainsDetected} (avg depth ${dossier.avgChainDepth}/3.0; regex telemetry only — read the full essay directly).`
+      : `- Causal Chain Pre-Scan: Evaluate causal transmission chains directly from the candidate's prose, examples, diagrams, or pay-off matrices.`,
     `- Diagram Presence: ${dossier.diagramPresent ? "Yes" : "No"} | Diagram Coordinates Integrated in Text: ${
       dossier.diagramLabelsIntegrated
         ? `Yes (${dossier.diagramLabelsFound.slice(0, 6).join(", ")})`
         : dossier.diagramPresent
-          ? "NO (diagram mentioned/drawn without referencing shift labels like P1/P2/Q1/Q2 in prose)"
+          ? "NOT integrated in prose (diagram coordinates are absent from the written explanation)"
           : "N/A"
     }`,
-    `- AO3 Evaluative Dimensions Detected (${dossier.ao3DepthTier.toUpperCase()}): ${
-      dossier.ao3CriteriaMatched.length > 0 ? dossier.ao3CriteriaMatched.join("; ") : "None detected"
+    `- Keyword-Detected AO3 Signals (${dossier.ao3CriteriaMatched.length} markers): ${
+      dossier.ao3CriteriaMatched.length > 0
+        ? dossier.ao3CriteriaMatched.join("; ")
+        : "Check candidate's full prose directly for evaluative trade-offs and conclusion"
     }`,
   ];
 

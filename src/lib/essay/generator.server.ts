@@ -13,7 +13,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { chat } from "../ai.server";
+import { callOrthogonalFamily } from "../examiner/multi-family-pool.server";
 import { DIAGRAM_IDS, DIAGRAM_INDEX_FOR_AI } from "../diagrams/catalog";
 import {
   defaultSplitForMaxMark,
@@ -212,10 +212,14 @@ export async function generatePerfectEssay(
     `Question: ${input.question}`,
   ].join("\n");
 
-  const result = await chat({
-    model: MODEL_EXAMINER,
+  // 100% Zero-Gemini NVIDIA 550B Ultra (-> OpenAI-120B) Model Answer Authoring
+  const result = await callOrthogonalFamily({
+    family: "nvidia_ultra_550b",
+    feature: "essay_generate_nvidia",
     temperature: 0.3,
     json: true,
+    maxCompletionTokens: 2800,
+    timeoutMs: 22000,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },

@@ -100,6 +100,10 @@ export function PlatformTourVideoModal({
     // The moment the modal opens (whether auto or manual), record it as seen
     // so navigating, refreshing, or closing never causes it to pop up again.
     markPlatformTourVideoSeen(userId);
+    if (el.ended) {
+      el.currentTime = 0;
+      setCurrentTime(0);
+    }
 
     const playPromise = el.play();
     if (playPromise && typeof playPromise.then === "function") {
@@ -149,7 +153,7 @@ export function PlatformTourVideoModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[94dvh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card shadow-2xl overflow-hidden text-left">
+      <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-4xl max-h-[94dvh] flex flex-col p-0 rounded-2xl border border-border/80 bg-card shadow-2xl overflow-hidden text-left">
         <div className="px-5 py-3.5 border-b border-border/70 bg-muted/25 flex items-center justify-between gap-3 shrink-0 pr-12">
           <DialogHeader className="text-left space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -188,7 +192,12 @@ export function PlatformTourVideoModal({
               }}
               onPause={() => setIsPaused(true)}
               onEnded={() => {
-                // Once they finish watching the video once, close it cleanly and never auto-show again.
+                // Once they finish watching the video once, reset cleanly and close.
+                if (videoRef.current) {
+                  videoRef.current.currentTime = 0;
+                }
+                setCurrentTime(0);
+                setIsPaused(true);
                 handleClose(false);
               }}
               onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
@@ -239,7 +248,7 @@ export function PlatformTourVideoModal({
 
         <div className="px-5 py-3 border-t border-border/70 bg-muted/20 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <p className="text-[11px] text-muted-foreground">
-            Replay anytime from the <strong className="text-foreground">Play</strong> button in the top bar, your profile menu, or{" "}
+            Replay anytime from the <strong className="text-foreground">Watch Platform Tour</strong> button, the top bar Play button, or{" "}
             <kbd className="px-1 py-0.5 rounded border border-border bg-background font-mono text-[10px]">Ctrl+K</kbd>.
           </p>
           <Button

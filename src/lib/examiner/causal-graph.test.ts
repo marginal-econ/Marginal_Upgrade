@@ -92,4 +92,29 @@ describe("Neuro-Symbolic Causal Graph & Guardrails (V5)", () => {
     expect(cleaned).not.toContain("10/12");
     expect(cleaned).not.toMatch(/score of\s*\./i);
   });
+
+  it("catches V7 fiscal/inflation/consumer-surplus laws and multimodal [DIAGRAM: ... | accuracy: ...] errors without false positives", () => {
+    const flawed = `
+      Consumer surplus is the difference between market price and the minimum price producers are willing to accept.
+      Higher government spending shifts Aggregate Demand to the left, lowering output.
+      Demand-pull inflation occurs when a leftward shift of AD pushes prices up.
+      Cost-push inflation is caused by a rightward shift in SRAS.
+      [DIAGRAM: Indirect Tax | axes: Price / Quantity | curves: S1 shifts right to S2 | labels: P1, P2 | accuracy: inverted supply shift for an indirect tax]
+    `;
+    const dossier = runNeuroSymbolicAudit(flawed);
+    const ids = dossier.violations.map((v) => v.ruleId);
+    expect(ids).toContain("CONSUMER_SURPLUS_DEF_ERROR");
+    expect(ids).toContain("FISCAL_SPENDING_AD_INVERTED");
+    expect(ids).toContain("INFLATION_DEMAND_PULL_INVERTED");
+    expect(ids).toContain("INFLATION_COST_PUSH_INVERTED");
+    expect(ids).toContain("DIAGRAM_VISUAL_ERROR");
+
+    const sound = `
+      Consumer surplus is the difference between what consumers are willing to pay and the market price.
+      To control demand-pull inflation, contractionary fiscal policy shifts AD to the left.
+      To reduce cost-push inflation, supply-side policies aim for a rightward shift in SRAS.
+      [DIAGRAM: Indirect Tax | axes: Price / Quantity | curves: S1 shifts left to S2 | labels: P1, P2, Q1, Q2 | accuracy: accurate leftward supply shift]
+    `;
+    expect(runNeuroSymbolicAudit(sound).violations).toEqual([]);
+  });
 });

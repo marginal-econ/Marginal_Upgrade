@@ -9,6 +9,8 @@
 import {
   AiGatewayError,
   visionChat,
+  visionChatViaNvidia,
+  resolveNvidiaVisionKeys,
   getAvailableKey,
   markKeyRateLimited,
   markKeyHealthy,
@@ -55,7 +57,7 @@ const SYSTEM_PROMPT = [
   "",
   "HAND-DRAWN ECONOMICS DIAGRAMS:",
   "- If and only if the student has drawn an actual economics diagram/graph (e.g. Demand and Supply, AD/AS, PPC, Monopoly, Lorenz Curve, Externalities):",
-  "  insert an inline tag at that position: [DIAGRAM: <name> | axes: <labels> | curves: <curves & shifts> | labels: <points/prices>]",
+  "  insert an inline tag at that position: [DIAGRAM: <name> | axes: <labels or 'unlabelled'> | curves: <curves & shift directions> | labels: <equilibrium points/prices/quantities/areas> | accuracy: <short factual note on axis/shift accuracy>]",
   "- CRITICAL: Never replace or omit handwritten text because of a diagram. ALWAYS transcribe all written text before and after any diagram.",
   "",
   "OUTPUT REQUIREMENTS:",
@@ -66,6 +68,80 @@ const SYSTEM_PROMPT = [
 
 const PAGE_PROMPT =
   "Transcribe ALL handwritten text on this page into plain text. Read every single line carefully and completely, word by word. Do not skip any lines.";
+
+const MULTIMODAL_CORRECTION_SYSTEM_PROMPT = [
+  "You are a Senior Cambridge 9708 Economics Dual-VLM OCR & Diagram Verification Specialist.",
+  "You are given a student's handwritten exam page image AND a primary OCR draft.",
+  "",
+  "YOUR STRICT VERIFICATION RULES:",
+  "1. VISUAL CORRECTION ONLY: Compare the draft line-by-line against the actual image.",
+  "   - Resolve any '[?]' illegible markers by re-inspecting the visual letter strokes carefully.",
+  "   - Fix ONLY genuine OCR misreads of economics terms/notation (e.g. 'RED'->'PED', 'URAS'/'LR4S'->'LRAS', 'M5C'->'MSC', 'PI/PZ'->'P1/P2', garbled 'AD=C+I+G+(X-M)').",
+  "   - NEVER polish, rewrite, or fix the student's genuine spelling, grammar, or economic errors — preserve the student's authentic wording faithfully!",
+  "   - Recover any skipped lines at the top, bottom, or margins if visible in the image.",
+  "2. DIAGRAM VISUAL AUDIT: If the page contains any hand-drawn economics diagram:",
+  "   - Inspect the exact drawn axes, curve labels, shift arrows (left vs right!), and equilibrium coordinates (P1, P2, Q1, Q2, E1, E2, shaded areas).",
+  "   - Ensure the inline [DIAGRAM: <name> | axes: <...> | curves: <...> | labels: <...> | accuracy: <...>] tag accurately reports what is actually drawn — explicitly noting in 'accuracy:' if axes are unlabelled/swapped or if a curve shifts in the wrong direction.",
+  "   - Do NOT invent a diagram on plain ruled notebook paper.",
+  "3. OUTPUT: Return ONLY the verified plain-text transcription (with inline [DIAGRAM: ...] tags). Zero preamble or commentary.",
+].join("\n");
+
+/**
+ * Returns true when a primary OCR transcription benefits from a second-VLM visual
+ * verification pass (illegible `[?]` tokens, hand-drawn diagrams, suspected economics
+ * OCR garbles, or unusually sparse reads).
+ */
+export function needsMultimodalCorrection(text: string): boolean {
+  if (!text) return false;
+  if (text.includes("[?]")) return true;
+  if (/\[DIAGRAM:/i.test(text)) return true;
+  // Classic handwriting OCR confusions on Cambridge Economics notation
+  if (/\b(?:UR[A4]S|LR4S|SR4S|M[5S]C\/M[5S]B|P[1lI]D|Y[1lI]D|X[1lI]D|AD\s*=\s*C\s*\+\s*[1l]\b)/i.test(text)) {
+    return true;
+  }
+  if (text.trim().length > 0 && text.trim().length < 140) return true;
+  return false;
+}
+
+async function verifyAndCorrectPageWithNvidiaVL(
+  dataUrl: string,
+  primaryText: string,
+  hint: string | undefined,
+  usedModels: Set<string>,
+): Promise<string> {
+  if (!needsMultimodalCorrection(primaryText)) return primaryText;
+  try {
+    const nvKeys = await resolveNvidiaVisionKeys();
+    if (nvKeys.length === 0) return primaryText;
+    const { fullDataUrl } = await prepareDataUrl(dataUrl);
+    const verified = await visionChatViaNvidia({
+      systemPrompt: MULTIMODAL_CORRECTION_SYSTEM_PROMPT,
+      prompt:
+        `${hint ? `Context: ${hint}\n\n` : ""}` +
+        `PRIMARY OCR DRAFT:\n"""\n${primaryText}\n"""\n\n` +
+        `Inspect the image carefully, resolve any [?] markers or economics-term OCR misreads, visually verify the exact arrow direction and axes of any hand-drawn [DIAGRAM: ...] tag against the actual drawing, and output ONLY the verified transcription.`,
+      imageDataUrls: [fullDataUrl],
+      maxCompletionTokens: Math.min(8192, Math.max(2400, Math.ceil(primaryText.length * 1.6))),
+      temperature: 0.0,
+      enableThinking: true,
+      timeoutMs: 28_000,
+      keys: nvKeys,
+    });
+    const corrected = verified.text.trim();
+    // Guard against truncated/hallucinated outputs: require non-blank and >= 65% of primary length
+    if (
+      corrected &&
+      !isBlankOrUnread(corrected) &&
+      corrected.length >= Math.floor(primaryText.trim().length * 0.65)
+    ) {
+      usedModels.add(`nvidia-verify:${verified.model}`);
+      return corrected;
+    }
+  } catch (err) {
+    console.warn("[ocr] NVIDIA Super VL 120B cross-verification skipped gracefully:", err);
+  }
+  return primaryText;
+}
 
 export function isBlankOrUnread(text: string | null | undefined): boolean {
   if (!text) return true;
@@ -286,7 +362,7 @@ function isRateLimitError(error: unknown): boolean {
   return status === 429;
 }
 
-/** Try every path for one page: admin vision key, then each gateway model with backoff. */
+/** Try NVIDIA NIM Super VL 120B first (ZERO Google Gemini), then non-Gemini visionConfig/gateway fallback; deep-verify uncertain/diagram pages with thinking pass. */
 async function transcribePage(
   dataUrl: string,
   page: number,
@@ -296,53 +372,74 @@ async function transcribePage(
 ): Promise<{ text: string | null; error: string | null }> {
   let lastError: unknown = null;
 
-  if (visionConfig) {
+  // 1. Primary: Direct NVIDIA NIM Super VL 120B (fast, reliable, 0% Google Gemini)
+  try {
+    const nvKeys = await resolveNvidiaVisionKeys();
+    if (nvKeys.length > 0) {
+      const { fullDataUrl } = await prepareDataUrl(dataUrl);
+      const nvOutcome = await visionChatViaNvidia({
+        systemPrompt: SYSTEM_PROMPT,
+        prompt: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT,
+        imageDataUrls: [fullDataUrl],
+        maxCompletionTokens: MAX_OUTPUT_TOKENS,
+        temperature: 0.1,
+        enableThinking: false,
+        timeoutMs: 30_000,
+        keys: nvKeys,
+      });
+      const nvText = nvOutcome.text.trim();
+      if (nvText && !isBlankOrUnread(nvText)) {
+        usedModels.add(`nvidia:${nvOutcome.model}`);
+        // Run Pass 2 Deep Visual Verification (thinking enabled) when [?] tokens, diagrams, or OCR garbles are present
+        const verifiedText = await verifyAndCorrectPageWithNvidiaVL(dataUrl, nvText, hint, usedModels);
+        return { text: verifiedText, error: null };
+      }
+    }
+  } catch (nvErr) {
+    lastError = nvErr;
+    console.warn(`OCR page ${page}: NVIDIA Super VL 120B primary pass failed`, nvErr);
+  }
+
+  // 2. Non-Google configured vision override (e.g. OpenRouter / Mistral / OpenAI / Anthropic)
+  if (visionConfig && visionConfig.provider !== "google" && visionConfig.provider !== "gemini") {
     try {
-      const text =
-        visionConfig.provider === "google"
-          ? await transcribeViaGoogle(
-              getPrioritizedKeyOrder(visionConfig, keyCooldowns, false),
-              visionConfig.model || GOOGLE_MODEL,
-              dataUrl,
-              hint,
-            )
-          : (
-              await visionChat({
-                model: visionConfig.model,
-                systemPrompt: SYSTEM_PROMPT,
-                prompt: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT,
-                imageDataUrls: [dataUrl],
-                maxCompletionTokens: MAX_OUTPUT_TOKENS,
-                overrideProvider: visionConfig,
-              })
-            ).text.trim();
-      if (!text || isBlankOrUnread(text)) throw new Error(`${visionConfig.label} returned no legible handwriting.`);
+      const rawText = (
+        await visionChat({
+          model: visionConfig.model,
+          systemPrompt: SYSTEM_PROMPT,
+          prompt: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT,
+          imageDataUrls: [dataUrl],
+          maxCompletionTokens: MAX_OUTPUT_TOKENS,
+          overrideProvider: visionConfig,
+        })
+      ).text.trim();
+      if (!rawText || isBlankOrUnread(rawText)) throw new Error(`${visionConfig.label} returned no legible handwriting.`);
       usedModels.add(`${visionConfig.provider}:${visionConfig.model}`);
-      return { text, error: null };
+      const verifiedText = await verifyAndCorrectPageWithNvidiaVL(dataUrl, rawText, hint, usedModels);
+      return { text: verifiedText, error: null };
     } catch (error) {
       lastError = error;
-      console.error(`OCR page ${page}: admin vision key (${visionConfig.provider}) failed`, error);
+      console.error(`OCR page ${page}: vision key (${visionConfig.provider}) failed`, error);
     }
   }
 
-  for (const model of GATEWAY_MODELS) {
-    for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
-      try {
-        const text = await transcribeViaGateway(model, dataUrl, hint);
-        usedModels.add(model);
-        return { text, error: null };
-      } catch (error) {
-        lastError = error;
-        console.error(`OCR page ${page}: ${model} attempt ${attempt} failed`, error);
-        if (attempt < ATTEMPTS_PER_MODEL) {
-          await sleep(backoffDelay(attempt, isRateLimitError(error)));
-        }
+  // 3. Final non-Gemini visionChat fallback (NVIDIA / OpenRouter)
+  for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
+    try {
+      const rawText = await transcribeViaGateway("nvidia/nemotron-3.5-super-vl-120b-a12b", dataUrl, hint);
+      usedModels.add("nvidia/nemotron-3.5-super-vl-120b-a12b");
+      return { text: rawText, error: null };
+    } catch (error) {
+      lastError = error;
+      console.error(`OCR page ${page}: fallback attempt ${attempt} failed`, error);
+      if (attempt < ATTEMPTS_PER_MODEL) {
+        await sleep(backoffDelay(attempt, isRateLimitError(error)));
       }
     }
   }
 
   const message =
-    lastError instanceof Error ? lastError.message : "Every model failed to read this page.";
+    lastError instanceof Error ? lastError.message : "Every vision model failed to read this page.";
   return { text: null, error: message };
 }
 

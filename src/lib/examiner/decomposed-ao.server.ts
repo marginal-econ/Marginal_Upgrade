@@ -17,7 +17,7 @@
 
 import type { AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
-import { callOrthogonalFamily } from "./multi-family-pool.server";
+import { callOrthogonalFamily, type OrthogonalFamily } from "./multi-family-pool.server";
 
 export type DecomposedAoAudit = {
   ao1Awarded: number;
@@ -27,6 +27,8 @@ export type DecomposedAoAudit = {
   onFocusRatio: number;
   wrongDirectionParagraphs: number;
   developedFrameworkCount: number;
+  chainQuality?: "descriptive_assertions" | "partial_chains" | "developed_models";
+  isOneSidedBestMethod?: boolean;
   offFocusNote: string;
   ao3Level: string;
   ao3Rationale: string;
@@ -78,30 +80,56 @@ export async function buildLongEssayArgumentMapIfNeeded(
 }
 
 /**
- * Runs the two Decomposed Micro-Examiners in parallel on 100% free Groq keys.
+ * Runs the two KB-grounded Decomposed Micro-Examiners in parallel (Groq + NVIDIA NIM, 0% Gemini).
  */
 export async function runDecomposedAoAudit(options: {
   question: string;
   essayText: string;
   maxMark: number;
   split: AoSplit;
+  markSchemeContext?: string;
+  ao12Family?: OrthogonalFamily;
+  keyOffset?: number;
   userId?: string;
 }): Promise<DecomposedAoAudit | null> {
-  const { question, essayText, maxMark, split, userId } = options;
+  const {
+    question,
+    essayText,
+    maxMark,
+    split,
+    markSchemeContext,
+    ao12Family = "openai_120b",
+    keyOffset,
+    userId,
+  } = options;
   const trimmedEssay =
-    essayText.length > 6800
-      ? `${essayText.slice(0, 4200)}\n[...middle section...]\n${essayText.slice(-2400)}`
+    essayText.length > 9000
+      ? `${essayText.slice(0, 5600)}\n[...middle section...]\n${essayText.slice(-3000)}`
       : essayText;
+
+  const tariffAo12Guide =
+    maxMark <= 8
+      ? `8-MARK AS PAPER 2 (~15 min timed · AO1=${split.ao1_marks}, AO2=${split.ao2_marks}):
+   - POSITIVE TIMED MARKING: Accurate key definitions earn full AO1 (${split.ao1_marks}/${split.ao1_marks}). Clear step-by-step causal mechanisms/examples/diagram answering EVERY clause (including combined net-effect synthesis if two shifts interact) earn full or near-full AO2 (${Math.max(1, split.ao2_marks - 1)}–${split.ao2_marks}/${split.ao2_marks}).
+   - Partial/compressed chains OR analysing two shifts separately without synthesising net P & Q -> Level 2 AO2 (${Math.round(split.ao2_marks * 0.5)}–${Math.round(split.ao2_marks * 0.65)}/${split.ao2_marks}).`
+      : maxMark === 12
+        ? `12-MARK AS PAPER 2 (~25 min timed · AO1=${split.ao1_marks}, AO2=${split.ao2_marks}):
+   - POSITIVE TIMED MARKING: Accurate definitions earn full AO1 (${split.ao1_marks}/${split.ao1_marks}). 2–3 clear step-by-step causal chains/diagrams addressing both sides earn Top-Band AO2 (5–6/6) — do NOT withhold marks for omitting peripheral topics!
+   - Descriptive/compressed points OR one-sided single-policy response on a "best/only" prompt -> Level 2 AO2 (3–4/6).`
+        : `20-MARK A-LEVEL PAPER 4 (~45 min timed · AO1=${split.ao1_marks}, AO2=${split.ao2_marks}):
+   - Concise timed scripts (~420–750w) with 2–3+ genuinely DEVELOPED economic models/diagrams/pay-off matrices and unbroken step-by-step causal chains earn Level 3 AO2 (9–11/12, AO1=2/2).
+   - Breadth-listing 4–6 concepts/terms briefly (1–2 sentences each) without deep step-by-step model development, OR a mislabelled diagram paired with sound written policies -> Level 2 AO2 (6–8/12, NOT Level 1!).`;
 
   const ao12System = `You are a Cambridge International 9708 Economics AO1+AO2, Framework Depth & Off-Focus Auditor.
 Your ONLY job is to grade AO1 Knowledge (out of ${split.ao1_marks}) and AO2 Analysis (out of ${split.ao2_marks}) — COMPLETELY BLIND to AO3 evaluation — AND audit paragraph-by-paragraph policy direction & analytical model depth.
 
+${tariffAo12Guide}
+
 CRITICAL CAMBRIDGE RULES:
-1. OFF-FOCUS / WRONG-DIRECTION CHECK: Audit EVERY paragraph against the exact direction requested by the question. If asked how to REDUCE inflation, a substantial paragraph/page explaining EXPANSIONARY monetary policy (which raises inflation) counts as wrong_direction_paragraphs >= 1 and lowers on_focus_ratio proportionally.
-2. DEVELOPED ECONOMIC FRAMEWORKS vs BUZZWORD ASSERTIONS (developed_framework_count 0..6): Count how many distinct economic models/diagrams/multi-step transmission chains are ACTUALLY DEVELOPED step-by-step (e.g. AD/AS shift explained via C/I/G/X-M, Keynesian Cross/multiplier, Fisher MV=PQ, MSC/MSB welfare loss diagram explained in prose, MR=MC, Marshall-Lerner + J-curve). Passing 1-sentence assertions like "AD rises -> productivity, output, economic growth" without an AD/AS or multiplier model do NOT count as a developed framework!
-   - On 20m Paper 4: descriptive buzzword scripts with developed_framework_count <= 1 belong strictly in Level 2 (ao2_awarded 6–8/12), NEVER Level 3! Scripts with 3+ developed models/diagrams integrated into unbroken chains belong in Level 3 (ao2_awarded 9–11/12).
-3. VERBAL SLIP vs SYSTEMATIC INVERSION: Distinguish a 1-word verbal typo inside an otherwise correct paragraph (e.g. writing "depreciation" once right after "appreciating the exchange-rate" when the rest of the paragraph correctly describes appreciation) from a true systematic inversion (e.g. "higher interest rates decrease the cost of borrowing and boost AD"). NEVER cap a strong essay in Level 1/2 over a single 1-word verbal typo!
-4. If wrong_direction_paragraphs >= 1 or major systematic directional sign-flips exist, restrict AO2 to Level 1 (${maxMark >= 20 ? "2–4/12" : maxMark === 12 ? "1–2/6" : "1–2/4"}).
+1. OFF-FOCUS / WRONG-DIRECTION CHECK: Audit EVERY paragraph against the exact direction requested by the question. Count wrong_direction_paragraphs >= 1 ONLY when a substantial paragraph/page explains the OPPOSITE policy direction (e.g. expansionary MP when asked to REDUCE inflation) or a wholly irrelevant topic — NEVER count a 1-word verbal typo or a mislabelled diagram as wrong_direction_paragraphs!
+2. DEVELOPED ECONOMIC FRAMEWORKS vs BREADTH ASSERTIONS (developed_framework_count 0..6): Count how many distinct economic models/diagrams/pay-off matrices/multi-step transmission chains are ACTUALLY DEVELOPED step-by-step. Passing 1-sentence mentions do NOT count as developed frameworks.
+3. VERBAL SLIP vs SYSTEMATIC INVERSION: Distinguish a 1-word verbal typo inside an otherwise accurate paragraph (e.g. writing "depreciation" once right after "appreciating the exchange rate") from a true systematic inversion. NEVER cap a strong essay in Level 1/2 over a single 1-word verbal typo!
+4. Only restrict AO2 to Level 1 (${maxMark >= 20 ? "2–4/12" : maxMark === 12 ? "1–2/6" : "1–2/4"}) when substantial wrong-direction off-focus pages OR systematic prose inversions exist.
 
 Return ONLY valid JSON:
 {
@@ -110,6 +138,8 @@ Return ONLY valid JSON:
   "on_focus_ratio": <number 0.0..1.0>,
   "wrong_direction_paragraphs": <int 0..5>,
   "developed_framework_count": <int 0..6>,
+  "chain_quality": "descriptive_assertions" | "partial_chains" | "developed_models",
+  "is_one_sided_best_method": <boolean — true ONLY if question asks "best/only/most effective" method AND zero alternative policy is analysed>,
   "off_focus_note": "<1 concise sentence>"
 }`;
 
@@ -143,17 +173,23 @@ Return ONLY valid JSON:
   "ao3_rationale": "<1 concise sentence>"
 }`;
 
+  const userContent =
+    markSchemeContext && markSchemeContext.trim().length > 0
+      ? `Question (${maxMark}m):\n${question}\n\nStudent Essay:\n${trimmedEssay}\n\nRetrieved Mark Scheme Context:\n${markSchemeContext.slice(0, 1000)}`
+      : `Question (${maxMark}m):\n${question}\n\nStudent Essay:\n${trimmedEssay}`;
+
   try {
     const ao12Promise = callOrthogonalFamily({
-      family: "openai_120b",
+      family: ao12Family,
       temperature: 0.0,
       json: true,
       maxCompletionTokens: 700,
+      keyOffset,
       userId,
       feature: "v5_decomposed_ao12",
       messages: [
         { role: "system", content: ao12System },
-        { role: "user", content: `Question (${maxMark}m):\n${question}\n\nStudent Essay:\n${trimmedEssay}` },
+        { role: "user", content: userContent },
       ],
     });
 
@@ -162,12 +198,12 @@ Return ONLY valid JSON:
           family: "qwen_27b",
           temperature: 0.0,
           json: true,
-          maxCompletionTokens: 600,
+          maxCompletionTokens: 550,
           userId,
           feature: "v5_decomposed_ao3",
           messages: [
             { role: "system", content: ao3System },
-            { role: "user", content: `Question (${maxMark}m):\n${question}\n\nStudent Essay:\n${trimmedEssay}` },
+            { role: "user", content: userContent },
           ],
         })
       : Promise.resolve(null);
@@ -189,6 +225,10 @@ Return ONLY valid JSON:
     const wrongDirectionParagraphs = Math.max(0, Math.round(Number(p12.wrong_direction_paragraphs) || 0));
     const developedFrameworkCount = clamp(Math.round(Number(p12.developed_framework_count ?? 2)), 0, 6);
 
+    const cqRaw = String(p12.chain_quality || "partial_chains").toLowerCase();
+    const chainQuality: DecomposedAoAudit["chainQuality"] =
+      cqRaw === "descriptive_assertions" || cqRaw === "developed_models" ? cqRaw : "partial_chains";
+
     return {
       ao1Awarded,
       ao2Awarded,
@@ -197,6 +237,8 @@ Return ONLY valid JSON:
       onFocusRatio,
       wrongDirectionParagraphs,
       developedFrameworkCount,
+      chainQuality,
+      isOneSidedBestMethod: Boolean(p12.is_one_sided_best_method),
       offFocusNote: String(p12.off_focus_note || "").slice(0, 220),
       ao3Level: String(p3?.ao3_level || (split.ao3_marks === 0 ? "N/A" : "Level 1")),
       ao3Rationale: String(p3?.ao3_rationale || "").slice(0, 220),

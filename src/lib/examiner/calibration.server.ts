@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { MAX_ANCHORS_PER_BAND } from "./config";
 
 export type Anchor = {
+  id?: string;
   question: string;
   essay_text: string;
   mark: number;
@@ -44,7 +45,7 @@ export async function fetchCalibrationAnchors(
 
     let { data, error } = await client
       .from("calibration_anchors")
-      .select("question, essay_text, mark, max_mark, band_label, notes")
+      .select("id, question, essay_text, mark, max_mark, band_label, notes")
       .eq("active", true)
       .order("created_at", { ascending: true });
 
@@ -55,7 +56,7 @@ export async function fetchCalibrationAnchors(
         if (supabaseAdmin && client !== supabaseAdmin) {
           const retry = await supabaseAdmin
             .from("calibration_anchors")
-            .select("question, essay_text, mark, max_mark, band_label, notes")
+            .select("id, question, essay_text, mark, max_mark, band_label, notes")
             .eq("active", true)
             .order("created_at", { ascending: true });
           if (!retry.error) {

@@ -196,10 +196,11 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
 
   try {
     const result = await callOrthogonalFamily({
-      family: "openai_120b",
+      family: "nvidia_super_vl_120b",
       temperature: 0.05,
       json: true,
-      maxCompletionTokens: 4096,
+      maxCompletionTokens: 2600,
+      timeoutMs: 14000,
       userId,
       feature: "grade_essay_pass3_refiner",
       messages: [

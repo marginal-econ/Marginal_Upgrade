@@ -19,7 +19,7 @@
 import type { Anchor } from "./calibration.server";
 import type { AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
-import { callOrthogonalFamily } from "./multi-family-pool.server";
+import { callOrthogonalFamily, type OrthogonalFamily } from "./multi-family-pool.server";
 import type { ComparativeAnchorMatch, ComparativeJudgementResult } from "./types";
 
 function normalizeSnippet(text: string): string {
@@ -210,8 +210,10 @@ export async function runComparativeJudgement(options: {
   split: AoSplit;
   anchors: Anchor[];
   userId?: string;
+  family?: OrthogonalFamily;
+  keyOffset?: number;
 }): Promise<ComparativeJudgementResult | null> {
-  const { question, essayText, maxMark, split, anchors, userId } = options;
+  const { question, essayText, maxMark, split, anchors, userId, family = "nvidia_ultra_550b", keyOffset } = options;
   const stratified = selectStratifiedAnchors(anchors, essayText, maxMark, question);
   if (stratified.length < 2) return null;
 
@@ -223,13 +225,21 @@ export async function runComparativeJudgement(options: {
   const minRequiredSpan = Math.max(3, Math.round(maxMark * 0.35));
   if (anchorSpan < minRequiredSpan) return null;
 
+  const isWideContext =
+    family === "nvidia_super_vl_120b" ||
+    family === "nvidia_ultra_550b" ||
+    family === "minimax_flash" ||
+    family === "gemini_flash";
+  const anchorExcerptLimit = isWideContext ? 2000 : 850;
+  const candidateLimit = isWideContext ? 9500 : 4400;
+
   const anchorBlocks = stratified
     .map(
       (a, idx) =>
         `=== REFERENCE SCRIPT ${idx + 1} (Official Cambridge Mark: ${a.mark}/${a.max_mark} · Band: ${a.band_label}) ===\n` +
         `Question: ${a.question}\n` +
-        `Examiner Notes: ${a.notes ? a.notes.slice(0, 320) : "Calibrated official Cambridge ECR response."}\n` +
-        `Script Excerpt: """${trimEssayForComparison(a.essay_text, 850)}"""`,
+        `Examiner Notes: ${a.notes ? a.notes.slice(0, 420) : "Calibrated official Cambridge ECR response."}\n` +
+        `Script Excerpt: """${trimEssayForComparison(a.essay_text, anchorExcerptLimit)}"""`,
     )
     .join("\n\n");
 
@@ -241,13 +251,14 @@ COMPARATIVE JUDGEMENT RULES:
    - Accuracy of economic theory & transmission chains (no inverted shifts or off-focus pages)
    - Depth of AO2 step-by-step analysis & diagram/context integration
    - Genuine AO3 evaluative weighing & justified conclusion (if AO3 > 0)
-2. Compare the CANDIDATE SCRIPT against EACH Reference Script independently:
+2. CROSS-QUESTION FAIRNESS (CRITICAL): Reference scripts often answer DIFFERENT Cambridge 9708 questions of the same ${maxMark}-mark tariff. Judge strictly by Cambridge band standard (depth of causal chains, diagram/example integration, balanced AO3 evaluation) — NEVER penalise a strong candidate simply because its question topic differs from the Top reference script, and NEVER hedge Top-Band candidates down to the middle! If the candidate matches a Top-Band reference script's analytical and evaluative rigour, rate it "equal" or "slightly_better" than the Top anchor and place "estimated_mark" firmly in the Top Band.
+3. Compare the CANDIDATE SCRIPT against EACH Reference Script independently:
    - "much_worse": clearly belongs a full level band below this reference
    - "slightly_worse": same general band, slightly weaker depth/accuracy/evaluation
    - "equal": virtually identical Cambridge standard
    - "slightly_better": same general band, slightly stronger depth/accuracy/evaluation
    - "much_better": clearly belongs a full level band above this reference
-3. Then output your anchored "estimated_mark" (integer 0..${maxMark}) strictly consistent with where the candidate falls between the reference scripts.
+4. Then output your anchored "estimated_mark" (integer 0..${maxMark}) strictly consistent with where the candidate falls between the reference scripts.
 
 Respond ONLY with valid JSON:
 {
@@ -269,16 +280,18 @@ Respond ONLY with valid JSON:
     `${anchorBlocks}\n\n` +
     `=== CANDIDATE SCRIPT TO PLACE (${maxMark} marks) ===\n` +
     `Question: ${question}\n` +
-    `Candidate Essay (FULL SUBMISSION — judge objectively against Cambridge 9708 level standards):\n"""${trimEssayForComparison(essayText, 4400)}"""`;
+    `Candidate Essay (FULL SUBMISSION — judge objectively against Cambridge 9708 level standards):\n"""${trimEssayForComparison(essayText, candidateLimit)}"""`;
 
   try {
     const res = await callOrthogonalFamily({
-      family: "openai_120b",
+      family,
       temperature: 0.0,
       json: true,
-      maxCompletionTokens: 1200,
+      maxCompletionTokens: 1400,
+      timeoutMs: 16000,
+      keyOffset,
       userId,
-      feature: "v4_comparative_judgement",
+      feature: "v7_comparative_judgement",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

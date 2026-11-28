@@ -214,6 +214,8 @@ export type ArbitrateOptions = {
   markSchemeContext?: string;
   neuroSymbolicSummary?: string;
   comparativeJudgement?: ComparativeJudgementResult | null;
+  panelSummary?: string;
+  keyOffset?: number;
 };
 
 export async function arbitrateGrading(options: ArbitrateOptions): Promise<Grading> {
@@ -228,6 +230,7 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
     markSchemeContext,
     neuroSymbolicSummary,
     comparativeJudgement,
+    panelSummary,
   } = options;
 
   const quality =
@@ -256,18 +259,23 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
         `Comparisons: ${comparativeJudgement.comparisons.map((c) => `vs ${c.anchorMark}/${c.anchorMaxMark} (${c.anchorBand}): ${c.verdict} — ${c.reason}`).join(" | ")}`,
     );
   }
+  if (panelSummary) {
+    userParts.push(`\nOrthogonal Panel Diagnostics (Independent Micro-Examiners & Verifiers):\n${panelSummary}`);
+  }
   if (neuroSymbolicSummary) {
     userParts.push(`\n${neuroSymbolicSummary}`);
   }
   if (markSchemeContext) {
-    userParts.push(`\nCambridge Mark Scheme Excerpt:\n${markSchemeContext.slice(0, 1200)}`);
+    userParts.push(`\nCambridge Mark Scheme Excerpt:\n${markSchemeContext.slice(0, 1800)}`);
   }
 
   const result = await callOrthogonalFamily({
-    family: "openai_120b",
+    family: "nvidia_super_vl_120b",
     temperature: TEMPERATURE_EXAMINER,
     json: true,
-    maxCompletionTokens: 4096,
+    maxCompletionTokens: 2800,
+    timeoutMs: 16000,
+    keyOffset: options.keyOffset,
     userId: options.userId,
     feature: "grade_essay_arbitration",
     messages: [
@@ -534,6 +542,8 @@ export function synthesizeDualPasses(
     suggested_resources: Array.from(new Set([...pass2.suggested_resources, ...pass1.suggested_resources])).slice(0, 3),
     suggested_practice: Array.from(new Set([...pass2.suggested_practice, ...pass1.suggested_practice])).slice(0, 3),
     confidence,
+    sources: [],
+    anchorsUsed: 0,
     audited: true,
     arbitrated: false,
   };

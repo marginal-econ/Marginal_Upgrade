@@ -122,6 +122,26 @@ export const AI_PROVIDERS = [
     visionModels: ["pixtral-large-latest", "pixtral-12b-2409"],
   },
   {
+    id: "nvidia",
+    label: "NVIDIA NIM (Build)",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    keyHint: "nvapi-...",
+    models: [
+      "nvidia/nemotron-3-ultra-550b-a55b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "minimaxai/minimax-m3.1-flash",
+      "stepfun-ai/step-5-preview",
+    ],
+    embeddingModels: [
+      "nvidia/nemotron-3.5-embed-8b",
+      "nvidia/nemotron-3.5-embed-1b",
+    ],
+    embeddingCapable: true,
+    visionCapable: true,
+    visionModels: ["nvidia/nemotron-3.5-super-vl-120b-a12b"],
+  },
+  {
     id: "deepseek",
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com/v1",
@@ -191,6 +211,13 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
     openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
     google: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-flash-latest"],
     mistral: ["mistral-large-latest", "mistral-small-latest", "codestral-latest"],
+    nvidia: [
+      "nvidia/nemotron-3-ultra-550b-a55b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "minimaxai/minimax-m3.1-flash",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "stepfun-ai/step-5-preview",
+    ],
     deepseek: ["deepseek-chat", "deepseek-reasoner"],
   };
 
@@ -261,6 +288,8 @@ export function getEconomyModelForProvider(provider: string, currentModel?: stri
       return "gpt-4o-mini";
     case "deepseek":
       return "deepseek-chat";
+    case "nvidia":
+      return "nvidia/nemotron-3.5-lightning-30b-a3b";
     case "google":
       return "gemini-3.8-flash";
     default:

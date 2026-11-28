@@ -13,10 +13,11 @@ import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } fr
 
 const PRODUCT_LINKS = [
   { label: "Marginalite (IGCSE Economics 0455) ↗", href: "https://lite.marginal-econ.com/", external: true },
-  { label: "Watch it mark", href: "/#try" },
-  { label: "What you get back", href: "/#result" },
-  { label: "What's inside", href: "/#tools" },
-  { label: "Command-word drill", href: "/#drill" },
+  { label: "Examiner Accuracy", href: "/#benchmarks" },
+  { label: "Features & Tools", href: "/#tools" },
+  { label: "MCQs & Live Arena", href: "/#mcqs" },
+  { label: "Marginal vs AI", href: "/#why-marginal" },
+  { label: "For Teachers", href: "/#teachers-section" },
   { label: "FAQ", href: "/#faq" },
 ];
 

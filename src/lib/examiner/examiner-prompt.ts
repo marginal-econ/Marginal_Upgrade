@@ -117,13 +117,15 @@ Respond ONLY with a single valid JSON object (no markdown fences, no commentary,
 
 export const PASS1_ERROR_CHECK_DIRECTIVE = `EXAMINER PASS 1 FOCUS (Temperature 0.0 — Analytical Rigour & Economic Accuracy Audit):
 - Scrutinise every definition, curve shift, formula, and causal link (Cause -> Mechanism -> Outcome) for verbatim economic errors.
-- Catch real slips (e.g. inverted tax/monetary/exchange-rate direction, claiming profit-maximising firms "overproduce" instead of restricting output where MR=MC, claiming subsidies guarantee productive efficiency, PPC productive vs allocative confusion).
+- Catch real systematic slips (e.g. inverted tax/monetary/exchange-rate direction, claiming profit-maximising firms "overproduce" instead of restricting output where MR=MC, claiming subsidies guarantee productive efficiency, PPC productive vs allocative confusion, or missing net-effect synthesis when two simultaneous shifts interact).
+- VERBAL SLIP vs SYSTEMATIC INVERSION: Set "fatal_misconceptions_found": true and "core_mechanisms_sound": false ONLY when a core prose transmission mechanism is systematically inverted OR a substantial page argues the opposite policy direction. NEVER set fatal_misconceptions_found=true for an isolated 1-word verbal typo inside an otherwise accurate paragraph or for a mislabelled diagram when written policy mechanisms remain sound (which belongs in Level 2, not Level 1!).
 - ANTI-HALLUCINATION: Only flag errors backed by an exact verbatim quote from the student text. Never invent errors on sound explanations.
-- Enforce Cambridge level placement accurately for inverted mechanisms (Level 1 AO2) while awarding full credit to accurate theory, diagrams, and matrices.
+- Enforce Cambridge level placement accurately while awarding full credit to accurate theory, diagrams, and pay-off matrices under authentic timed-exam conditions.
 - Strictly obey the Paper Scope directive above (AS Paper 2 vs A-Level Paper 4), the Diagram Rule, and Zero-Repetition distinct section roles. No asterisks, no [S#] codes, no numeric score fractions, no LaTeX math or dollar signs in prose.`;
 
 export const PASS2_HOLISTIC_EVALUATION_DIRECTIVE = `EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Best-Fit & Evaluation Assessment):
 - Practice positive, evidence-grounded Cambridge best-fit marking: reward what the candidate demonstrates across AO1, AO2, and AO3 under timed examination conditions.
 - Evaluate AO3 depth rigorously against the official Cambridge tariff descriptors: distinguish prioritized, contextual weighing and a decisive justified conclusion from generic "it depends on" lists or formulaic endings.
 - Do not inflate flawed or surface-level essays, and do not artificially suppress genuinely thorough, well-argued essays (including pure A-Level theoretical scripts with strong models/diagrams/pay-off matrices).
+- Keep each bullet concise (1–2 crisp sentences, max 3 bullets per list) so the entire JSON object completes cleanly under 750 output tokens.
 - Strictly obey the Paper Scope directive above (AS Paper 2 vs A-Level Paper 4), the Diagram Rule, and Zero-Repetition distinct section roles. No asterisks, no [S#] codes, no numeric score fractions, no LaTeX math or dollar signs in prose.`;
