@@ -254,6 +254,23 @@ export function CommandPalette({
         },
       },
       {
+        id: "page-econgpt",
+        title: "Marginal EconGPT (AI Economics Tutor)",
+        subtitle: "Specialized ChatGPT for Economics powered by NVIDIA AI with live custom graphs & KB verification",
+        category: "pages",
+        categoryLabel: "Core Practice",
+        icon: MessageSquare,
+        iconBg: "bg-emerald-500/10",
+        iconColor: "text-emerald-500",
+        badge: "NVIDIA AI",
+        badgeTone: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+        keywords: ["chat", "econgpt", "chatgpt", "tutor", "nvidia", "explain", "graph", "concept", "help", "ai"],
+        onSelect: () => {
+          navigate({ to: "/chat", search: {} as any });
+          onOpenChange(false);
+        },
+      },
+      {
         id: "page-definitions",
         title: "Definitions Hub",
         subtitle: "7,000+ Cambridge 9708 syllabus definitions, command words, and flashcard drills",

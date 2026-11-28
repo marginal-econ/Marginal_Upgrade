@@ -114,6 +114,16 @@ const WORKSPACE_DIRECTORY: Array<{
   iconColor: string;
 }> = [
   {
+    id: "ws-econgpt",
+    title: "Marginal EconGPT Tutor",
+    subtitle: "Specialized Economics ChatGPT (NVIDIA AI) — custom graphs, examples & KB facts",
+    to: "/chat",
+    badge: "NVIDIA AI",
+    keywords: ["chat", "gpt", "econgpt", "tutor", "nvidia", "explain", "learn", "help", "graph", "chatbot", "ai"],
+    icon: MessageSquare,
+    iconColor: "text-emerald-500",
+  },
+  {
     id: "ws-live",
     title: "Live Examiner",
     subtitle: "Real-time line-by-line essay coaching, running mark & checklist",
@@ -538,6 +548,19 @@ export function DashboardPage() {
     }
 
     // 2. Direct prompt launch actions (always helpful when typing a topic or essay question)
+    out.push({
+      id: "act-econgpt",
+      group: "Launch",
+      title: `Ask EconGPT "${q.length > 48 ? `${q.slice(0, 48)}…` : q}"`,
+      subtitle: "Instant clear explanation, custom graph & verified Cambridge 9708 facts",
+      badge: "NVIDIA AI",
+      icon: MessageSquare,
+      iconColor: "text-emerald-500",
+      onSelect: () => {
+        setSearchFocused(false);
+        navigate({ to: "/chat", search: { q } as any });
+      },
+    });
     out.push({
       id: "act-grade",
       group: "Launch",
@@ -1337,24 +1360,22 @@ export function DashboardPage() {
           <div className="lg:col-span-4 rounded-2xl border border-border/80 bg-card/90 p-3.5 shadow-xs flex flex-col justify-between gap-2.5">
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold text-foreground tracking-tight">More 9708 Tools</span>
-              {Boolean(me.data?.isAdmin) && (
-                <Link
-                  to="/chat"
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                >
-                  <MessageSquare className="size-3" /> Chat Lab
-                </Link>
-              )}
+              <Link
+                to="/chat"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                <MessageSquare className="size-3" /> EconGPT AI
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5 flex-1">
               {[
+                { to: "/chat", label: "EconGPT Tutor", tag: "NVIDIA AI · Graphs", icon: MessageSquare, color: "text-emerald-500" },
                 { to: "/data-response", label: "Data Response", tag: "P2 & P4 Sec A", icon: FileSpreadsheet, color: "text-emerald-500" },
                 { to: "/essay-generator", label: "ECR Models", tag: "20/20 Essays", icon: Wand2, color: "text-purple-500" },
                 { to: "/diagram-lab", label: "Diagram Lab", tag: "19 CAD Models", icon: Sliders, color: "text-violet-500" },
                 { to: "/definitions", label: "Definitions", tag: "200+ Terms", icon: BookText, color: "text-sky-500" },
                 { to: "/examples", label: "Examples Bank", tag: "AO2 & AO3", icon: Globe2, color: "text-emerald-500" },
-                { to: "/classes", label: "Classrooms", tag: "Cohorts", icon: UsersRound, color: "text-indigo-500" },
               ].map((tool) => {
                 const Icon = tool.icon;
                 return (

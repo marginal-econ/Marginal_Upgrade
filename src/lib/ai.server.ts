@@ -45,11 +45,17 @@ function applyAiGatewayMode(
   mode: AiGatewayMode,
   activeProvider?: ProviderConfig | null,
 ): ChatOptions {
-  // Essay grading requires full-fledged examiner feedback; never cap its tokens shorter
+  // Essay grading and EconGPT require full-quality explanations + custom diagram specs
   if (options.feature?.startsWith("grade_essay") || options.feature === "examiner_grade") {
     return {
       ...options,
       maxCompletionTokens: Math.max(options.maxCompletionTokens ?? 8192, 8192),
+    };
+  }
+  if (options.feature === "econ_gpt_chat" || options.feature === "econ_gpt_chat_fallback") {
+    return {
+      ...options,
+      maxCompletionTokens: Math.max(options.maxCompletionTokens ?? 3800, 3800),
     };
   }
   if (mode === "max") return options;
